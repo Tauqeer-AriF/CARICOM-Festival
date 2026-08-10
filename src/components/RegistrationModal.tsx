@@ -136,7 +136,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
 
       const updated = [newReg, ...savedRegistrations];
       setSavedRegistrations(updated);
-      localStorage.setItem('gcf_flight_registrations', JSON.stringify(updated));
+      try {
+        localStorage.setItem('gcf_flight_registrations', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('localStorage quota exceeded when saving flight registration:', err);
+      }
       setActiveReg(newReg);
       setIsSubmitting(false);
       setIsSubmitted(true);

@@ -28,7 +28,9 @@ import {
   savePasses,
   resetAllDynamicDataToDefault,
   getTestimonials,
-  saveTestimonials
+  saveTestimonials,
+  addMediaItem,
+  syncWithDatabase
 } from '../services/submissionService';
 import { 
   ShieldCheck, 
@@ -75,9 +77,11 @@ import {
   Image,
   Hotel,
   FolderOpen,
-  Menu
+  Menu,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
 import { CustomConfirmModal } from '../components/CustomConfirmModal';
 import { MediaSelectorModal } from '../components/MediaSelectorModal';
@@ -169,6 +173,50 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   // Site Configuration state
   const [siteConfig, setSiteConfigState] = useState<SiteConfig>(getSiteConfig());
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [customizerSubTab, setCustomizerSubTab] = useState<'hero' | 'brand' | 'banner' | 'social'>('hero');
+  
+  // Canvas Image Compression Helper for Direct Uploads
+  const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<{ compressedUrl: string; compressedSize: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new window.Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ compressedUrl: event.target?.result as string, compressedSize: file.size });
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const compressedUrl = canvas.toDataURL(mimeType, quality);
+          
+          // Calculate exact base64 size in bytes
+          const stringLength = compressedUrl.length - `data:${mimeType};base64,`.length;
+          const sizeInBytes = Math.round(stringLength * 3 / 4);
+
+          resolve({ compressedUrl, compressedSize: sizeInBytes });
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
   
   type AdminTab = 'submissions' | 'orders' | 'branding' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials';
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('submissions');
@@ -228,10 +276,36 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   };
 
   // Media Selector State
-  const [mediaSelectorTarget, setMediaSelectorTarget] = useState<'event' | 'gallery' | 'hotel' | 'testimonial' | null>(null);
+  const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
+    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | { heroIndex: number } | null
+  >(null);
 
   const handleMediaSelect = (url: string) => {
-    if (mediaSelectorTarget === 'event') {
+    if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'heroIndex' in mediaSelectorTarget) {
+      const idx = mediaSelectorTarget.heroIndex;
+      const defaultImages = [
+        { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+        { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+        { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+        { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+        { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" }
+      ];
+      const currentImages = siteConfig.hero?.images && siteConfig.hero.images.length > 0
+        ? [...siteConfig.hero.images]
+        : defaultImages;
+
+      if (idx >= 0 && idx < currentImages.length) {
+        currentImages[idx] = { ...currentImages[idx], url };
+        setSiteConfigState({
+          ...siteConfig,
+          hero: {
+            ...(siteConfig.hero || { displayCount: 5, autoplayInterval: 4 }),
+            images: currentImages
+          }
+        });
+        setSaveToast(`Updated image #${idx + 1} from Media Library!`);
+      }
+    } else if (mediaSelectorTarget === 'event') {
       if (editingEvent) setEditingEvent({ ...editingEvent, highlightImage: url });
       else setNewEventForm({ ...newEventForm, highlightImage: url });
     } else if (mediaSelectorTarget === 'gallery') {
@@ -243,6 +317,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     } else if (mediaSelectorTarget === 'testimonial') {
       if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, avatar: url });
       else setNewTestimonialForm({ ...newTestimonialForm, avatar: url });
+    } else if (mediaSelectorTarget === 'hero') {
+      const defaultImages = [
+        { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+        { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+        { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+        { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+        { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" }
+      ];
+      const currentHero = siteConfig.hero || {
+        displayCount: 5,
+        autoplayInterval: 4,
+        images: defaultImages
+      };
+      const newImages = [...(currentHero.images && currentHero.images.length > 0 ? currentHero.images : defaultImages), { url, alt: 'Custom Hero Background' }];
+      setSiteConfigState({
+        ...siteConfig,
+        hero: {
+          ...currentHero,
+          images: newImages,
+          displayCount: currentHero.displayCount || Math.min(newImages.length, 5)
+        }
+      });
+      setSaveToast('Added new background to Hero slideshow!');
     }
   };
 
@@ -323,17 +420,36 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const primaryColor = siteConfig.branding.primaryColor || '#F59E0B';
   const secondaryColor = siteConfig.branding.secondaryColor || '#10B981';
 
+  const lastSavedConfigRef = useRef<string>(JSON.stringify(getSiteConfig()));
+
   useEffect(() => {
     // Load data
     loadData();
 
-    // Event listener for external submission updates
+    // Event listener for external database updates
     const handleUpdate = () => loadData();
+    const handleConfigUpdate = (e: Event) => {
+      if ((e as any).isRemoteSync) {
+        loadData();
+      }
+    };
+
     window.addEventListener('submissions_updated', handleUpdate);
     window.addEventListener('testimonials_updated', handleUpdate);
+    window.addEventListener('site_config_updated', handleConfigUpdate);
+    window.addEventListener('events_updated', handleUpdate);
+    window.addEventListener('gallery_updated', handleUpdate);
+    window.addEventListener('hotels_updated', handleUpdate);
+    window.addEventListener('passes_updated', handleUpdate);
+
     return () => {
       window.removeEventListener('submissions_updated', handleUpdate);
       window.removeEventListener('testimonials_updated', handleUpdate);
+      window.removeEventListener('site_config_updated', handleConfigUpdate);
+      window.removeEventListener('events_updated', handleUpdate);
+      window.removeEventListener('gallery_updated', handleUpdate);
+      window.removeEventListener('hotels_updated', handleUpdate);
+      window.removeEventListener('passes_updated', handleUpdate);
     };
   }, []);
 
@@ -342,23 +458,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     setOrdersPage(1);
   }, [searchQuery, typeFilter, statusFilter, activeAdminTab]);
 
-  const isFirstMount = useRef(true);
   useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
+    const configStr = JSON.stringify(siteConfig);
+    if (configStr === lastSavedConfigRef.current) {
       return;
     }
+    lastSavedConfigRef.current = configStr;
     saveSiteConfig(siteConfig);
   }, [siteConfig]);
 
   const loadData = () => {
     setSubmissions(getSubmissions());
-    setSiteConfigState(getSiteConfig());
+    const freshConfig = getSiteConfig();
+    lastSavedConfigRef.current = JSON.stringify(freshConfig);
+    setSiteConfigState(freshConfig);
     setEvents(getEvents());
     setGalleryItems(getGalleryItems());
     setHotels(getHotels());
     setPasses(getPasses());
     setTestimonials(getTestimonials());
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncWithDatabase();
+      loadData();
+      setSaveToast('Entire app state has been successfully re-synchronized with SQLite database!');
+    } catch (err) {
+      console.error('Manual re-sync failed:', err);
+      setSaveToast('Re-sync failed.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handlePinSubmit = (e: React.FormEvent) => {
@@ -1299,6 +1431,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
               </button>
             </div>
           )}
+
+          {/* Persistent Real-Time Sync Controller */}
+          <div className="flex items-center gap-2 bg-neutral-950/60 border border-neutral-800/80 px-3 py-1.5 rounded-xl text-xs">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            <span className="hidden md:inline text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest font-mono">
+              Live DB
+            </span>
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+              title="Force sync entire application state with server"
+            >
+              <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+            </button>
+          </div>
         </header>
 
         {/* WORKSPACE SCROLL CONTAINER */}
@@ -2267,366 +2419,715 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
           {/* TAB 2: VISUAL IDENTITY CUSTOMIZER STUDIO */}
           {activeAdminTab === 'branding' && (
-            <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 space-y-8 shadow-sm">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-neutral-800/80">
+            <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 space-y-8 shadow-xl font-sans">
+              
+              {/* Studio Top Header */}
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-6 border-b border-neutral-800/80">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Site Styling Laboratory</span>
-                  <h2 className="text-xl font-bold text-white font-serif">Branding, Themes & Banner Customizer</h2>
-                  <p className="text-xs text-neutral-400 max-w-xl">
-                    Dynamically update social media profiles, change color profiles, swap typography settings, and toggle the announcement banner.
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider">
+                      Design & Theme Studio
+                    </span>
+                    <span className="text-neutral-600 text-[10px]">•</span>
+                    <span className="text-neutral-400 text-[10px] font-mono">v2.4 Production Engine</span>
+                  </div>
+                  <h2 className="text-2xl font-black text-white font-serif tracking-tight">Customizer Studio</h2>
+                  <p className="text-xs text-neutral-400 max-w-2xl leading-relaxed">
+                    Tailor your festival website identity in real time. Manage homepage background slideshow photos, brand color palettes, typography, announcement alerts, and social links.
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <div className="flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] uppercase font-black tracking-wider shrink-0 select-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Real-Time Sync Active</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-[10px] uppercase font-black tracking-wider select-none">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Live Sync Active</span>
                   </div>
+
                   <button
                     onClick={handleSaveConfig}
-                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Save Configuration
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 font-sans">
-                
-                {/* Panel 1: Social Profiles Customizer */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-neutral-800/60">
-                    <Share2 className="w-4 h-4 text-amber-400" />
-                    <h3 className="font-bold text-sm text-white font-serif">Social Handle Integration</h3>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Instagram Handle URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.instagram}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, instagram: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">TikTok Channel URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.tiktok}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, tiktok: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Facebook Fanpage URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.facebook}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, facebook: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">WhatsApp Concierge Desk URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.whatsapp}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, whatsapp: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Twitter/X Profile URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.twitter || ''}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, twitter: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">YouTube Channel URL</label>
-                      <input
-                        type="url"
-                        value={siteConfig.socialLinks.youtube || ''}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          socialLinks: { ...siteConfig.socialLinks, youtube: e.target.value }
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="pt-2 border-t border-neutral-800/40">
-                      <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-2">Helpline & Contact (Footer)</h4>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Official Helpline Phone</label>
-                      <input
-                        type="text"
-                        value={siteConfig.contactPhone || ''}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          contactPhone: e.target.value
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="+44 (0)7900 123 456"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Direct Support Email</label>
-                      <input
-                        type="email"
-                        value={siteConfig.contactEmail || ''}
-                        onChange={(e) => setSiteConfigState({
-                          ...siteConfig,
-                          contactEmail: e.target.value
-                        })}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="info@grenadacaricomfestival.com"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Panel 2: Theme Settings & Custom Colour Studio */}
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-800/60">
-                    <div className="flex items-center gap-2">
-                      <Palette className="w-4 h-4" style={{ color: primaryColor }} />
-                      <h3 className="font-bold text-sm text-white font-serif">Custom Theme Colour Studio</h3>
-                    </div>
+              {/* Sub-Tab Navigation Bar */}
+              <div className="flex flex-wrap items-center gap-2 bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800/80">
+                {[
+                  {
+                    id: 'hero',
+                    label: 'Hero Backgrounds',
+                    icon: Image,
+                    badge: `${Math.min(siteConfig.hero?.displayCount || 5, siteConfig.hero?.images?.length || 5)} Active`
+                  },
+                  {
+                    id: 'brand',
+                    label: 'Brand Colors & Fonts',
+                    icon: Palette,
+                    badge: 'Themes'
+                  },
+                  {
+                    id: 'banner',
+                    label: 'Announcement Banner',
+                    icon: Sparkles,
+                    badge: siteConfig.banner?.enabled ? 'ON' : 'OFF'
+                  },
+                  {
+                    id: 'social',
+                    label: 'Socials & Helplines',
+                    icon: Share2,
+                    badge: 'Links'
+                  }
+                ].map((tab) => {
+                  const IconComp = tab.icon;
+                  const isActive = customizerSubTab === tab.id;
+                  return (
                     <button
+                      key={tab.id}
                       type="button"
-                      onClick={() => {
-                        const restored = {
-                          ...siteConfig,
-                          branding: {
-                            primaryColor: '#F59E0B',
-                            secondaryColor: '#10B981',
-                            bgTone: 'dark-onyx' as const,
-                            headingFont: 'Poppins' as const,
-                            bodyFont: 'Inter' as const,
-                          },
-                          banner: {
-                            enabled: true,
-                            text: '🔥 GRENADA CARICOM FESTIVAL 2027 Concierge Portal is active. Register flight details below.',
-                            bgColor: '#10B981'
-                          }
-                        };
-                        setSiteConfigState(restored);
-                        setSaveToast('Branding restored to original defaults!');
-                      }}
-                      className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-red-900/40 rounded text-[10px] font-bold text-neutral-400 hover:text-rose-400 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                      onClick={() => setCustomizerSubTab(tab.id as any)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80'
+                      }`}
                     >
-                      Restore System Defaults
+                      <IconComp className={`w-4 h-4 ${isActive ? 'text-neutral-950' : 'text-amber-400'}`} />
+                      <span>{tab.label}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
+                        isActive
+                          ? 'bg-neutral-950/20 text-neutral-950'
+                          : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                      }`}>
+                        {tab.badge}
+                      </span>
                     </button>
-                  </div>
+                  );
+                })}
+              </div>
 
-                  {/* PRESET THEMES QUICK ACCESS */}
-                  <div className="bg-neutral-950/40 border border-neutral-800/50 p-4 rounded-xl space-y-3">
-                    <div>
-                      <span className="block text-[10px] uppercase font-extrabold text-amber-400 tracking-wider">Instant Brand Presets</span>
-                      <span className="block text-[9px] text-neutral-500">Apply a professionally curated style package instantly</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          name: 'Spice Gold (Default)',
-                          primary: '#F59E0B',
-                          secondary: '#10B981',
-                          bgTone: 'dark-onyx',
-                          headingFont: 'Poppins',
-                          bodyFont: 'Inter',
-                          desc: 'Authentic Spice Island vibes.'
-                        },
-                        {
-                          name: 'Grand Anse Luxury',
-                          primary: '#D4AF37',
-                          secondary: '#4F46E5',
-                          bgTone: 'deep-midnight',
-                          headingFont: 'Playfair Display',
-                          bodyFont: 'Plus Jakarta Sans',
-                          desc: 'Premium royal concierge.'
-                        },
-                        {
-                          name: 'Caribbean Breeze',
-                          primary: '#0EA5E9',
-                          secondary: '#84CC16',
-                          bgTone: 'caribbean-night',
-                          headingFont: 'Montserrat',
-                          bodyFont: 'Outfit',
-                          desc: 'Vibrant coastal energy.'
-                        },
-                        {
-                          name: 'Soca Sunset',
-                          primary: '#F43F5E',
-                          secondary: '#F97316',
-                          bgTone: 'luxury-charcoal',
-                          headingFont: 'Syne',
-                          bodyFont: 'Poppins',
-                          desc: 'Bold carnival design.'
-                        }
-                      ].map((preset) => (
+              {/* SUB-TAB 1: HERO BACKGROUND MANAGER */}
+              {customizerSubTab === 'hero' && (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Top Header Card */}
+                  <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Image className="w-5 h-5 text-amber-400" />
+                          <h3 className="font-bold text-base text-white font-serif">Homepage Hero Background Slideshow</h3>
+                        </div>
+                        <p className="text-xs text-neutral-400 mt-1">
+                          Manage the photo slideshow in the hero section on the main homepage. Add photos from the media library, set custom captions, adjust rotation timing, and control how many images cycle.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <label className="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer">
+                          <Upload className="w-4 h-4" />
+                          <span>Direct Upload</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const files = e.target.files;
+                              if (files && files[0]) {
+                                const file = files[0];
+                                setSaveToast(`Compressing "${file.name}"...`);
+                                try {
+                                  const result = await compressImage(file, 1200, 0.8);
+                                  const currentList = siteConfig.hero?.images || [];
+                                  const updated = [...currentList, { url: result.compressedUrl, alt: file.name.split('.')[0] }];
+                                  
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    hero: {
+                                      displayCount: (siteConfig.hero?.displayCount || 5) + 1,
+                                      autoplayInterval: siteConfig.hero?.autoplayInterval || 4,
+                                      images: updated
+                                    }
+                                  });
+
+                                  const newItem = {
+                                    id: 'media-' + Date.now(),
+                                    name: file.name,
+                                    url: result.compressedUrl,
+                                    originalSize: file.size,
+                                    compressedSize: result.compressedSize,
+                                    type: file.type,
+                                    uploadedAt: new Date().toISOString()
+                                  };
+                                  addMediaItem(newItem);
+
+                                  setSaveToast(`Directly uploaded and added "${file.name}" to slideshow!`);
+                                } catch (err) {
+                                  console.error('Direct add failed:', err);
+                                  setSaveToast('Upload failed.');
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+
                         <button
-                          key={preset.name}
+                          type="button"
+                          onClick={() => setMediaSelectorTarget('hero')}
+                          className="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <FolderOpen className="w-4 h-4" /> Add from Media Library
+                        </button>
+
+                        <button
                           type="button"
                           onClick={() => {
+                            const currentList = siteConfig.hero?.images || [];
+                            const updated = [...currentList, { url: '', alt: 'Custom Hero Background' }];
                             setSiteConfigState({
                               ...siteConfig,
-                              branding: {
-                                primaryColor: preset.primary,
-                                secondaryColor: preset.secondary,
-                                bgTone: preset.bgTone as any,
-                                headingFont: preset.headingFont as any,
-                                bodyFont: preset.bodyFont as any
+                              hero: {
+                                displayCount: siteConfig.hero?.displayCount || 5,
+                                autoplayInterval: siteConfig.hero?.autoplayInterval || 4,
+                                images: updated
                               }
                             });
-                            setSaveToast(`Applied "${preset.name}" preset!`);
                           }}
-                          className="p-2.5 bg-neutral-900/60 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 rounded-lg text-left cursor-pointer transition-all active:scale-[0.98] group flex flex-col justify-between h-20"
+                          className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
                         >
-                          <div>
-                            <span className="block text-[10px] font-bold text-white group-hover:text-amber-400 transition-colors">{preset.name}</span>
-                            <span className="block text-[8px] text-neutral-500 leading-tight mt-0.5">{preset.desc}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <span className="w-2 h-2 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.primary }} />
-                            <span className="w-2 h-2 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.secondary }} />
-                            <span className="text-[8px] font-mono text-neutral-400 uppercase tracking-tight">{preset.bgTone.replace('-', ' ')}</span>
-                          </div>
+                          <Plus className="w-4 h-4 text-amber-400" /> Add Image URL
                         </button>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* LIVE THEME PREVIEW PANEL */}
-                  <div className="bg-neutral-950/40 border border-neutral-800/50 p-4 rounded-xl space-y-3">
-                    <div>
-                      <span className="block text-[10px] uppercase font-extrabold text-emerald-400 tracking-wider">Live Sandbox Preview</span>
-                      <span className="block text-[9px] text-neutral-500">Visual mockup updating instantly as you modify settings above</span>
-                    </div>
-
-                    <div 
-                      className="border rounded-xl overflow-hidden shadow-2xl relative transition-all duration-300"
-                      style={{ 
-                        borderColor: 'rgba(255,255,255,0.08)',
-                        backgroundColor: 
-                          siteConfig.branding.bgTone === 'deep-midnight' ? '#02040A' :
-                          siteConfig.branding.bgTone === 'luxury-charcoal' ? '#121214' :
-                          siteConfig.branding.bgTone === 'caribbean-night' ? '#010A0A' : '#080A0F'
-                      }}
-                    >
-                      {/* Simulated banner */}
-                      {siteConfig.banner?.enabled && (
-                        <div 
-                          className="py-1 px-2 text-[7px] font-bold text-center text-white select-none transition-all"
-                          style={{ backgroundColor: siteConfig.banner.bgColor || '#10B981' }}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const defaultImages = [
+                              { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+                              { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+                              { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+                              { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+                              { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" }
+                            ];
+                            setSiteConfigState({
+                              ...siteConfig,
+                              hero: {
+                                displayCount: 5,
+                                autoplayInterval: 4,
+                                images: defaultImages
+                              }
+                            });
+                            setSaveToast('Reset hero backgrounds to default photos!');
+                          }}
+                          className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          title="Reset to default background images"
                         >
-                          {siteConfig.banner.text || 'Simulated Announcement Banner'}
-                        </div>
-                      )}
-
-                      {/* Simulated header */}
-                      <div className="p-3 flex items-center justify-between border-b border-white/[0.04] bg-white/[0.01]">
-                        <span 
-                          className="text-[10px] font-extrabold uppercase tracking-widest text-white"
-                          style={{ fontFamily: siteConfig.branding.headingFont }}
-                        >
-                          MELLOWLANDS
-                        </span>
-                        <div className="flex gap-2 text-[8px] font-medium text-neutral-400">
-                          <span>Home</span>
-                          <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Active</span>
-                          <span>Shop</span>
-                        </div>
-                      </div>
-
-                      {/* Simulated Hero */}
-                      <div className="p-4 space-y-2.5 text-center">
-                        <h4 
-                          className="text-sm font-black text-white leading-tight"
-                          style={{ fontFamily: siteConfig.branding.headingFont }}
-                        >
-                          Feel the Rhythm of the <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Spice Island</span>
-                        </h4>
-                        <p 
-                          className="text-[9px] text-neutral-400 max-w-xs mx-auto leading-relaxed"
-                          style={{ fontFamily: siteConfig.branding.bodyFont }}
-                        >
-                          Experience high-definition soca, luxury beachside suites, and concierge tubing trips in beautiful Grenada.
-                        </p>
-                        
-                        <div className="flex justify-center gap-1.5 pt-1">
-                          <button 
-                            type="button"
-                            className="px-3 py-1 rounded text-[8px] font-extrabold uppercase tracking-wider text-neutral-950 transition-all active:scale-95"
-                            style={{ 
-                              backgroundColor: siteConfig.branding.primaryColor || '#F59E0B',
-                              fontFamily: siteConfig.branding.bodyFont
-                            }}
-                          >
-                            Get Passes
-                          </button>
-                          <button 
-                            type="button"
-                            className="px-3 py-1 rounded text-[8px] font-extrabold uppercase tracking-wider border border-white/10 text-white transition-all active:scale-95"
-                            style={{ 
-                              backgroundColor: 'rgba(255,255,255,0.04)',
-                              borderColor: 'rgba(255,255,255,0.1)',
-                              fontFamily: siteConfig.branding.bodyFont
-                            }}
-                          >
-                            Learn More
-                          </button>
-                        </div>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    {/* Primary Colour Picker */}
-                    <div className="bg-neutral-950/40 border border-neutral-800/50 p-4 rounded-xl space-y-3">
+                  {/* Settings Bar */}
+                  {(() => {
+                    const imagesList = siteConfig.hero?.images && siteConfig.hero.images.length > 0
+                      ? siteConfig.hero.images
+                      : [
+                          { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+                          { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+                          { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+                          { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+                          { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" }
+                        ];
+
+                    const currentDisplayCount = siteConfig.hero?.displayCount ?? Math.min(imagesList.length, 5);
+                    const activeCount = Math.max(1, Math.min(currentDisplayCount, imagesList.length));
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Display Count & Speed Controls */}
+                        <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                          
+                          {/* DISPLAY COUNT SELECTOR */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5" /> Active Display Count
+                              </label>
+                              <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                                {activeCount} of {imagesList.length} Active
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-neutral-400">
+                              Select how many background images cycle in the homepage hero slideshow.
+                            </p>
+
+                            <div className="flex items-center gap-3 pt-1">
+                              <input
+                                type="range"
+                                min={1}
+                                max={Math.max(1, imagesList.length)}
+                                value={activeCount}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    hero: {
+                                      ...(siteConfig.hero || { autoplayInterval: 4, images: imagesList }),
+                                      displayCount: val,
+                                      images: imagesList
+                                    }
+                                  });
+                                }}
+                                className="flex-1 accent-amber-500 cursor-pointer h-2 bg-neutral-800 rounded-lg"
+                              />
+                              <select
+                                value={activeCount}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    hero: {
+                                      ...(siteConfig.hero || { autoplayInterval: 4, images: imagesList }),
+                                      displayCount: val,
+                                      images: imagesList
+                                    }
+                                  });
+                                }}
+                                className="bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-amber-500 focus:outline-none cursor-pointer"
+                              >
+                                {Array.from({ length: imagesList.length }, (_, i) => i + 1).map((num) => (
+                                  <option key={num} value={num}>
+                                    {num} {num === 1 ? 'Image (Static)' : 'Images'}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Quick Presets */}
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {[1, 3, 5, imagesList.length].filter((val, idx, self) => val <= imagesList.length && self.indexOf(val) === idx).map((countVal) => (
+                                <button
+                                  key={countVal}
+                                  type="button"
+                                  onClick={() => {
+                                    setSiteConfigState({
+                                      ...siteConfig,
+                                      hero: {
+                                        ...(siteConfig.hero || { autoplayInterval: 4, images: imagesList }),
+                                        displayCount: countVal,
+                                        images: imagesList
+                                      }
+                                    });
+                                  }}
+                                  className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                                    activeCount === countVal
+                                      ? 'bg-amber-500 text-neutral-950 font-extrabold shadow'
+                                      : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 border border-neutral-800'
+                                  }`}
+                                >
+                                  {countVal === imagesList.length ? `All (${countVal})` : `${countVal} ${countVal === 1 ? 'Image' : 'Images'}`}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* ROTATION SPEED SELECTOR */}
+                          <div className="space-y-3">
+                            <label className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" /> Rotation Speed (Interval)
+                            </label>
+                            <p className="text-[11px] text-neutral-400">
+                              Set how many seconds each background image displays before automatically rotating.
+                            </p>
+
+                            <div className="flex items-center gap-2 pt-1">
+                              <select
+                                value={siteConfig.hero?.autoplayInterval || 4}
+                                onChange={(e) => {
+                                  const sec = parseInt(e.target.value, 10);
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    hero: {
+                                      ...(siteConfig.hero || { displayCount: activeCount, images: imagesList }),
+                                      autoplayInterval: sec,
+                                      images: imagesList
+                                    }
+                                  });
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-xs text-white focus:border-amber-500 focus:outline-none cursor-pointer font-bold"
+                              >
+                                <option value={3}>3 Seconds (Fast)</option>
+                                <option value={4}>4 Seconds (Recommended Standard)</option>
+                                <option value={5}>5 Seconds (Relaxed)</option>
+                                <option value={6}>6 Seconds (Extended)</option>
+                                <option value={8}>8 Seconds (Slow Luxe)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* IMAGE ITEMS LIST */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-xs font-bold text-neutral-400 uppercase tracking-wider px-1">
+                            <span>Background Photos List ({imagesList.length} Total)</span>
+                            <span className="text-[10px] text-neutral-500 font-normal">
+                              Images above position #{activeCount} are kept as reserves
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4">
+                            {imagesList.map((img, index) => {
+                              const isActive = index < activeCount;
+                              return (
+                                <div
+                                  key={index}
+                                  className={`bg-neutral-950 border rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center gap-5 transition-all ${
+                                    isActive
+                                      ? 'border-neutral-700/80 bg-neutral-950/90 shadow-lg'
+                                      : 'border-neutral-850/60 opacity-60 hover:opacity-100'
+                                  }`}
+                                >
+                                  {/* Thumbnail */}
+                                  <div className="relative w-full md:w-44 h-28 rounded-xl overflow-hidden border border-neutral-800 shrink-0 bg-neutral-900">
+                                    <img
+                                      src={img.url || FESTIVAL_IMAGES.hero}
+                                      alt={img.alt || 'Hero Background'}
+                                      referrerPolicy="no-referrer"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                      }}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute top-2 left-2">
+                                      {isActive ? (
+                                        <span className="bg-emerald-500 text-neutral-950 font-black text-[9px] px-2.5 py-0.5 rounded-full shadow uppercase tracking-wider">
+                                          Active #{index + 1}
+                                        </span>
+                                      ) : (
+                                        <span className="bg-neutral-900/90 text-neutral-400 font-bold text-[9px] px-2.5 py-0.5 rounded-full border border-neutral-700 uppercase tracking-wider">
+                                          Reserve #{index + 1}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Form fields */}
+                                  <div className="flex-1 space-y-3">
+                                    <div>
+                                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Photo Title / Caption</label>
+                                      <input
+                                        type="text"
+                                        value={img.alt || ''}
+                                        onChange={(e) => {
+                                          const updated = [...imagesList];
+                                          updated[index] = { ...updated[index], alt: e.target.value };
+                                          setSiteConfigState({
+                                            ...siteConfig,
+                                            hero: {
+                                              ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                              images: updated
+                                            }
+                                          });
+                                        }}
+                                        placeholder="e.g., Grenada Beach Fete 2027"
+                                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-[10px] uppercase font-bold text-neutral-400">Image Source / URL</label>
+                                        <button
+                                          type="button"
+                                          onClick={() => setMediaSelectorTarget({ heroIndex: index })}
+                                          className="text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors cursor-pointer"
+                                        >
+                                          <FolderOpen className="w-3 h-3" /> Select from Media Library
+                                        </button>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <input
+                                          type="text"
+                                          value={img.url || ''}
+                                          onChange={(e) => {
+                                            const updated = [...imagesList];
+                                            updated[index] = { ...updated[index], url: e.target.value };
+                                            setSiteConfigState({
+                                              ...siteConfig,
+                                              hero: {
+                                                ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                                images: updated
+                                              }
+                                            });
+                                          }}
+                                          placeholder="https://... or base64 data URL"
+                                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none font-mono text-[11px]"
+                                        />
+
+                                        {/* Direct File Upload for Slide Slot */}
+                                        <label className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer">
+                                          <Upload className="w-3.5 h-3.5" />
+                                          <span className="hidden sm:inline">Upload</span>
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                              const files = e.target.files;
+                                              if (files && files[0]) {
+                                                const file = files[0];
+                                                setSaveToast(`Compressing "${file.name}"...`);
+                                                try {
+                                                  const result = await compressImage(file, 1200, 0.8);
+                                                  const updated = [...imagesList];
+                                                  updated[index] = { ...updated[index], url: result.compressedUrl };
+                                                  setSiteConfigState({
+                                                    ...siteConfig,
+                                                    hero: {
+                                                      ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                                      images: updated
+                                                    }
+                                                  });
+
+                                                  // Also save to Media Library so they can reuse it
+                                                  const newItem = {
+                                                    id: 'media-' + Date.now(),
+                                                    name: file.name,
+                                                    url: result.compressedUrl,
+                                                    originalSize: file.size,
+                                                    compressedSize: result.compressedSize,
+                                                    type: file.type,
+                                                    uploadedAt: new Date().toISOString()
+                                                  };
+                                                  addMediaItem(newItem);
+
+                                                  setSaveToast(`Directly updated and saved Slide #${index + 1}!`);
+                                                } catch (err) {
+                                                  console.error('Direct upload failed:', err);
+                                                  setSaveToast('Upload failed.');
+                                                }
+                                              }
+                                            }}
+                                          />
+                                        </label>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => setMediaSelectorTarget({ heroIndex: index })}
+                                          className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-amber-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                                          title="Open Media Library"
+                                        >
+                                          <FolderOpen className="w-3.5 h-3.5" />
+                                          <span className="hidden sm:inline">Browse</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Reorder & Delete Controls */}
+                                  <div className="flex md:flex-col items-center justify-end gap-2 border-t md:border-t-0 md:border-l border-neutral-800 pt-3 md:pt-0 md:pl-4 shrink-0">
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        disabled={index === 0}
+                                        onClick={() => {
+                                          if (index === 0) return;
+                                          const updated = [...imagesList];
+                                          const temp = updated[index];
+                                          updated[index] = updated[index - 1];
+                                          updated[index - 1] = temp;
+                                          setSiteConfigState({
+                                            ...siteConfig,
+                                            hero: {
+                                              ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                              images: updated
+                                            }
+                                          });
+                                        }}
+                                        className="p-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 rounded-xl border border-neutral-800 cursor-pointer transition-colors"
+                                        title="Move Up"
+                                      >
+                                        <ChevronUp className="w-4 h-4" />
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={index === imagesList.length - 1}
+                                        onClick={() => {
+                                          if (index === imagesList.length - 1) return;
+                                          const updated = [...imagesList];
+                                          const temp = updated[index];
+                                          updated[index] = updated[index + 1];
+                                          updated[index + 1] = temp;
+                                          setSiteConfigState({
+                                            ...siteConfig,
+                                            hero: {
+                                              ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                              images: updated
+                                            }
+                                          });
+                                        }}
+                                        className="p-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 rounded-xl border border-neutral-800 cursor-pointer transition-colors"
+                                        title="Move Down"
+                                      >
+                                        <ChevronDown className="w-4 h-4" />
+                                      </button>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = imagesList.filter((_, i) => i !== index);
+                                        setSiteConfigState({
+                                          ...siteConfig,
+                                          hero: {
+                                            ...(siteConfig.hero || { displayCount: activeCount, autoplayInterval: 4 }),
+                                            images: updated,
+                                            displayCount: Math.min(activeCount, Math.max(1, updated.length))
+                                          }
+                                        });
+                                      }}
+                                      className="p-2 bg-neutral-900 hover:bg-rose-950/60 text-neutral-400 hover:text-rose-400 rounded-xl border border-neutral-800 hover:border-rose-900/50 cursor-pointer transition-colors"
+                                      title="Remove Image"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* SUB-TAB 2: BRAND COLORS & FONTS */}
+              {customizerSubTab === 'brand' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fadeIn">
+                  
+                  {/* Left Column: Color & Typography Controls */}
+                  <div className="space-y-6">
+                    {/* Instant Brand Presets */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="block text-[10px] uppercase font-bold text-neutral-300">Primary Colour</span>
-                          <span className="block text-[9px] text-neutral-500">App headers, main buttons, and primary actions</span>
+                          <span className="block text-xs font-black uppercase text-amber-400 tracking-wider">Curated Brand Presets</span>
+                          <span className="block text-[10px] text-neutral-500">Apply a professional color and typography theme in one click</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={siteConfig.branding.primaryColor || '#F59E0B'}
-                            onChange={(e) => setSiteConfigState({
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const restored = {
                               ...siteConfig,
-                              branding: { ...siteConfig.branding, primaryColor: e.target.value }
-                            })}
-                            className="w-8 h-8 rounded-lg bg-transparent border border-neutral-800 cursor-pointer overflow-hidden p-0"
-                          />
+                              branding: {
+                                primaryColor: '#F59E0B',
+                                secondaryColor: '#10B981',
+                                bgTone: 'dark-onyx' as const,
+                                headingFont: 'Poppins' as const,
+                                bodyFont: 'Inter' as const,
+                              }
+                            };
+                            setSiteConfigState(restored);
+                            setSaveToast('Branding restored to original defaults!');
+                          }}
+                          className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-[10px] font-bold text-neutral-400 hover:text-rose-400 rounded-lg cursor-pointer transition-colors"
+                        >
+                          Restore Defaults
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 pt-1">
+                        {[
+                          {
+                            name: 'Spice Gold',
+                            primary: '#F59E0B',
+                            secondary: '#10B981',
+                            bgTone: 'dark-onyx',
+                            headingFont: 'Poppins',
+                            bodyFont: 'Inter',
+                            desc: 'Authentic Spice Island vibe.'
+                          },
+                          {
+                            name: 'Grand Anse Luxury',
+                            primary: '#D4AF37',
+                            secondary: '#4F46E5',
+                            bgTone: 'deep-midnight',
+                            headingFont: 'Playfair Display',
+                            bodyFont: 'Plus Jakarta Sans',
+                            desc: 'Royal VIP concierge elegance.'
+                          },
+                          {
+                            name: 'Caribbean Breeze',
+                            primary: '#0EA5E9',
+                            secondary: '#84CC16',
+                            bgTone: 'caribbean-night',
+                            headingFont: 'Montserrat',
+                            bodyFont: 'Outfit',
+                            desc: 'Vibrant turquoise coastal energy.'
+                          },
+                          {
+                            name: 'Soca Sunset',
+                            primary: '#F43F5E',
+                            secondary: '#F97316',
+                            bgTone: 'luxury-charcoal',
+                            headingFont: 'Syne',
+                            bodyFont: 'Poppins',
+                            desc: 'High-energy carnival design.'
+                          }
+                        ].map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => {
+                              setSiteConfigState({
+                                ...siteConfig,
+                                branding: {
+                                  primaryColor: preset.primary,
+                                  secondaryColor: preset.secondary,
+                                  bgTone: preset.bgTone as any,
+                                  headingFont: preset.headingFont as any,
+                                  bodyFont: preset.bodyFont as any
+                                }
+                              });
+                              setSaveToast(`Applied "${preset.name}" preset!`);
+                            }}
+                            className="p-3 bg-neutral-900/60 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-xl text-left cursor-pointer transition-all active:scale-[0.98] group flex flex-col justify-between h-20"
+                          >
+                            <div>
+                              <span className="block text-xs font-bold text-white group-hover:text-amber-400 transition-colors">{preset.name}</span>
+                              <span className="block text-[9px] text-neutral-500 leading-tight mt-0.5">{preset.desc}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.primary }} />
+                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.secondary }} />
+                              <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-tight">{preset.bgTone.replace('-', ' ')}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Primary Color Picker */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="block text-xs font-bold uppercase text-white">Primary Brand Color</span>
+                          <span className="block text-[10px] text-neutral-500">Main buttons, hero accents, active badges, and highlights</span>
                         </div>
+                        <input
+                          type="color"
+                          value={siteConfig.branding.primaryColor || '#F59E0B'}
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            branding: { ...siteConfig.branding, primaryColor: e.target.value }
+                          })}
+                          className="w-9 h-9 rounded-xl bg-transparent border border-neutral-700 cursor-pointer overflow-hidden p-0"
+                        />
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -2645,60 +3146,55 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                             }
                           }}
                           placeholder="F59E0B"
-                          className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2 text-xs text-white focus:border-amber-500 focus:outline-none font-mono uppercase"
+                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none font-mono uppercase"
                         />
                         <div 
-                          className="w-6 h-6 rounded-md border border-neutral-800 shrink-0" 
+                          className="w-7 h-7 rounded-lg border border-neutral-800 shrink-0 shadow" 
                           style={{ backgroundColor: siteConfig.branding.primaryColor || '#F59E0B' }}
                         />
                       </div>
 
-                      {/* Primary Quick Suggestions */}
-                      <div>
-                        <span className="block text-[9px] uppercase font-bold text-neutral-500 mb-1.5">Primary Suggestions</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { name: 'Amber Gold', hex: '#F59E0B' },
-                            { name: 'Sunset Rose', hex: '#F43F5E' },
-                            { name: 'Neon Purple', hex: '#8B5CF6' },
-                            { name: 'Teal Blue', hex: '#0EA5E9' },
-                            { name: 'Fresh Mint', hex: '#10B981' }
-                          ].map((c) => (
-                            <button
-                              key={c.hex}
-                              type="button"
-                              onClick={() => setSiteConfigState({
-                                ...siteConfig,
-                                branding: { ...siteConfig.branding, primaryColor: c.hex }
-                              })}
-                              className="px-2 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 rounded text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
-                            >
-                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-800" style={{ backgroundColor: c.hex }} />
-                              {c.name}
-                            </button>
-                          ))}
-                        </div>
+                      {/* Suggestions */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {[
+                          { name: 'Amber Gold', hex: '#F59E0B' },
+                          { name: 'Sunset Rose', hex: '#F43F5E' },
+                          { name: 'Neon Purple', hex: '#8B5CF6' },
+                          { name: 'Teal Blue', hex: '#0EA5E9' },
+                          { name: 'Fresh Mint', hex: '#10B981' }
+                        ].map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => setSiteConfigState({
+                              ...siteConfig,
+                              branding: { ...siteConfig.branding, primaryColor: c.hex }
+                            })}
+                            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-lg text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full border border-neutral-950" style={{ backgroundColor: c.hex }} />
+                            {c.name}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Secondary Colour Picker */}
-                    <div className="bg-neutral-950/40 border border-neutral-800/50 p-4 rounded-xl space-y-3">
+                    {/* Secondary Color Picker */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="block text-[10px] uppercase font-bold text-neutral-300">Secondary Colour</span>
-                          <span className="block text-[9px] text-neutral-500">Status tags, interactive highlights, and secondary buttons</span>
+                          <span className="block text-xs font-bold uppercase text-white">Secondary Accent Color</span>
+                          <span className="block text-[10px] text-neutral-500">Secondary status tags, interactive pills, and complementary elements</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={siteConfig.branding.secondaryColor || '#10B981'}
-                            onChange={(e) => setSiteConfigState({
-                              ...siteConfig,
-                              branding: { ...siteConfig.branding, secondaryColor: e.target.value }
-                            })}
-                            className="w-8 h-8 rounded-lg bg-transparent border border-neutral-800 cursor-pointer overflow-hidden p-0"
-                          />
-                        </div>
+                        <input
+                          type="color"
+                          value={siteConfig.branding.secondaryColor || '#10B981'}
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            branding: { ...siteConfig.branding, secondaryColor: e.target.value }
+                          })}
+                          className="w-9 h-9 rounded-xl bg-transparent border border-neutral-700 cursor-pointer overflow-hidden p-0"
+                        />
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -2717,182 +3213,432 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                             }
                           }}
                           placeholder="10B981"
-                          className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2 text-xs text-white focus:border-emerald-500 focus:outline-none font-mono uppercase"
+                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none font-mono uppercase"
                         />
                         <div 
-                          className="w-6 h-6 rounded-md border border-neutral-800 shrink-0" 
+                          className="w-7 h-7 rounded-lg border border-neutral-800 shrink-0 shadow" 
                           style={{ backgroundColor: siteConfig.branding.secondaryColor || '#10B981' }}
                         />
                       </div>
 
-                      {/* Secondary Quick Suggestions */}
-                      <div>
-                        <span className="block text-[9px] uppercase font-bold text-neutral-500 mb-1.5">Secondary Suggestions</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { name: 'Emerald', hex: '#10B981' },
-                            { name: 'Aqua', hex: '#06B6D4' },
-                            { name: 'Sunset', hex: '#F97316' },
-                            { name: 'Fuchsia', hex: '#D946EF' },
-                            { name: 'Light Violet', hex: '#A855F7' }
-                          ].map((c) => (
-                            <button
-                              key={c.hex}
-                              type="button"
-                              onClick={() => setSiteConfigState({
-                                ...siteConfig,
-                                branding: { ...siteConfig.branding, secondaryColor: c.hex }
-                              })}
-                              className="px-2 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 rounded text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
-                            >
-                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-800" style={{ backgroundColor: c.hex }} />
-                              {c.name}
-                            </button>
-                          ))}
+                      {/* Suggestions */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {[
+                          { name: 'Emerald', hex: '#10B981' },
+                          { name: 'Aqua', hex: '#06B6D4' },
+                          { name: 'Sunset', hex: '#F97316' },
+                          { name: 'Fuchsia', hex: '#D946EF' },
+                          { name: 'Violet', hex: '#A855F7' }
+                        ].map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => setSiteConfigState({
+                              ...siteConfig,
+                              branding: { ...siteConfig.branding, secondaryColor: c.hex }
+                            })}
+                            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-lg text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full border border-neutral-950" style={{ backgroundColor: c.hex }} />
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Typography & Background Tone */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
+                      <span className="block text-xs font-bold uppercase text-amber-400 tracking-wider">Typography & Background Canvas</span>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Headline Font Family</label>
+                          <select
+                            value={siteConfig.branding.headingFont}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              branding: { ...siteConfig.branding, headingFont: e.target.value as any }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 text-xs text-white rounded-xl p-2.5 focus:border-amber-500 focus:outline-none cursor-pointer"
+                          >
+                            <option value="Poppins">Poppins (Modern Bold)</option>
+                            <option value="Playfair Display">Playfair Display (Luxury Serif)</option>
+                            <option value="Montserrat">Montserrat (Display Geometric)</option>
+                            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Modern Display)</option>
+                            <option value="Syne">Syne (Avant-Garde)</option>
+                            <option value="Cinzel">Cinzel (Royal Classic Serif)</option>
+                            <option value="Outfit">Outfit (Tech & Bold)</option>
+                            <option value="Cormorant Garamond">Cormorant Garamond (High-Fashion Serif)</option>
+                            <option value="Space Grotesk">Space Grotesk (Modern Tech)</option>
+                            <option value="Bricolage Grotesque">Bricolage Grotesque (Expressive)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Body Text Font Family</label>
+                          <select
+                            value={siteConfig.branding.bodyFont}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              branding: { ...siteConfig.branding, bodyFont: e.target.value as any }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 text-xs text-white rounded-xl p-2.5 focus:border-amber-500 focus:outline-none cursor-pointer"
+                          >
+                            <option value="Inter">Inter (Clean Standard)</option>
+                            <option value="Poppins">Poppins (Friendly Modern)</option>
+                            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Balanced Sans)</option>
+                            <option value="Outfit">Outfit (Modern Clean)</option>
+                            <option value="Roboto">Roboto (Classic Neutral)</option>
+                            <option value="Space Grotesk">Space Grotesk (Tech Sans)</option>
+                            <option value="DM Sans">DM Sans (Refined Modern)</option>
+                            <option value="Work Sans">Work Sans (Versatile Sans)</option>
+                          </select>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-1">
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Headline Font pairing</label>
-                        <select
-                          value={siteConfig.branding.headingFont}
-                          onChange={(e) => setSiteConfigState({
-                            ...siteConfig,
-                            branding: { ...siteConfig.branding, headingFont: e.target.value as any }
-                          })}
-                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
-                        >
-                          <option value="Poppins">Poppins (Modern Bold)</option>
-                          <option value="Playfair Display">Playfair Display (Luxury Serif)</option>
-                          <option value="Montserrat">Montserrat (Display Geometric)</option>
-                          <option value="Plus Jakarta Sans">Plus Jakarta Sans (Modern Display)</option>
-                          <option value="Syne">Syne (Avant-Garde)</option>
-                          <option value="Cinzel">Cinzel (Royal Classic Serif)</option>
-                          <option value="Outfit">Outfit (Tech & Bold)</option>
-                          <option value="Cormorant Garamond">Cormorant Garamond (High-Fashion Serif)</option>
-                          <option value="Space Grotesk">Space Grotesk (Modern Tech)</option>
-                          <option value="Bricolage Grotesque">Bricolage Grotesque (Bold Expressive)</option>
-                        </select>
-                      </div>
 
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Body text Font family</label>
-                        <select
-                          value={siteConfig.branding.bodyFont}
-                          onChange={(e) => setSiteConfigState({
-                            ...siteConfig,
-                            branding: { ...siteConfig.branding, bodyFont: e.target.value as any }
-                          })}
-                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
-                        >
-                          <option value="Inter">Inter (Clean Standard)</option>
-                          <option value="Poppins">Poppins (Friendly Modern)</option>
-                          <option value="Plus Jakarta Sans">Plus Jakarta Sans (Balanced Sans)</option>
-                          <option value="Outfit">Outfit (Modern Clean)</option>
-                          <option value="Roboto">Roboto (Classic Neutral)</option>
-                          <option value="Space Grotesk">Space Grotesk (Tech Sans)</option>
-                          <option value="DM Sans">DM Sans (Refined Modern)</option>
-                          <option value="Work Sans">Work Sans (Versatile Sans)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-neutral-800/40 space-y-4">
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Background Theme Tone</label>
+                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Dark Mode Background Canvas Tone</label>
                         <select
                           value={siteConfig.branding.bgTone || 'dark-onyx'}
                           onChange={(e) => setSiteConfigState({
                             ...siteConfig,
                             branding: { ...siteConfig.branding, bgTone: e.target.value as any }
                           })}
-                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
+                          className="w-full bg-neutral-900 border border-neutral-800 text-xs text-white rounded-xl p-2.5 focus:border-amber-500 focus:outline-none cursor-pointer font-bold"
                         >
-                          <option value="dark-onyx">Onyx Black (Rich Dark)</option>
-                          <option value="deep-midnight">Deep Midnight (Deep Blue-Black)</option>
+                          <option value="dark-onyx">Onyx Black (Rich Jet Dark)</option>
+                          <option value="deep-midnight">Deep Midnight (Subtle Blue-Black)</option>
                           <option value="luxury-charcoal">Luxury Charcoal (Modern Matte)</option>
                           <option value="caribbean-night">Caribbean Night (Tropical Cyan-Dark)</option>
                         </select>
                       </div>
+                    </div>
 
-                      <div className="space-y-3.5 bg-neutral-950/40 border border-neutral-800/60 p-4 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-neutral-300">Top Announcement Banner</span>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={!!siteConfig.banner?.enabled} 
-                              onChange={(e) => setSiteConfigState({
-                                ...siteConfig,
-                                banner: { ...siteConfig.banner, enabled: e.target.checked }
-                              })}
-                              className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-400 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                          </label>
+                  </div>
+
+                  {/* Right Column: Live Interactive Sandbox Preview */}
+                  <div className="space-y-4 lg:sticky lg:top-6">
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="block text-xs font-black uppercase text-emerald-400 tracking-wider">Live Interactive Sandbox</span>
+                          <span className="block text-[10px] text-neutral-500">Visual mockup updates dynamically as you tweak controls</span>
                         </div>
+                        <span className="text-[10px] font-mono text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">Preview</span>
+                      </div>
 
+                      <div 
+                        className="border rounded-2xl overflow-hidden shadow-2xl relative transition-all duration-300"
+                        style={{ 
+                          borderColor: 'rgba(255,255,255,0.1)',
+                          backgroundColor: 
+                            siteConfig.branding.bgTone === 'deep-midnight' ? '#02040A' :
+                            siteConfig.branding.bgTone === 'luxury-charcoal' ? '#121214' :
+                            siteConfig.branding.bgTone === 'caribbean-night' ? '#010A0A' : '#080A0F'
+                        }}
+                      >
+                        {/* Simulated banner */}
                         {siteConfig.banner?.enabled && (
-                          <div className="space-y-3 pt-1 animate-fadeIn">
-                            <div>
-                              <label className="block text-[9px] uppercase font-bold text-neutral-400 mb-1">Banner Notification Text</label>
-                              <input
-                                type="text"
-                                value={siteConfig.banner.text || ''}
-                                onChange={(e) => setSiteConfigState({
-                                  ...siteConfig,
-                                  banner: { ...siteConfig.banner, text: e.target.value }
-                                })}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                                placeholder="Enter announcement text..."
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[9px] uppercase font-bold text-neutral-400 mb-1">Banner Colour</label>
-                              <div className="flex items-center gap-2">
-                                <div className="flex gap-1.5 flex-1">
-                                  {[
-                                    { name: 'Emerald', hex: '#10B981' },
-                                    { name: 'Amber', hex: '#F59E0B' },
-                                    { name: 'Sunset', hex: '#F43F5E' },
-                                    { name: 'Indigo', hex: '#4F46E5' }
-                                  ].map((b) => (
-                                    <button
-                                      key={b.hex}
-                                      type="button"
-                                      onClick={() => setSiteConfigState({
-                                        ...siteConfig,
-                                        banner: { ...siteConfig.banner, bgColor: b.hex }
-                                      })}
-                                      className="w-6 h-6 rounded-md border border-neutral-700/80 cursor-pointer flex-1 transition-all"
-                                      style={{ backgroundColor: b.hex }}
-                                      title={b.name}
-                                    />
-                                  ))}
-                                </div>
-                                <input
-                                  type="color"
-                                  value={siteConfig.banner.bgColor || '#10B981'}
-                                  onChange={(e) => setSiteConfigState({
-                                    ...siteConfig,
-                                    banner: { ...siteConfig.banner, bgColor: e.target.value }
-                                  })}
-                                  className="w-10 h-6 rounded bg-transparent border border-neutral-800 cursor-pointer"
-                                  title="Custom Colour"
-                                />
-                              </div>
-                            </div>
+                          <div 
+                            className="py-1.5 px-3 text-[9px] font-bold text-center text-white select-none transition-all"
+                            style={{ backgroundColor: siteConfig.banner.bgColor || '#10B981' }}
+                          >
+                            {siteConfig.banner.text || 'Simulated Announcement Banner'}
                           </div>
                         )}
+
+                        {/* Simulated header */}
+                        <div className="p-4 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02]">
+                          <span 
+                            className="text-xs font-black uppercase tracking-widest text-white"
+                            style={{ fontFamily: siteConfig.branding.headingFont }}
+                          >
+                            MELLOWLANDS
+                          </span>
+                          <div className="flex gap-3 text-[10px] font-medium text-neutral-400">
+                            <span>Home</span>
+                            <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Active</span>
+                            <span>Shop</span>
+                          </div>
+                        </div>
+
+                        {/* Simulated Hero */}
+                        <div className="p-6 space-y-3 text-center">
+                          <h4 
+                            className="text-base font-black text-white leading-tight"
+                            style={{ fontFamily: siteConfig.branding.headingFont }}
+                          >
+                            Feel the Rhythm of the <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Spice Island</span>
+                          </h4>
+                          <p 
+                            className="text-[11px] text-neutral-400 max-w-xs mx-auto leading-relaxed"
+                            style={{ fontFamily: siteConfig.branding.bodyFont }}
+                          >
+                            Experience high-definition soca, luxury beachside suites, and concierge tubing trips in beautiful Grenada.
+                          </p>
+                          
+                          <div className="flex justify-center gap-2 pt-2">
+                            <button 
+                              type="button"
+                              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-neutral-950 transition-all active:scale-95 shadow-md"
+                              style={{ 
+                                backgroundColor: siteConfig.branding.primaryColor || '#F59E0B',
+                                fontFamily: siteConfig.branding.bodyFont
+                              }}
+                            >
+                              Get Passes
+                            </button>
+                            <button 
+                              type="button"
+                              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-white/10 text-white transition-all active:scale-95"
+                              style={{ 
+                                backgroundColor: 'rgba(255,255,255,0.04)',
+                                borderColor: 'rgba(255,255,255,0.12)',
+                                fontFamily: siteConfig.branding.bodyFont
+                              }}
+                            >
+                              Learn More
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-              </div>
+                </div>
+              )}
+
+              {/* SUB-TAB 3: ANNOUNCEMENT BANNER */}
+              {customizerSubTab === 'banner' && (
+                <div className="space-y-6 max-w-3xl animate-fadeIn">
+                  <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl space-y-5">
+                    <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                      <div>
+                        <h3 className="font-bold text-sm text-white">Top Website Announcement Banner</h3>
+                        <p className="text-xs text-neutral-400 mt-0.5">Displays a prominent notification bar across the top of all pages.</p>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={!!siteConfig.banner?.enabled} 
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            banner: { ...siteConfig.banner, enabled: e.target.checked }
+                          })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                    </div>
+
+                    {siteConfig.banner?.enabled ? (
+                      <div className="space-y-4 pt-1 animate-fadeIn">
+                        <div>
+                          <label className="block text-xs uppercase font-bold text-neutral-300 mb-1.5">Banner Announcement Text</label>
+                          <input
+                            type="text"
+                            value={siteConfig.banner.text || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              banner: { ...siteConfig.banner, text: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="Enter announcement text..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase font-bold text-neutral-300 mb-1.5">Banner Background Color</label>
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-2 flex-1">
+                              {[
+                                { name: 'Emerald', hex: '#10B981' },
+                                { name: 'Amber', hex: '#F59E0B' },
+                                { name: 'Sunset', hex: '#F43F5E' },
+                                { name: 'Indigo', hex: '#4F46E5' },
+                                { name: 'Cyan', hex: '#06B6D4' }
+                              ].map((b) => (
+                                <button
+                                  key={b.hex}
+                                  type="button"
+                                  onClick={() => setSiteConfigState({
+                                    ...siteConfig,
+                                    banner: { ...siteConfig.banner, bgColor: b.hex }
+                                  })}
+                                  className="h-8 rounded-lg border border-neutral-700/80 cursor-pointer flex-1 transition-all hover:scale-105"
+                                  style={{ backgroundColor: b.hex }}
+                                  title={b.name}
+                                />
+                              ))}
+                            </div>
+                            <input
+                              type="color"
+                              value={siteConfig.banner.bgColor || '#10B981'}
+                              onChange={(e) => setSiteConfigState({
+                                ...siteConfig,
+                                banner: { ...siteConfig.banner, bgColor: e.target.value }
+                              })}
+                              className="w-10 h-8 rounded-lg bg-transparent border border-neutral-800 cursor-pointer p-0"
+                              title="Custom Color"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Live Preview Strip */}
+                        <div className="pt-2">
+                          <label className="block text-[10px] uppercase font-bold text-neutral-500 mb-1">Live Banner Preview</label>
+                          <div 
+                            className="py-2 px-4 rounded-xl text-xs font-bold text-center text-white shadow-md transition-all"
+                            style={{ backgroundColor: siteConfig.banner.bgColor || '#10B981' }}
+                          >
+                            {siteConfig.banner.text || 'Simulated Announcement Banner'}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-neutral-900/40 rounded-xl text-center text-xs text-neutral-500 font-medium">
+                        Announcement banner is currently disabled. Toggle the switch above to activate it.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-TAB 4: SOCIALS & HELPLINES */}
+              {customizerSubTab === 'social' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    {/* Social Handles */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-neutral-800">
+                        <Share2 className="w-4 h-4 text-amber-400" />
+                        <h3 className="font-bold text-sm text-white">Social Media Profiles</h3>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Instagram Profile URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.instagram || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, instagram: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://instagram.com/..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">TikTok Channel URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.tiktok || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, tiktok: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://tiktok.com/@..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Facebook Fanpage URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.facebook || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, facebook: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://facebook.com/..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">WhatsApp Desk URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.whatsapp || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, whatsapp: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://wa.me/..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Twitter / X Handle URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.twitter || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, twitter: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://x.com/..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Helplines & Direct Support */}
+                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-neutral-800">
+                        <Phone className="w-4 h-4 text-amber-400" />
+                        <h3 className="font-bold text-sm text-white">Concierge & Helpline Desk</h3>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Official Helpline Phone</label>
+                          <input
+                            type="text"
+                            value={siteConfig.contactPhone || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              contactPhone: e.target.value
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none font-mono"
+                            placeholder="+44 (0)7900 123 456"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Direct Support Email</label>
+                          <input
+                            type="email"
+                            value={siteConfig.contactEmail || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              contactEmail: e.target.value
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none font-mono"
+                            placeholder="info@grenadacaricomfestival.com"
+                          />
+                        </div>
+
+                        <div className="p-4 bg-neutral-900/60 border border-neutral-800 rounded-xl text-xs text-neutral-400 space-y-1">
+                          <span className="font-bold text-white block">Footer Integration Note</span>
+                          <p className="text-[11px] leading-relaxed">
+                            These social profiles and contact helplines appear directly in the footer across all public views and in the user order confirmation receipts.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 

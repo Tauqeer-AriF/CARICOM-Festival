@@ -15,7 +15,9 @@ import {
   Star,
   Image,
   Building,
-  Car
+  Car,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -25,6 +27,8 @@ interface NavbarProps {
   setCurrency: (currency: 'GBP' | 'USD' | 'XCD') => void;
   cartCount: number;
   onOpenCart: () => void;
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -33,7 +37,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   currency,
   setCurrency,
   cartCount,
-  onOpenCart
+  onOpenCart,
+  theme,
+  setTheme
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHoverDropdown, setActiveHoverDropdown] = useState<string | null>(null);
@@ -274,6 +280,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Flight Arrival</span>
                 </button>
 
+                {/* Theme Toggle Button (Desktop) */}
+                <button
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  id="nav-btn-theme-toggle"
+                  className="p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
+                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                  )}
+                </button>
+
                 {/* Cart Icon */}
                 <button
                   onClick={onOpenCart}
@@ -292,6 +312,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Mobile / Tablet Toggle */}
               <div className="flex xl:hidden items-center gap-2">
+                {/* Theme Toggle Button (Mobile/Tablet) */}
+                <button
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  id="nav-btn-theme-toggle-mobile"
+                  className="p-2 bg-neutral-900 border border-amber-500/30 rounded-xl text-amber-400 shrink-0 cursor-pointer"
+                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-amber-400" />
+                  )}
+                </button>
+
                 <button
                   onClick={onOpenCart}
                   className="relative p-2 bg-neutral-900 border border-amber-500/30 rounded-xl text-amber-400"
@@ -380,6 +414,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+            <span className="text-xs text-neutral-400 font-medium">Appearance:</span>
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/35 rounded-xl text-amber-400 text-xs font-bold transition-all cursor-pointer shadow-md"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5" />
+                  <span>Dark Mode</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

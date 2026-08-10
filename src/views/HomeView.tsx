@@ -1,6 +1,7 @@
-import React from 'react';
-import { ActiveTab, PassItem } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ActiveTab, PassItem, SiteConfig } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { getSiteConfig } from '../services/submissionService';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { GrenadaWeatherWidget } from '../components/GrenadaWeatherWidget';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,29 +46,6 @@ const fadeIn = {
   }
 };
 
-const BACKGROUND_IMAGES = [
-  {
-    url: FESTIVAL_IMAGES.hero,
-    alt: "Grenada Beach DJ Showcase 2027",
-  },
-  {
-    url: FESTIVAL_IMAGES.festivalHero,
-    alt: "Spectacular Spice Isle Festival Crowd",
-  },
-  {
-    url: FESTIVAL_IMAGES.whiteGala,
-    alt: "Premium VIP White Gala Party Lounge",
-  },
-  {
-    url: FESTIVAL_IMAGES.riverTubing,
-    alt: "Mellowland Tropical River Tubing Adventure",
-  },
-  {
-    url: FESTIVAL_IMAGES.ecoParadise,
-    alt: "Beautiful Grenada Eco Paradise Coastline",
-  }
-];
-
 const staggerContainer = {
   hidden: {},
   visible: {
@@ -78,14 +56,54 @@ const staggerContainer = {
 };
 
 export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart }) => {
-  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
-    }, 4000);
-    return () => clearInterval(timer);
+  useEffect(() => {
+    const handleConfigUpdate = (e: any) => {
+      if (e.detail) {
+        setSiteConfig(e.detail);
+      } else {
+        setSiteConfig(getSiteConfig());
+      }
+    };
+    window.addEventListener('site_config_updated', handleConfigUpdate);
+    return () => window.removeEventListener('site_config_updated', handleConfigUpdate);
   }, []);
+
+  // Compute active background images considering displayCount setting
+  const activeHeroImages = useMemo(() => {
+    const imagesList = siteConfig.hero?.images && siteConfig.hero.images.length > 0
+      ? siteConfig.hero.images
+      : [
+          { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+          { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+          { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+          { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+          { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" },
+        ];
+    
+    const count = Math.max(1, Math.min(siteConfig.hero?.displayCount ?? imagesList.length, imagesList.length));
+    return imagesList.slice(0, count);
+  }, [siteConfig]);
+
+  // Reset current index if it goes out of bounds when active images change
+  useEffect(() => {
+    if (currentImageIndex >= activeHeroImages.length) {
+      setCurrentImageIndex(0);
+    }
+  }, [activeHeroImages.length, currentImageIndex]);
+
+  useEffect(() => {
+    if (activeHeroImages.length <= 1) return;
+    const intervalMs = (siteConfig.hero?.autoplayInterval || 4) * 1000;
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [activeHeroImages.length, siteConfig.hero?.autoplayInterval]);
+
+  const currentHeroImage = activeHeroImages[currentImageIndex] || activeHeroImages[0];
 
   return (
     <div className="space-y-20 pb-16">
@@ -101,9 +119,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         <div className="absolute inset-0 z-0 overflow-hidden">
           <AnimatePresence mode="popLayout">
             <motion.img 
-              key={currentImageIndex}
-              src={BACKGROUND_IMAGES[currentImageIndex].url} 
-              alt={BACKGROUND_IMAGES[currentImageIndex].alt} 
+              key={`${currentHeroImage?.url}-${currentImageIndex}`}
+              src={currentHeroImage?.url || FESTIVAL_IMAGES.hero} 
+              alt={currentHeroImage?.alt || "Grenada CARICOM Festival Background"} 
               referrerPolicy="no-referrer"
               initial={{ opacity: 0, scale: 1.12 }}
               animate={{ opacity: 1, scale: 1.04 }}
@@ -169,20 +187,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         </div>
 
         {/* Carousel Navigation Dots */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#07090D]/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-          {BACKGROUND_IMAGES.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentImageIndex(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                currentImageIndex === idx 
-                  ? 'w-6 bg-amber-400' 
-                  : 'w-2 bg-white/40 hover:bg-white/70'
-              }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
-        </div>
+        {activeHeroImages.length > 1 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#07090D]/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+            {activeHeroImages.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentImageIndex(idx)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  currentImageIndex === idx 
+                    ? 'w-6 bg-amber-400' 
+                    : 'w-2 bg-white/40 hover:bg-white/70'
+                }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </motion.section>
 
       {/* Countdown Clock Widget */}

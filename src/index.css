@@ -297,4 +297,37 @@
   background: var(--primary-color-dynamic, #F59E0B);
 }
 
+/* --- High-Efficiency Senior Light Mode Theme Engine --- */
+html.light-mode {
+  filter: invert(0.93) hue-rotate(180deg) brightness(1.03) contrast(1.01);
+  background-color: #F8FAFC !important;
+}
+
+/* 
+  Re-invert full-color elements (images, maps, custom video tags, specific decorative buttons)
+  so they render in their natural pristine color spectrum while supporting light mode.
+*/
+html.light-mode img,
+html.light-mode video,
+html.light-mode iframe,
+html.light-mode .no-invert,
+html.light-mode [data-no-invert],
+html.light-mode .bg-gold-primary,
+html.light-mode #nav-btn-register,
+html.light-mode #hero-btn-passes {
+  filter: invert(1.08) hue-rotate(180deg) !important;
+}
+
+/* Maintain proper contrast for elements that shouldn't look faded in inverted mode */
+html.light-mode .body-shimmer-container {
+  opacity: 0.35;
+}
+
+/* Ensure shadow depth looks natural on light canvas */
+html.light-mode .glass-card,
+html.light-mode .glass-nav {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15) !important;
+}
+
+
 

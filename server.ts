@@ -18,6 +18,39 @@ async function startServer() {
   // Helper to get database connection
   const db = await getDb();
 
+  // SSE Real-Time Updates Clients
+  const clients = new Set<express.Response>();
+
+  // Helper to broadcast database updates
+  function broadcast(type: string, senderId?: string) {
+    const payload = JSON.stringify({ type, senderId });
+    console.log(`[SSE] Broadcasting: ${payload} to ${clients.size} clients`);
+    const message = `data: ${payload}\n\n`;
+    for (const res of clients) {
+      try {
+        res.write(message);
+      } catch (err) {
+        console.warn('[SSE] Error writing to client:', err);
+        clients.delete(res);
+      }
+    }
+  }
+
+  // Real-Time Updates endpoint
+  app.get('/api/realtime-updates', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    res.write(': connected\n\n');
+    clients.add(res);
+
+    req.on('close', () => {
+      clients.delete(res);
+    });
+  });
+
   // API Route: Site Config
   app.get('/api/site-config', async (req, res) => {
     try {
@@ -37,6 +70,8 @@ async function startServer() {
     try {
       const config = req.body;
       await db.run('INSERT OR REPLACE INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(config));
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('site_config', senderId);
       res.json(config);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -73,6 +108,8 @@ async function startServer() {
         status: sub.status || 'new'
       };
       await db.run('INSERT OR REPLACE INTO submissions (id, data_json) VALUES (?, ?)', newSub.id, JSON.stringify(newSub));
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
       res.json(newSub);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -90,6 +127,8 @@ async function startServer() {
       const sub = JSON.parse(row.data_json);
       sub.status = status;
       await db.run('UPDATE submissions SET data_json = ? WHERE id = ?', JSON.stringify(sub), id);
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
       res.json(sub);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -114,6 +153,8 @@ async function startServer() {
       sub.replies = [newReply, ...existingReplies];
       sub.status = 'resolved'; // automatically set to resolved upon reply
       await db.run('UPDATE submissions SET data_json = ? WHERE id = ?', JSON.stringify(sub), id);
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
       res.json(sub);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -124,6 +165,8 @@ async function startServer() {
     try {
       const { id } = req.params;
       await db.run('DELETE FROM submissions WHERE id = ?', id);
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -136,6 +179,8 @@ async function startServer() {
       for (const sub of INITIAL_DEMO_SUBMISSIONS) {
         await db.run('INSERT INTO submissions (id, data_json) VALUES (?, ?)', sub.id, JSON.stringify(sub));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
       res.json(INITIAL_DEMO_SUBMISSIONS);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -176,6 +221,8 @@ async function startServer() {
       for (const item of events) {
         await db.run('INSERT INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('events', senderId);
       res.json(events);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -215,6 +262,8 @@ async function startServer() {
       for (const item of items) {
         await db.run('INSERT INTO gallery (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('gallery', senderId);
       res.json(items);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -244,6 +293,8 @@ async function startServer() {
       for (const item of hotels) {
         await db.run('INSERT INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('hotels', senderId);
       res.json(hotels);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -273,6 +324,8 @@ async function startServer() {
       for (const item of passes) {
         await db.run('INSERT INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('passes', senderId);
       res.json(passes);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -302,6 +355,8 @@ async function startServer() {
       for (const item of list) {
         await db.run('INSERT INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('testimonials', senderId);
       res.json(list);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -328,6 +383,8 @@ async function startServer() {
     try {
       const item = req.body;
       await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('media', senderId);
       res.json(item);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -338,6 +395,8 @@ async function startServer() {
     try {
       const { id } = req.params;
       await db.run('DELETE FROM media WHERE id = ?', id);
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('media', senderId);
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });

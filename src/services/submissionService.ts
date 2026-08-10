@@ -32,6 +32,17 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     text: '🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • MAY 13 - 17, 2027',
     bgColor: '#10B981', // Emerald green
   },
+  hero: {
+    displayCount: 5,
+    autoplayInterval: 4,
+    images: [
+      { url: FESTIVAL_IMAGES.hero, alt: 'Grenada Beach DJ Showcase 2027' },
+      { url: FESTIVAL_IMAGES.festivalHero, alt: 'Spectacular Spice Isle Festival Crowd' },
+      { url: FESTIVAL_IMAGES.whiteGala, alt: 'Premium VIP White Gala Party Lounge' },
+      { url: FESTIVAL_IMAGES.riverTubing, alt: 'Mellowland Tropical River Tubing Adventure' },
+      { url: FESTIVAL_IMAGES.ecoParadise, alt: 'Beautiful Grenada Eco Paradise Coastline' },
+    ]
+  },
   adminPath: 'admin',
   adminPassword: '2027',
   contactEmail: 'info@grenadacaricomfestival.com',
@@ -248,79 +259,265 @@ export const INITIAL_DEMO_MEDIA: MediaItem[] = [
 ];
 
 // --- Dual Local-First SQLite Synchronizer ---
-async function syncWithDatabase() {
+function safeSetItem(key: string, value: string): boolean {
   try {
-    // 1. Sync Site Config
-    const resConfig = await fetch('/api/site-config');
-    if (resConfig.ok) {
-      const config = await resConfig.json();
-      localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(config));
-      window.dispatchEvent(new CustomEvent('site_config_updated', { detail: config }));
+    localStorage.setItem(key, value);
+    // Validation step: read back and verify
+    const verifiedValue = localStorage.getItem(key);
+    if (verifiedValue !== value) {
+      console.error(`localStorage verification failed for key '${key}': retrieved value does not match written value.`);
+      return false;
     }
-
-    // 2. Sync Submissions
-    const resSubs = await fetch('/api/submissions');
-    if (resSubs.ok) {
-      const subs = await resSubs.json();
-      localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(subs));
-      window.dispatchEvent(new Event('submissions_updated'));
-    }
-
-    // 3. Sync Events
-    const resEvents = await fetch('/api/events');
-    if (resEvents.ok) {
-      const events = await resEvents.json();
-      localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
-      window.dispatchEvent(new Event('events_updated'));
-    }
-
-    // 4. Sync Gallery
-    const resGallery = await fetch('/api/gallery');
-    if (resGallery.ok) {
-      const gallery = await resGallery.json();
-      localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
-      window.dispatchEvent(new Event('gallery_updated'));
-    }
-
-    // 5. Sync Hotels
-    const resHotels = await fetch('/api/hotels');
-    if (resHotels.ok) {
-      const hotels = await resHotels.json();
-      localStorage.setItem(HOTELS_KEY, JSON.stringify(hotels));
-      window.dispatchEvent(new Event('hotels_updated'));
-    }
-
-    // 6. Sync Passes
-    const resPasses = await fetch('/api/passes');
-    if (resPasses.ok) {
-      const passes = await resPasses.json();
-      localStorage.setItem(PASSES_KEY, JSON.stringify(passes));
-      window.dispatchEvent(new Event('passes_updated'));
-    }
-
-    // 7. Sync Testimonials
-    const resTestimonials = await fetch('/api/testimonials');
-    if (resTestimonials.ok) {
-      const testimonials = await resTestimonials.json();
-      localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
-      window.dispatchEvent(new Event('testimonials_updated'));
-    }
-
-    // 8. Sync Media
-    const resMedia = await fetch('/api/media');
-    if (resMedia.ok) {
-      const media = await resMedia.json();
-      localStorage.setItem(MEDIA_KEY, JSON.stringify(media));
-      window.dispatchEvent(new Event('media_updated'));
-    }
+    return true;
   } catch (err) {
-    console.error('Error background syncing with SQLite:', err);
+    console.warn(`localStorage write failed for key '${key}':`, err);
+    return false;
   }
 }
 
-// Automatically trigger sync on client import
+async function fetchWithRetry(url: string, retries = 3, delayMs = 500): Promise<Response | null> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const headers = {} as any;
+      if (typeof window !== 'undefined' && (window as any).clientId) {
+        headers['X-Client-Id'] = (window as any).clientId;
+      }
+      const res = await fetch(url, { headers });
+      if (res.ok) return res;
+    } catch {
+      // Ignore transient network errors on retry attempt
+    }
+    if (i < retries - 1) {
+      await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  return null;
+}
+
+async function safeApiCall(url: string, options?: RequestInit): Promise<Response | null> {
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options?.headers || {}),
+    } as any;
+
+    if (typeof window !== 'undefined' && (window as any).clientId) {
+      headers['X-Client-Id'] = (window as any).clientId;
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      headers
+    });
+    return res;
+  } catch (err) {
+    console.warn(`Background API call to ${url} deferred:`, err);
+    return null;
+  }
+}
+
+export async function syncResource(type: string): Promise<void> {
+  try {
+    switch (type) {
+      case 'site_config': {
+        const resConfig = await fetchWithRetry('/api/site-config');
+        if (resConfig?.ok) {
+          const serverConfig = await resConfig.json();
+          const localConfigStr = localStorage.getItem(SITE_CONFIG_KEY);
+          if (localConfigStr) {
+            try {
+              const localConfig = JSON.parse(localConfigStr);
+              if (localConfig && localConfig.updatedAt && serverConfig && serverConfig.updatedAt) {
+                const localTime = new Date(localConfig.updatedAt).getTime();
+                const serverTime = new Date(serverConfig.updatedAt).getTime();
+                if (localTime > serverTime) {
+                  console.log('[Sync] Local Site Config is newer than server. Pushing local config to server.');
+                  await safeApiCall('/api/site-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(localConfig)
+                  });
+                  break;
+                }
+              } else if (localConfig && localConfig.updatedAt && (!serverConfig || !serverConfig.updatedAt)) {
+                console.log('[Sync] Local Site Config has updatedAt but server doesn\'t. Pushing local config.');
+                await safeApiCall('/api/site-config', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(localConfig)
+                });
+                break;
+              }
+            } catch (err) {
+              console.error('[Sync] Error comparing site_config timestamps:', err);
+            }
+          }
+          safeSetItem(SITE_CONFIG_KEY, JSON.stringify(serverConfig));
+          const event = new CustomEvent('site_config_updated', { detail: serverConfig });
+          (event as any).isRemoteSync = true;
+          window.dispatchEvent(event);
+        }
+        break;
+      }
+      case 'submissions': {
+        const resSubs = await fetchWithRetry('/api/submissions');
+        if (resSubs?.ok) {
+          const subs = await resSubs.json();
+          safeSetItem(SUBMISSIONS_KEY, JSON.stringify(subs));
+          window.dispatchEvent(new Event('submissions_updated'));
+        }
+        break;
+      }
+      case 'events': {
+        const resEvents = await fetchWithRetry('/api/events');
+        if (resEvents?.ok) {
+          const events = await resEvents.json();
+          safeSetItem(EVENTS_KEY, JSON.stringify(events));
+          window.dispatchEvent(new Event('events_updated'));
+        }
+        break;
+      }
+      case 'gallery': {
+        const resGallery = await fetchWithRetry('/api/gallery');
+        if (resGallery?.ok) {
+          const gallery = await resGallery.json();
+          safeSetItem(GALLERY_KEY, JSON.stringify(gallery));
+          window.dispatchEvent(new Event('gallery_updated'));
+        }
+        break;
+      }
+      case 'hotels': {
+        const resHotels = await fetchWithRetry('/api/hotels');
+        if (resHotels?.ok) {
+          const hotels = await resHotels.json();
+          safeSetItem(HOTELS_KEY, JSON.stringify(hotels));
+          window.dispatchEvent(new Event('hotels_updated'));
+        }
+        break;
+      }
+      case 'passes': {
+        const resPasses = await fetchWithRetry('/api/passes');
+        if (resPasses?.ok) {
+          const passes = await resPasses.json();
+          safeSetItem(PASSES_KEY, JSON.stringify(passes));
+          window.dispatchEvent(new Event('passes_updated'));
+        }
+        break;
+      }
+      case 'testimonials': {
+        const resTestimonials = await fetchWithRetry('/api/testimonials');
+        if (resTestimonials?.ok) {
+          const testimonials = await resTestimonials.json();
+          safeSetItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+          window.dispatchEvent(new Event('testimonials_updated'));
+        }
+        break;
+      }
+      case 'media': {
+        const resMedia = await fetchWithRetry('/api/media');
+        if (resMedia?.ok) {
+          const media = await resMedia.json();
+          safeSetItem(MEDIA_KEY, JSON.stringify(media));
+          window.dispatchEvent(new Event('media_updated'));
+        }
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn(`Background selective sync for ${type} deferred:`, err);
+  }
+}
+
+export async function syncWithDatabase(): Promise<void> {
+  try {
+    // 1. Sync Site Config
+    await syncResource('site_config');
+
+    // 2. Sync Submissions
+    await syncResource('submissions');
+
+    // 3. Sync Events
+    await syncResource('events');
+
+    // 4. Sync Gallery
+    await syncResource('gallery');
+
+    // 5. Sync Hotels
+    await syncResource('hotels');
+
+    // 6. Sync Passes
+    await syncResource('passes');
+
+    // 7. Sync Testimonials
+    await syncResource('testimonials');
+
+    // 8. Sync Media
+    await syncResource('media');
+  } catch (err) {
+    console.warn('Background SQLite sync deferred:', err);
+  }
+}
+
+let eventSource: EventSource | null = null;
+
+export function initRealtimeUpdates(): void {
+  if (typeof window === 'undefined') return;
+
+  if (eventSource) {
+    eventSource.close();
+  }
+
+  // Generate unique tab identifier for sender-skipping logic
+  const clientId = `client-${Math.random().toString(36).substring(2, 15)}`;
+  (window as any).clientId = clientId;
+
+  const connect = () => {
+    console.log('[SSE] Connecting for real-time updates...');
+    eventSource = new EventSource('/api/realtime-updates');
+
+    eventSource.onopen = () => {
+      console.log('[SSE] Connected to real-time update stream.');
+    };
+
+    eventSource.onmessage = async (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        console.log('[SSE] Received update event:', msg);
+        
+        // Skip updating if this tab is the one that triggered the change (LWW is handled locally)
+        if (msg.senderId === clientId) {
+          console.log(`[SSE] Skipping sync for ${msg.type} as it was initiated by this client tab.`);
+          return;
+        }
+
+        if (msg.type) {
+          console.log(`[SSE] Real-time message of type "${msg.type}" received. Running a complete re-sync of application state...`);
+          await syncWithDatabase();
+        }
+      } catch (err) {
+        console.error('[SSE] Error processing update event:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.warn('[SSE] Connection lost, retrying in 5s...', err);
+      if (eventSource) {
+        eventSource.close();
+      }
+      setTimeout(connect, 5000);
+    };
+  };
+
+  connect();
+}
+
+// Automatically trigger sync and connect to real-time stream on client import
 if (typeof window !== 'undefined') {
-  setTimeout(syncWithDatabase, 150);
+  setTimeout(() => {
+    syncWithDatabase().then(() => {
+      initRealtimeUpdates();
+    });
+  }, 150);
 }
 
 // --- SUBMISSIONS SERVICE ---
@@ -328,7 +525,7 @@ export const getSubmissions = (): FormSubmissionItem[] => {
   try {
     const raw = localStorage.getItem(SUBMISSIONS_KEY);
     if (!raw) {
-      localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(INITIAL_DEMO_SUBMISSIONS));
+      safeSetItem(SUBMISSIONS_KEY, JSON.stringify(INITIAL_DEMO_SUBMISSIONS));
       return INITIAL_DEMO_SUBMISSIONS;
     }
     return JSON.parse(raw);
@@ -340,7 +537,10 @@ export const getSubmissions = (): FormSubmissionItem[] => {
 
 export const saveSubmissions = (submissions: FormSubmissionItem[]): void => {
   try {
-    localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(submissions));
+    const success = safeSetItem(SUBMISSIONS_KEY, JSON.stringify(submissions));
+    if (!success) {
+      throw new Error('Write verification failed for submissions');
+    }
     window.dispatchEvent(new Event('submissions_updated'));
   } catch (e) {
     console.error('Error saving submissions:', e);
@@ -359,11 +559,11 @@ export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt'
   saveSubmissions(updated);
 
   // Sync to backend SQLite
-  fetch('/api/submissions', {
+  safeApiCall('/api/submissions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newSub)
-  }).catch(err => console.error('Error persisting submission to SQLite:', err));
+  });
 
   return newSub;
 };
@@ -374,11 +574,11 @@ export const updateSubmissionStatus = (id: string, status: 'new' | 'in-review' |
   saveSubmissions(updated);
 
   // Sync to backend SQLite
-  fetch(`/api/submissions/${id}/status`, {
+  safeApiCall(`/api/submissions/${id}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
-  }).catch(err => console.error('Error persisting submission status to SQLite:', err));
+  });
 };
 
 export const addSubmissionReply = (
@@ -412,11 +612,11 @@ export const addSubmissionReply = (
   saveSubmissions(updated);
 
   // Sync to backend SQLite
-  fetch(`/api/submissions/${id}/replies`, {
+  safeApiCall(`/api/submissions/${id}/replies`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newReply)
-  }).catch(err => console.error('Error persisting reply to SQLite:', err));
+  });
 };
 
 export const deleteSubmission = (id: string): void => {
@@ -425,19 +625,19 @@ export const deleteSubmission = (id: string): void => {
   saveSubmissions(updated);
 
   // Sync to backend SQLite
-  fetch(`/api/submissions/${id}`, {
+  safeApiCall(`/api/submissions/${id}`, {
     method: 'DELETE'
-  }).catch(err => console.error('Error persisting deletion to SQLite:', err));
+  });
 };
 
 export const resetSubmissionsToDemo = (): FormSubmissionItem[] => {
-  localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(INITIAL_DEMO_SUBMISSIONS));
+  safeSetItem(SUBMISSIONS_KEY, JSON.stringify(INITIAL_DEMO_SUBMISSIONS));
   window.dispatchEvent(new Event('submissions_updated'));
 
   // Sync to backend SQLite
-  fetch('/api/submissions/reset', {
+  safeApiCall('/api/submissions/reset', {
     method: 'POST'
-  }).catch(err => console.error('Error resetting submissions in SQLite:', err));
+  });
 
   return INITIAL_DEMO_SUBMISSIONS;
 };
@@ -448,7 +648,7 @@ export const getSiteConfig = (): SiteConfig => {
   try {
     const raw = localStorage.getItem(SITE_CONFIG_KEY);
     if (!raw) {
-      localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(DEFAULT_SITE_CONFIG));
+      safeSetItem(SITE_CONFIG_KEY, JSON.stringify(DEFAULT_SITE_CONFIG));
       return DEFAULT_SITE_CONFIG;
     }
     const parsed = JSON.parse(raw);
@@ -458,6 +658,13 @@ export const getSiteConfig = (): SiteConfig => {
       socialLinks: { ...DEFAULT_SITE_CONFIG.socialLinks, ...(parsed.socialLinks || {}) },
       branding: { ...DEFAULT_SITE_CONFIG.branding, ...(parsed.branding || {}) },
       banner: { ...DEFAULT_SITE_CONFIG.banner, ...(parsed.banner || {}) },
+      hero: {
+        displayCount: parsed.hero?.displayCount ?? DEFAULT_SITE_CONFIG.hero?.displayCount ?? 5,
+        autoplayInterval: parsed.hero?.autoplayInterval ?? DEFAULT_SITE_CONFIG.hero?.autoplayInterval ?? 4,
+        images: (parsed.hero?.images && Array.isArray(parsed.hero.images) && parsed.hero.images.length > 0)
+          ? parsed.hero.images
+          : (DEFAULT_SITE_CONFIG.hero?.images || [])
+      }
     };
   } catch (e) {
     console.error('Error loading site config:', e);
@@ -465,17 +672,30 @@ export const getSiteConfig = (): SiteConfig => {
   }
 };
 
+let siteConfigSyncTimeout: any = null;
+
 export const saveSiteConfig = (config: SiteConfig): void => {
   try {
-    localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(config));
+    // Add/update timestamp for Last-Write-Wins conflict resolution
+    config.updatedAt = new Date().toISOString();
+
+    const success = safeSetItem(SITE_CONFIG_KEY, JSON.stringify(config));
+    if (!success) {
+      throw new Error('Write verification failed for site config');
+    }
     window.dispatchEvent(new CustomEvent('site_config_updated', { detail: config }));
 
-    // Sync to backend SQLite
-    fetch('/api/site-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
-    }).catch(err => console.error('Error persisting site config to SQLite:', err));
+    // Sync to backend SQLite (debounced to avoid network spamming on rapid changes)
+    if (siteConfigSyncTimeout) {
+      clearTimeout(siteConfigSyncTimeout);
+    }
+    siteConfigSyncTimeout = setTimeout(() => {
+      safeApiCall('/api/site-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+    }, 300);
   } catch (e) {
     console.error('Error saving site config:', e);
   }
@@ -513,7 +733,7 @@ export const getEvents = (): EventItem[] => {
   try {
     const raw = localStorage.getItem(EVENTS_KEY);
     if (!raw) {
-      localStorage.setItem(EVENTS_KEY, JSON.stringify(FESTIVAL_EVENTS));
+      safeSetItem(EVENTS_KEY, JSON.stringify(FESTIVAL_EVENTS));
       return FESTIVAL_EVENTS;
     }
     const events: EventItem[] = JSON.parse(raw);
@@ -527,7 +747,7 @@ export const getEvents = (): EventItem[] => {
       return ev;
     });
     if (updated) {
-      localStorage.setItem(EVENTS_KEY, JSON.stringify(fixedEvents));
+      safeSetItem(EVENTS_KEY, JSON.stringify(fixedEvents));
       return fixedEvents;
     }
     return events;
@@ -539,15 +759,18 @@ export const getEvents = (): EventItem[] => {
 
 export const saveEvents = (events: EventItem[]): void => {
   try {
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+    const success = safeSetItem(EVENTS_KEY, JSON.stringify(events));
+    if (!success) {
+      throw new Error('Write verification failed for events');
+    }
     window.dispatchEvent(new Event('events_updated'));
 
     // Sync to backend SQLite
-    fetch('/api/events', {
+    safeApiCall('/api/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(events)
-    }).catch(err => console.error('Error persisting events to SQLite:', err));
+    });
   } catch (e) {
     console.error('Error saving events:', e);
   }
@@ -559,7 +782,7 @@ export const getGalleryItems = (): GalleryItem[] => {
   try {
     const raw = localStorage.getItem(GALLERY_KEY);
     if (!raw) {
-      localStorage.setItem(GALLERY_KEY, JSON.stringify(GALLERY_ITEMS));
+      safeSetItem(GALLERY_KEY, JSON.stringify(GALLERY_ITEMS));
       return GALLERY_ITEMS;
     }
     const items: GalleryItem[] = JSON.parse(raw);
@@ -573,7 +796,7 @@ export const getGalleryItems = (): GalleryItem[] => {
       return item;
     });
     if (updated) {
-      localStorage.setItem(GALLERY_KEY, JSON.stringify(fixedItems));
+      safeSetItem(GALLERY_KEY, JSON.stringify(fixedItems));
       return fixedItems;
     }
     return items;
@@ -585,15 +808,18 @@ export const getGalleryItems = (): GalleryItem[] => {
 
 export const saveGalleryItems = (items: GalleryItem[]): void => {
   try {
-    localStorage.setItem(GALLERY_KEY, JSON.stringify(items));
+    const success = safeSetItem(GALLERY_KEY, JSON.stringify(items));
+    if (!success) {
+      throw new Error('Write verification failed for gallery items');
+    }
     window.dispatchEvent(new Event('gallery_updated'));
 
     // Sync to backend SQLite
-    fetch('/api/gallery', {
+    safeApiCall('/api/gallery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(items)
-    }).catch(err => console.error('Error persisting gallery items to SQLite:', err));
+    });
   } catch (e) {
     console.error('Error saving gallery items:', e);
   }
@@ -605,7 +831,7 @@ export const getHotels = (): HotelItem[] => {
   try {
     const raw = localStorage.getItem(HOTELS_KEY);
     if (!raw) {
-      localStorage.setItem(HOTELS_KEY, JSON.stringify(FESTIVAL_HOTELS));
+      safeSetItem(HOTELS_KEY, JSON.stringify(FESTIVAL_HOTELS));
       return FESTIVAL_HOTELS;
     }
     return JSON.parse(raw);
@@ -617,15 +843,18 @@ export const getHotels = (): HotelItem[] => {
 
 export const saveHotels = (hotels: HotelItem[]): void => {
   try {
-    localStorage.setItem(HOTELS_KEY, JSON.stringify(hotels));
+    const success = safeSetItem(HOTELS_KEY, JSON.stringify(hotels));
+    if (!success) {
+      throw new Error('Write verification failed for hotels');
+    }
     window.dispatchEvent(new Event('hotels_updated'));
 
     // Sync to backend SQLite
-    fetch('/api/hotels', {
+    safeApiCall('/api/hotels', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(hotels)
-    }).catch(err => console.error('Error persisting hotels to SQLite:', err));
+    });
   } catch (e) {
     console.error('Error saving hotels:', e);
   }
@@ -637,7 +866,7 @@ export const getPasses = (): PassItem[] => {
   try {
     const raw = localStorage.getItem(PASSES_KEY);
     if (!raw) {
-      localStorage.setItem(PASSES_KEY, JSON.stringify(FESTIVAL_PASSES));
+      safeSetItem(PASSES_KEY, JSON.stringify(FESTIVAL_PASSES));
       return FESTIVAL_PASSES;
     }
     return JSON.parse(raw);
@@ -649,15 +878,18 @@ export const getPasses = (): PassItem[] => {
 
 export const savePasses = (passes: PassItem[]): void => {
   try {
-    localStorage.setItem(PASSES_KEY, JSON.stringify(passes));
+    const success = safeSetItem(PASSES_KEY, JSON.stringify(passes));
+    if (!success) {
+      throw new Error('Write verification failed for passes');
+    }
     window.dispatchEvent(new Event('passes_updated'));
 
     // Sync to backend SQLite
-    fetch('/api/passes', {
+    safeApiCall('/api/passes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(passes)
-    }).catch(err => console.error('Error persisting passes to SQLite:', err));
+    });
   } catch (e) {
     console.error('Error saving passes:', e);
   }
@@ -669,7 +901,7 @@ export const getTestimonials = (): TestimonialItem[] => {
   try {
     const raw = localStorage.getItem(TESTIMONIALS_KEY);
     if (!raw) {
-      localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(FESTIVAL_TESTIMONIALS));
+      safeSetItem(TESTIMONIALS_KEY, JSON.stringify(FESTIVAL_TESTIMONIALS));
       return FESTIVAL_TESTIMONIALS;
     }
     return JSON.parse(raw);
@@ -681,15 +913,18 @@ export const getTestimonials = (): TestimonialItem[] => {
 
 export const saveTestimonials = (testimonials: TestimonialItem[]): void => {
   try {
-    localStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+    const success = safeSetItem(TESTIMONIALS_KEY, JSON.stringify(testimonials));
+    if (!success) {
+      throw new Error('Write verification failed for testimonials');
+    }
     window.dispatchEvent(new Event('testimonials_updated'));
 
     // Sync to backend SQLite
-    fetch('/api/testimonials', {
+    safeApiCall('/api/testimonials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(testimonials)
-    }).catch(err => console.error('Error persisting testimonials to SQLite:', err));
+    });
   } catch (e) {
     console.error('Error saving testimonials:', e);
   }
@@ -701,7 +936,7 @@ export const getMediaItems = (): MediaItem[] => {
   try {
     const raw = localStorage.getItem(MEDIA_KEY);
     if (!raw) {
-      localStorage.setItem(MEDIA_KEY, JSON.stringify(INITIAL_DEMO_MEDIA));
+      safeSetItem(MEDIA_KEY, JSON.stringify(INITIAL_DEMO_MEDIA));
       return INITIAL_DEMO_MEDIA;
     }
     return JSON.parse(raw);
@@ -713,7 +948,10 @@ export const getMediaItems = (): MediaItem[] => {
 
 export const saveMediaItems = (items: MediaItem[]): void => {
   try {
-    localStorage.setItem(MEDIA_KEY, JSON.stringify(items));
+    const success = safeSetItem(MEDIA_KEY, JSON.stringify(items));
+    if (!success) {
+      throw new Error('Write verification failed for media items');
+    }
     window.dispatchEvent(new Event('media_updated'));
   } catch (e) {
     console.error('Error saving media items:', e);
@@ -726,11 +964,11 @@ export const addMediaItem = (item: MediaItem): void => {
   saveMediaItems(updated);
 
   // Sync to backend SQLite
-  fetch('/api/media', {
+  safeApiCall('/api/media', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(item)
-  }).catch(err => console.error('Error persisting media item to SQLite:', err));
+  });
 };
 
 export const deleteMediaItem = (id: string): void => {
@@ -739,9 +977,9 @@ export const deleteMediaItem = (id: string): void => {
   saveMediaItems(updated);
 
   // Sync to backend SQLite
-  fetch(`/api/media/${id}`, {
+  safeApiCall(`/api/media/${id}`, {
     method: 'DELETE'
-  }).catch(err => console.error('Error deleting media item from SQLite:', err));
+  });
 };
 
 
@@ -755,6 +993,18 @@ export const resetAllDynamicDataToDefault = (): void => {
     localStorage.removeItem(TESTIMONIALS_KEY);
     localStorage.removeItem(MEDIA_KEY);
 
+    // Validate that removal succeeded before triggering broadcasts
+    if (
+      localStorage.getItem(EVENTS_KEY) !== null ||
+      localStorage.getItem(GALLERY_KEY) !== null ||
+      localStorage.getItem(HOTELS_KEY) !== null ||
+      localStorage.getItem(PASSES_KEY) !== null ||
+      localStorage.getItem(TESTIMONIALS_KEY) !== null ||
+      localStorage.getItem(MEDIA_KEY) !== null
+    ) {
+      throw new Error('Verification failed: One or more localStorage keys were not deleted');
+    }
+
     window.dispatchEvent(new Event('events_updated'));
     window.dispatchEvent(new Event('gallery_updated'));
     window.dispatchEvent(new Event('hotels_updated'));
@@ -763,27 +1013,27 @@ export const resetAllDynamicDataToDefault = (): void => {
     window.dispatchEvent(new Event('media_updated'));
 
     // Trigger SQLite seed resets
-    fetch('/api/events', {
+    safeApiCall('/api/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(FESTIVAL_EVENTS)
     });
-    fetch('/api/gallery', {
+    safeApiCall('/api/gallery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(GALLERY_ITEMS)
     });
-    fetch('/api/hotels', {
+    safeApiCall('/api/hotels', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(FESTIVAL_HOTELS)
     });
-    fetch('/api/passes', {
+    safeApiCall('/api/passes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(FESTIVAL_PASSES)
     });
-    fetch('/api/testimonials', {
+    safeApiCall('/api/testimonials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(FESTIVAL_TESTIMONIALS)

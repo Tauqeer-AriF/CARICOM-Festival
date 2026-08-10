@@ -21,6 +21,7 @@ import { ContactView } from './views/ContactView';
 import { TermsView } from './views/TermsView';
 import { GalleryView } from './views/GalleryView';
 import { AdminDashboardView } from './views/AdminDashboardView';
+import { NotFoundView } from './views/NotFoundView';
 import { RegistrationModal } from './components/RegistrationModal';
 import { AnimatePresence } from 'motion/react';
 import { SplashScreen } from './components/SplashScreen';
@@ -31,6 +32,8 @@ const getTabFromUrl = (): ActiveTab => {
   const hash = window.location.hash.toLowerCase().replace(/^#+/, '');
   
   const current = path || hash;
+  if (!current) return 'home';
+  
   const config = getSiteConfig();
   const adminPath = (config.adminPath || 'admin').toLowerCase();
   
@@ -47,7 +50,7 @@ const getTabFromUrl = (): ActiveTab => {
   if (current === 'travel-insurance') return 'travel-insurance';
   if (current === 'contact') return 'contact';
   if (current === 'terms') return 'terms';
-  return 'home';
+  return 'not-found';
 };
 
 function hexToRgb(hex: string, fallback = '245, 158, 11'): string {
@@ -73,6 +76,19 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-mode');
+    } else {
+      document.documentElement.classList.remove('light-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const [events, setEvents] = useState(() => getEvents());
   const [galleryItems, setGalleryItems] = useState(() => getGalleryItems());
@@ -221,6 +237,7 @@ export default function App() {
       case 'testimonials': return 'Reveler Testimonials';
       case 'contact': return 'Mellows Concierge Helpdesk';
       case 'travel-insurance': return 'Travel Insurance & Peace of Mind';
+      case 'not-found': return 'Page Not Found';
       default: return 'Grenada CARICOM Festival 2027';
     }
   };
@@ -618,6 +635,8 @@ export default function App() {
         setCurrency={setCurrency}
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
+        theme={theme}
+        setTheme={setTheme}
       />
 
       {/* Main Container */}
@@ -675,6 +694,8 @@ export default function App() {
             {activeTab === 'contact' && <ContactView />}
 
             {activeTab === 'terms' && <TermsView setActiveTab={setActiveTab} />}
+
+            {activeTab === 'not-found' && <NotFoundView setActiveTab={setActiveTab} />}
           </>
         )}
       </main>

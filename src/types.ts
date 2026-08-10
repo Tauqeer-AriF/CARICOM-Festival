@@ -12,7 +12,8 @@ export type ActiveTab =
   | 'travel-insurance'
   | 'contact'
   | 'terms'
-  | 'admin';
+  | 'admin'
+  | 'not-found';
 
 export interface SubmissionReply {
   id: string;
@@ -43,6 +44,11 @@ export interface FormSubmissionItem {
   replies?: SubmissionReply[];
 }
 
+export interface HeroImageConfig {
+  url: string;
+  alt?: string;
+}
+
 export interface SiteConfig {
   socialLinks: {
     instagram: string;
@@ -64,10 +70,16 @@ export interface SiteConfig {
     text: string;
     bgColor: string;
   };
+  hero?: {
+    images: HeroImageConfig[];
+    displayCount: number;
+    autoplayInterval?: number; // rotation speed in seconds
+  };
   adminPath?: string;
   adminPassword?: string;
   contactEmail?: string;
   contactPhone?: string;
+  updatedAt?: string;
 }
 
 export interface GalleryItem {

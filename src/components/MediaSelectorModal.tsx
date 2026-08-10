@@ -41,6 +41,12 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
     if (isOpen) {
       setMedia(getMediaItems());
     }
+
+    const handleUpdate = () => loadMedia();
+    window.addEventListener('media_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('media_updated', handleUpdate);
+    };
   }, [isOpen]);
 
   const loadMedia = () => {
