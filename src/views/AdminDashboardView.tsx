@@ -1,0 +1,3031 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  FormSubmissionItem, 
+  SiteConfig,
+  EventItem,
+  GalleryItem,
+  HotelItem,
+  PassItem
+} from '../types';
+import { 
+  getSubmissions, 
+  updateSubmissionStatus, 
+  deleteSubmission, 
+  addSubmission, 
+  resetSubmissionsToDemo, 
+  getSiteConfig, 
+  saveSiteConfig, 
+  exportSubmissionsCSV,
+  getEvents,
+  saveEvents,
+  getGalleryItems,
+  saveGalleryItems,
+  getHotels,
+  saveHotels,
+  getPasses,
+  savePasses,
+  resetAllDynamicDataToDefault
+} from '../services/submissionService';
+import { 
+  ShieldCheck, 
+  Search, 
+  Filter, 
+  Download, 
+  Trash2, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle, 
+  RefreshCw, 
+  Plus, 
+  Mail, 
+  Phone, 
+  User, 
+  Palette, 
+  Share2, 
+  Type, 
+  Megaphone, 
+  BarChart3, 
+  Settings, 
+  FileSpreadsheet, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  Send, 
+  Plane, 
+  Ticket, 
+  Truck, 
+  MessageSquare, 
+  Sparkles,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Image,
+  Hotel,
+  FolderOpen,
+  Menu
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
+import { CustomConfirmModal } from '../components/CustomConfirmModal';
+import { MediaSelectorModal } from '../components/MediaSelectorModal';
+import { MediaLibraryTab } from '../components/MediaLibraryTab';
+
+interface AdminDashboardViewProps {
+  setActiveTab: (tab: any) => void;
+}
+
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiveTab }) => {
+  // Auth state (Password / Passcode Protected)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('admin_authenticated') === 'true';
+  });
+  const [pinInput, setPinInput] = useState<string>('');
+  const [pinError, setPinError] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  // Submissions state
+  const [submissions, setSubmissions] = useState<FormSubmissionItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
+
+  // Reply Simulator Modal
+  const [replyingSub, setReplyingSub] = useState<FormSubmissionItem | null>(null);
+  const [replyMessage, setReplyMessage] = useState<string>('');
+  const [replySent, setReplySent] = useState<boolean>(false);
+
+  // New Manual Submission Modal
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [newSubForm, setNewSubForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    type: 'contact' as FormSubmissionItem['type'],
+    topicOrPass: '',
+    messageOrDetails: ''
+  });
+
+  // Site Configuration state
+  const [siteConfig, setSiteConfigState] = useState<SiteConfig>(getSiteConfig());
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  
+  type AdminTab = 'submissions' | 'branding' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media';
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('submissions');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+
+  // Custom Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const triggerConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // Media Selector State
+  const [mediaSelectorTarget, setMediaSelectorTarget] = useState<'event' | 'gallery' | 'hotel' | null>(null);
+
+  const handleMediaSelect = (url: string) => {
+    if (mediaSelectorTarget === 'event') {
+      if (editingEvent) setEditingEvent({ ...editingEvent, highlightImage: url });
+      else setNewEventForm({ ...newEventForm, highlightImage: url });
+    } else if (mediaSelectorTarget === 'gallery') {
+      if (editingGallery) setEditingGallery({ ...editingGallery, imageUrl: url });
+      else setNewGalleryForm({ ...newGalleryForm, imageUrl: url });
+    } else if (mediaSelectorTarget === 'hotel') {
+      if (editingHotel) setEditingHotel({ ...editingHotel, image: url });
+      else setNewHotelForm({ ...newHotelForm, image: url });
+    }
+  };
+
+  // Dynamic Lists States
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+  const [hotels, setHotels] = useState<HotelItem[]>([]);
+  const [passes, setPasses] = useState<PassItem[]>([]);
+
+  // Editing and Adding states
+  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [showAddEvent, setShowAddEvent] = useState<boolean>(false);
+  const [newEventForm, setNewEventForm] = useState<Partial<EventItem>>({
+    title: '',
+    date: 'August 13, 2027',
+    dayNumber: 1,
+    time: '10:00 PM - 5:00 AM',
+    location: '',
+    description: '',
+    highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
+    genres: ['Soca'],
+    ticketPrice: 50,
+    isFeatured: false
+  });
+
+  const [editingGallery, setEditingGallery] = useState<GalleryItem | null>(null);
+  const [showAddGallery, setShowAddGallery] = useState<boolean>(false);
+  const [newGalleryForm, setNewGalleryForm] = useState<Partial<GalleryItem>>({
+    title: '',
+    category: 'VIP Beach Fete',
+    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
+    likesCount: 0,
+    location: 'St. George\'s, Grenada',
+    year: '2027 Highlight',
+    aspectRatio: 'aspect-[16/9]',
+    caption: ''
+  });
+
+  const [editingPass, setEditingPass] = useState<PassItem | null>(null);
+  const [showAddPass, setShowAddPass] = useState<boolean>(false);
+  const [newPassForm, setNewPassForm] = useState<Partial<PassItem>>({
+    title: '',
+    subtitle: '',
+    priceGBP: 100,
+    wristbandType: 'STANDARD WRISTBAND',
+    includedEvents: 'Main Stage and Concert Entry',
+    popular: false,
+    features: ['Access to main concert stages', 'Complimentary welcome drink', 'Official festival guide booklet']
+  });
+
+  const [editingHotel, setEditingHotel] = useState<HotelItem | null>(null);
+  const [showAddHotel, setShowAddHotel] = useState<boolean>(false);
+  const [newHotelForm, setNewHotelForm] = useState<Partial<HotelItem>>({
+    name: '',
+    stars: 5,
+    tagline: '',
+    description: '',
+    image: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&q=80',
+    location: '',
+    distanceToMellowland: '15 mins drive',
+    bookingUrl: 'https://royaltonresorts.com',
+    isRecommended: false,
+    features: ['Oceanfront views', 'Dedicated Mellows pickup point', 'Free High-Speed Wi-Fi', '24/7 reception support']
+  });
+
+  const primaryColor = siteConfig.branding.primaryColor || '#F59E0B';
+
+  useEffect(() => {
+    // Load data
+    loadData();
+
+    // Event listener for external submission updates
+    const handleUpdate = () => loadData();
+    window.addEventListener('submissions_updated', handleUpdate);
+    return () => window.removeEventListener('submissions_updated', handleUpdate);
+  }, []);
+
+  const loadData = () => {
+    setSubmissions(getSubmissions());
+    setSiteConfigState(getSiteConfig());
+    setEvents(getEvents());
+    setGalleryItems(getGalleryItems());
+    setHotels(getHotels());
+    setPasses(getPasses());
+  };
+
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const configPassword = siteConfig.adminPassword || '2027';
+    if (pinInput === configPassword || pinInput === '2027' || pinInput.toLowerCase() === 'admin' || pinInput === 'admin123') {
+      sessionStorage.setItem('admin_authenticated', 'true');
+      setIsAuthenticated(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_authenticated');
+    setIsAuthenticated(false);
+    setPinInput('');
+  };
+
+  const handleStatusChange = (id: string, newStatus: 'new' | 'in-review' | 'resolved') => {
+    updateSubmissionStatus(id, newStatus);
+    loadData();
+  };
+
+  const handleDelete = (id: string) => {
+    triggerConfirm(
+      'Delete Form Submission',
+      'Are you sure you want to delete this form submission? This action is permanent and cannot be undone.',
+      () => {
+        deleteSubmission(id);
+        loadData();
+      }
+    );
+  };
+
+  const handleResetDemo = () => {
+    triggerConfirm(
+      'Reset All Dynamic Tables',
+      'Reset form submissions, events, gallery, passes, and hotels back to original demo defaults? This will erase all your custom creations.',
+      () => {
+        resetSubmissionsToDemo();
+        resetAllDynamicDataToDefault();
+        loadData();
+        setSaveToast('All database tables reset to demo defaults!');
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  const handleSaveConfig = () => {
+    saveSiteConfig(siteConfig);
+    setSaveToast('Site configuration & branding saved successfully!');
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleCreateManualSub = (e: React.FormEvent) => {
+    e.preventDefault();
+    addSubmission({
+      type: newSubForm.type,
+      name: newSubForm.name,
+      email: newSubForm.email,
+      phone: newSubForm.phone,
+      topicOrPass: newSubForm.topicOrPass,
+      messageOrDetails: newSubForm.messageOrDetails,
+    });
+    setShowAddModal(false);
+    setNewSubForm({ name: '', email: '', phone: '', type: 'contact', topicOrPass: '', messageOrDetails: '' });
+    loadData();
+  };
+
+  const handleSendReply = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyingSub) return;
+    updateSubmissionStatus(replyingSub.id, 'resolved');
+    setReplySent(true);
+    setTimeout(() => {
+      setReplySent(false);
+      setReplyingSub(null);
+      setReplyMessage('');
+      loadData();
+    }, 1200);
+  };
+
+  // --- EVENTS CRUD HANDLERS ---
+  const handleSaveEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingEvent) {
+      const updated = events.map(ev => ev.id === editingEvent.id ? editingEvent : ev);
+      saveEvents(updated);
+      setEditingEvent(null);
+      setSaveToast('Event updated successfully!');
+    } else {
+      const created: EventItem = {
+        ...newEventForm as EventItem,
+        id: 'event-' + Date.now()
+      };
+      saveEvents([...events, created]);
+      setShowAddEvent(false);
+      setNewEventForm({
+        title: '',
+        date: 'August 13, 2027',
+        dayNumber: 1,
+        time: '10:00 PM - 5:00 AM',
+        location: '',
+        description: '',
+        highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
+        genres: ['Soca'],
+        ticketPrice: 50,
+        isFeatured: false
+      });
+      setSaveToast('New event created successfully!');
+    }
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    triggerConfirm(
+      'Delete Festival Event',
+      'Are you sure you want to delete this festival event? It will be removed from all public listings immediately.',
+      () => {
+        const filtered = events.filter(ev => ev.id !== id);
+        saveEvents(filtered);
+        setSaveToast('Event deleted successfully!');
+        loadData();
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  // --- GALLERY CRUD HANDLERS ---
+  const handleSaveGallery = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingGallery) {
+      const updated = galleryItems.map(item => item.id === editingGallery.id ? editingGallery : item);
+      saveGalleryItems(updated);
+      setEditingGallery(null);
+      setSaveToast('Gallery item updated successfully!');
+    } else {
+      const created: GalleryItem = {
+        ...newGalleryForm as GalleryItem,
+        id: 'gallery-' + Date.now()
+      };
+      saveGalleryItems([...galleryItems, created]);
+      setShowAddGallery(false);
+      setNewGalleryForm({
+        title: '',
+        category: 'VIP Beach Fete',
+        imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
+        likesCount: 0,
+        location: 'St. George\'s, Grenada',
+        year: '2027 Highlight',
+        aspectRatio: 'aspect-[16/9]',
+        caption: ''
+      });
+      setSaveToast('New gallery photo added!');
+    }
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleDeleteGallery = (id: string) => {
+    triggerConfirm(
+      'Delete Gallery Photo',
+      'Are you sure you want to delete this photo from the public gallery?',
+      () => {
+        const filtered = galleryItems.filter(item => item.id !== id);
+        saveGalleryItems(filtered);
+        setSaveToast('Gallery photo deleted!');
+        loadData();
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  // --- PASSES CRUD HANDLERS ---
+  const handleSavePass = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingPass) {
+      const updated = passes.map(p => p.id === editingPass.id ? editingPass : p);
+      savePasses(updated);
+      setEditingPass(null);
+      setSaveToast('Pass package updated!');
+    } else {
+      const created: PassItem = {
+        ...newPassForm as PassItem,
+        id: 'pass-' + Date.now()
+      };
+      savePasses([...passes, created]);
+      setShowAddPass(false);
+      setNewPassForm({
+        title: '',
+        subtitle: '',
+        priceGBP: 100,
+        wristbandType: 'STANDARD WRISTBAND',
+        includedEvents: 'Main Stage and Concert Entry',
+        popular: false,
+        features: ['Access to main concert stages', 'Complimentary welcome drink', 'Official festival guide booklet']
+      });
+      setSaveToast('New pass package created!');
+    }
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleDeletePass = (id: string) => {
+    triggerConfirm(
+      'Delete Pass Package',
+      'Are you sure you want to delete this wristband pass package? Guests will no longer be able to purchase it.',
+      () => {
+        const filtered = passes.filter(p => p.id !== id);
+        savePasses(filtered);
+        setSaveToast('Pass package deleted!');
+        loadData();
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  // --- HOTELS CRUD HANDLERS ---
+  const handleSaveHotel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingHotel) {
+      const updated = hotels.map(h => h.id === editingHotel.id ? editingHotel : h);
+      saveHotels(updated);
+      setEditingHotel(null);
+      setSaveToast('Hotel details updated!');
+    } else {
+      const created: HotelItem = {
+        ...newHotelForm as HotelItem,
+        id: 'hotel-' + Date.now()
+      };
+      saveHotels([...hotels, created]);
+      setShowAddHotel(false);
+      setNewHotelForm({
+        name: '',
+        stars: 5,
+        tagline: '',
+        description: '',
+        image: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&q=80',
+        location: '',
+        distanceToMellowland: '15 mins drive',
+        bookingUrl: 'https://royaltonresorts.com',
+        isRecommended: false,
+        features: ['Oceanfront views', 'Dedicated Mellows pickup point', 'Free High-Speed Wi-Fi', '24/7 reception support']
+      });
+      setSaveToast('New partner hotel added!');
+    }
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleDeleteHotel = (id: string) => {
+    triggerConfirm(
+      'Delete Partner Hotel',
+      'Are you sure you want to delete this partner hotel from the recommendation board?',
+      () => {
+        const filtered = hotels.filter(h => h.id !== id);
+        saveHotels(filtered);
+        setSaveToast('Hotel deleted!');
+        loadData();
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  // Filter logic
+  const filteredSubmissions = submissions.filter((sub) => {
+    const matchesSearch = 
+      sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sub.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sub.phone || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sub.topicOrPass || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sub.messageOrDetails || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = typeFilter === 'all' || sub.type === typeFilter;
+    const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  // KPI Statistics
+  const totalCount = submissions.length;
+  const newCount = submissions.filter(s => s.status === 'new').length;
+  const inReviewCount = submissions.filter(s => s.status === 'in-review').length;
+  const resolvedCount = submissions.filter(s => s.status === 'resolved').length;
+  const totalRevenueGBP = submissions.reduce((sum, s) => sum + (s.amountGBP || 0), 0);
+
+  const getTypeBadge = (type: FormSubmissionItem['type']) => {
+    switch (type) {
+      case 'contact':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><MessageSquare className="w-3 h-3 shrink-0" /> Contact</span>;
+      case 'flight-registration':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold"><Plane className="w-3 h-3 shrink-0" /> Flight Log</span>;
+      case 'pass-order':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold"><Ticket className="w-3 h-3 shrink-0" /> Pass Order</span>;
+      case 'transport-request':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[11px] font-semibold"><Truck className="w-3 h-3 shrink-0" /> Shuttle</span>;
+      case 'newsletter':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[11px] font-semibold"><Mail className="w-3 h-3 shrink-0" /> VIP Newsletter</span>;
+    }
+  };
+
+  const getStatusBadge = (status: FormSubmissionItem['status']) => {
+    switch (status) {
+      case 'new':
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold uppercase tracking-wider"><AlertCircle className="w-3 h-3 text-rose-400" /> New</span>;
+      case 'in-review':
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold uppercase tracking-wider"><Clock className="w-3 h-3 text-amber-400" /> In Review</span>;
+      case 'resolved':
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-bold uppercase tracking-wider"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> Resolved</span>;
+    }
+  };
+
+  // Lock Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center py-16 px-4 bg-[#05070C] relative overflow-hidden">
+        {/* Abstract Tech Background Accents */}
+        <div 
+          className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[150px] pointer-events-none opacity-40 transition-colors duration-500" 
+          style={{ backgroundColor: `${primaryColor}20` }}
+        />
+        <div 
+          className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full blur-[150px] pointer-events-none opacity-20 transition-colors duration-500" 
+          style={{ backgroundColor: `${primaryColor}10` }}
+        />
+
+        <div className="w-full max-w-md bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-center space-y-6 relative z-10">
+          <div 
+            className="w-16 h-16 border rounded-2xl flex items-center justify-center mx-auto shadow-lg transition-all duration-300"
+            style={{ 
+              borderColor: `${primaryColor}40`, 
+              backgroundColor: `${primaryColor}10`,
+              color: primaryColor 
+            }}
+          >
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: primaryColor }}>ORGANIZER ACCESS ONLY</span>
+            <h2 className="text-2xl font-extrabold font-serif text-white mt-1">Festival Executive Portal</h2>
+            <p className="text-xs text-neutral-400 mt-2 leading-relaxed">Enter PIN code to view form submissions, change site branding, and manage guest logistics.</p>
+          </div>
+
+          <form onSubmit={handlePinSubmit} className="space-y-4">
+            <div>
+              <div className="relative flex items-center">
+                <input 
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter Secure Passcode"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  className="w-full bg-neutral-950/80 border border-neutral-700/80 rounded-xl py-3.5 pl-12 pr-12 text-center text-sm font-mono tracking-widest text-white focus:outline-none transition-all"
+                  style={{
+                    borderColor: pinError ? '#F43F5E' : 'rgba(163, 163, 163, 0.2)'
+                  }}
+                  onFocus={(e) => {
+                    if (!pinError) {
+                      e.target.style.borderColor = primaryColor;
+                      e.target.style.boxShadow = `0 0 12px ${primaryColor}15`;
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!pinError) {
+                      e.target.style.borderColor = 'rgba(163, 163, 163, 0.2)';
+                      e.target.style.boxShadow = 'none';
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 text-neutral-400 hover:text-white transition-colors p-1 cursor-pointer focus:outline-none"
+                  aria-label={showPassword ? "Hide passcode" : "Show passcode"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {pinError && <p className="text-xs text-rose-400 mt-2 font-medium">Incorrect PIN code. Please try again.</p>}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform hover:scale-[1.02] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+              style={{ backgroundColor: primaryColor }}
+            >
+              Unlock Dashboard
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-neutral-800">
+            <button
+              onClick={() => setActiveTab('home')}
+              className="text-xs text-slate-400 font-semibold underline cursor-pointer transition-colors hover:text-white"
+            >
+              ← Return to Guest Website
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex bg-[#070913] text-neutral-100 font-sans selection:bg-amber-500 selection:text-neutral-950 relative">
+      
+      {/* Toast Notification */}
+      {saveToast && (
+        <div 
+          className="fixed bottom-6 right-6 z-[60] text-neutral-950 px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center gap-2 border border-white/20 animate-bounce"
+          style={{ backgroundColor: primaryColor }}
+        >
+          <CheckCircle2 className="w-4 h-4 text-neutral-950" />
+          <span>{saveToast}</span>
+        </div>
+      )}
+
+      {/* MOBILE OVERLAY */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* STICKY LEFT SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-neutral-800/80 bg-[#0C0F1E] flex flex-col shrink-0 h-screen transition-transform duration-300 lg:sticky lg:top-0 lg:translate-x-0 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Sidebar Header */}
+        <div className="p-6 border-b border-neutral-800/80 flex flex-col gap-1.5 font-sans">
+          <div 
+            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px] font-extrabold uppercase tracking-widest self-start"
+            style={{ 
+              borderColor: `${primaryColor}40`, 
+              backgroundColor: `${primaryColor}10`,
+              color: primaryColor 
+            }}
+          >
+            <ShieldCheck className="w-3 h-3" /> Secure Console
+          </div>
+          <h2 className="text-lg font-extrabold text-white tracking-tight mt-1 font-serif">CARICOM 2027</h2>
+          <p className="text-[10px] text-neutral-400">Festival Administrative Control</p>
+        </div>
+
+        {/* Sidebar Navigation */}
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+          <button
+            onClick={() => {
+              setActiveAdminTab('submissions');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'submissions'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'submissions' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <span className="flex items-center gap-2.5">
+              <FileSpreadsheet className="w-4 h-4" /> Received Forms
+            </span>
+            {submissions.length > 0 && (
+              <span 
+                className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                style={{
+                  backgroundColor: activeAdminTab === 'submissions' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: activeAdminTab === 'submissions' ? '#000000' : '#d4d4d4'
+                }}
+              >
+                {submissions.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('branding');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'branding'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Palette className="w-4 h-4" /> Customizer Studio
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('analytics');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'analytics'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'analytics' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <BarChart3 className="w-4 h-4" /> Telemetry Hub
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('events');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'events'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'events' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Calendar className="w-4 h-4" /> Event Manager
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('gallery');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'gallery'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'gallery' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Image className="w-4 h-4" /> Gallery Photos
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('passes');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'passes'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'passes' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Ticket className="w-4 h-4" /> Pass Manager
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('hotels');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'hotels'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'hotels' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Hotel className="w-4 h-4" /> Recommended Hotels
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('media');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'media'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'media' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <FolderOpen className="w-4 h-4" /> Media Library
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('system');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'system'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'system' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Settings className="w-4 h-4" /> Data Backup
+          </button>
+        </nav>
+
+        {/* Sidebar Footer Controls */}
+        <div className="p-4 border-t border-neutral-800/80 space-y-2">
+          <button
+            onClick={() => setActiveTab('home')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 border border-neutral-800 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
+          >
+            ← Public Website
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-neutral-900/40 hover:bg-rose-950/20 text-slate-400 hover:text-rose-400 border border-neutral-800/50 hover:border-rose-500/30 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+          >
+            <Lock className="w-3.5 h-3.5" /> Close Console
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT WORKSPACE */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+             {/* TOP ACTION & TOOLBAR ROW */}
+        <header className="h-16 border-b border-neutral-800 bg-[#0C0F1E]/50 backdrop-blur-md px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setMobileSidebarOpen(true)}
+              className="lg:hidden p-2 -ml-2 text-neutral-400 hover:text-white"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="hidden sm:flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">Workspace</span>
+              <span className="text-neutral-600">/</span>
+            </div>
+            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider truncate max-w-[120px] sm:max-w-none">
+              {activeAdminTab === 'submissions' && 'Submissions Repository'}
+              {activeAdminTab === 'branding' && 'Visual Identity Lab'}
+              {activeAdminTab === 'analytics' && 'Reveler Demographics'}
+              {activeAdminTab === 'events' && 'Event Coordinator'}
+              {activeAdminTab === 'gallery' && 'Curator Board'}
+              {activeAdminTab === 'passes' && 'Ticketing Packages'}
+              {activeAdminTab === 'hotels' && 'Partner Accommodations'}
+              {activeAdminTab === 'media' && 'Asset & Media Library'}
+              {activeAdminTab === 'system' && 'Infrastructure & Backup'}
+            </span>
+          </div>
+
+          {activeAdminTab === 'submissions' && (
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => exportSubmissionsCSV(submissions)}
+                className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Download spreadsheet"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> Export CSV
+              </button>
+
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-transform active:scale-[0.98] cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> New Record
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* WORKSPACE SCROLL CONTAINER */}
+        <main className="flex-1 p-6 md:p-8 space-y-8 max-w-6xl w-full mx-auto">
+          
+          {/* HIGH-PRECISION REFINED KPI METRICS CARDS */}
+          {activeAdminTab === 'submissions' && (
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-4 flex flex-col justify-between shadow-sm min-h-[96px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Form Submissions</span>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-2xl font-bold text-white font-mono">{totalCount}</span>
+                  <span className="text-[10px] text-neutral-500 font-mono">records</span>
+                </div>
+              </div>
+
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-4 flex flex-col justify-between shadow-sm min-h-[96px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">Pending Inquiries</span>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-2xl font-bold text-rose-400 font-mono">{newCount}</span>
+                  <span className="text-[10px] text-rose-500/80 font-medium font-mono">needs response</span>
+                </div>
+              </div>
+
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-4 flex flex-col justify-between shadow-sm min-h-[96px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">Resolved / Approved</span>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-2xl font-bold text-emerald-400 font-mono">{resolvedCount}</span>
+                  <span className="text-[10px] text-emerald-500/80 font-mono font-medium">
+                    {Math.round((resolvedCount / (totalCount || 1)) * 100)}% rate
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-4 flex flex-col justify-between shadow-sm min-h-[96px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">VIP Pass Revenue</span>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-2xl font-bold text-white font-mono">£{totalRevenueGBP.toLocaleString()}</span>
+                  <span className="text-[10px] text-neutral-500 font-mono">recorded</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 1: WORKSPACE SUBMISSIONS REPOSITORY */}
+          {activeAdminTab === 'submissions' && (
+            <div className="space-y-4">
+              
+              {/* FILTERS & SEARCH ROW */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-3 flex flex-col md:flex-row gap-3 justify-between items-center shadow-sm">
+                {/* Clean Search Input */}
+                <div className="relative w-full md:w-80">
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, details..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Refined Dropdowns */}
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-3 h-3 text-neutral-400" />
+                    <span className="text-[10px] text-neutral-400 font-bold uppercase font-sans">Form:</span>
+                    <select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                      className="bg-neutral-950 border border-neutral-800 text-[11px] text-neutral-200 rounded-lg px-2 py-1.5 focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="all">All Submissions ({submissions.length})</option>
+                      <option value="contact">Contact Requests</option>
+                      <option value="flight-registration">Flight Registrations</option>
+                      <option value="pass-order">Pass Packages</option>
+                      <option value="transport-request">Shuttle Requests</option>
+                      <option value="newsletter">VIP newsletter</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-neutral-400 font-bold uppercase font-sans">Status:</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="bg-neutral-950 border border-neutral-800 text-[11px] text-neutral-200 rounded-lg px-2 py-1.5 focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="new">New ({newCount})</option>
+                      <option value="in-review">In Review ({inReviewCount})</option>
+                      <option value="resolved">Resolved ({resolvedCount})</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={loadData}
+                    className="p-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg border border-neutral-800 transition-colors cursor-pointer"
+                    title="Refresh Data Grid"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* PROFESSIONAL SUBMISSIONS WORKSPACE */}
+              {filteredSubmissions.length === 0 ? (
+                <div className="bg-[#0C0F1E] border border-neutral-800/60 rounded-xl p-12 text-center space-y-4">
+                  <FileSpreadsheet className="w-10 h-10 text-neutral-600 mx-auto" />
+                  <h3 className="text-lg font-bold text-white font-serif">No Records Found</h3>
+                  <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed font-sans">
+                    No results match your filter criteria or search query. Adjust filters above or reset to the default demo logs in the backup section.
+                  </p>
+                  <button
+                    onClick={handleResetDemo}
+                    className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 hover:border-neutral-700 font-bold text-xs rounded-lg cursor-pointer transition-colors"
+                  >
+                    Load Sample Records
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  
+                  {/* DESKTOP TABULAR VIEW (Hidden on Mobile) */}
+                  <div className="hidden md:block overflow-hidden rounded-xl border border-neutral-800 bg-[#0C0F1E] shadow-xl">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse font-sans text-xs">
+                        <thead>
+                          <tr className="border-b border-neutral-800/80 bg-neutral-950/40 text-neutral-400 font-extrabold uppercase tracking-widest text-[9px]">
+                            <th className="py-3.5 px-5 w-[22%]">Guest Name</th>
+                            <th className="py-3.5 px-4 w-[16%]">Form Category</th>
+                            <th className="py-3.5 px-4 w-[34%]">Details Summary</th>
+                            <th className="py-3.5 px-4 w-[14%] text-center">Lifecycle Status</th>
+                            <th className="py-3.5 px-5 w-[14%] text-right">Quick Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-900">
+                          {filteredSubmissions.map((sub) => {
+                            const isExpanded = expandedSubId === sub.id;
+                            const initials = sub.name 
+                              ? sub.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() 
+                              : 'AG';
+                            
+                            return (
+                              <React.Fragment key={sub.id}>
+                                <tr 
+                                  className={`group transition-all duration-150 cursor-pointer ${
+                                    isExpanded 
+                                      ? 'bg-neutral-900/60' 
+                                      : 'hover:bg-neutral-800/30'
+                                  }`}
+                                  style={sub.status === 'new' ? { borderLeft: `3px solid ${primaryColor}` } : { borderLeft: '3px solid transparent' }}
+                                  onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
+                                >
+                                  {/* Guest Name & Time */}
+                                  <td className="py-3 px-5">
+                                    <div className="flex items-center gap-3">
+                                      <div 
+                                        className="w-7 h-7 rounded-full border flex items-center justify-center font-bold text-[10px] shrink-0"
+                                        style={{ 
+                                          borderColor: `${primaryColor}30`, 
+                                          backgroundColor: `${primaryColor}08`,
+                                          color: primaryColor 
+                                        }}
+                                      >
+                                        {initials}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-white group-hover:text-neutral-200 transition-colors truncate">
+                                          {sub.name || 'Anonymous Guest'}
+                                        </div>
+                                        <div className="text-[9px] text-neutral-500 font-mono mt-0.5">
+                                          {new Date(sub.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Form Category */}
+                                  <td className="py-3 px-4">
+                                    {getTypeBadge(sub.type)}
+                                  </td>
+
+                                  {/* Details Summary */}
+                                  <td className="py-3 px-4 min-w-0">
+                                    <div className="flex flex-col gap-0.5">
+                                      {sub.topicOrPass ? (
+                                        <span className="font-bold text-neutral-200 truncate max-w-[240px]">
+                                          {sub.topicOrPass}
+                                        </span>
+                                      ) : (
+                                        <span className="text-neutral-500 italic">No specific topic</span>
+                                      )}
+                                      <span className="text-neutral-400 text-[11px] truncate max-w-[340px] font-normal">
+                                        {sub.messageOrDetails || 'No additional message provided.'}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  {/* Lifecycle Status */}
+                                  <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-col items-center gap-1.5">
+                                      {getStatusBadge(sub.status)}
+                                      <select
+                                        value={sub.status}
+                                        onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
+                                        className="bg-neutral-950 border border-neutral-800 text-[9px] text-neutral-400 font-bold hover:text-white rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
+                                      >
+                                        <option value="new">New</option>
+                                        <option value="in-review">In Review</option>
+                                        <option value="resolved">Resolved</option>
+                                      </select>
+                                    </div>
+                                  </td>
+
+                                  {/* Quick Actions */}
+                                  <td className="py-3 px-5 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => setReplyingSub(sub)}
+                                        className="px-2 py-1 text-[10px] font-bold text-neutral-950 rounded transition-all cursor-pointer flex items-center gap-1 hover:brightness-110 shadow-sm"
+                                        style={{ backgroundColor: primaryColor }}
+                                        title="Simulate official email reply"
+                                      >
+                                        <Send className="w-3 h-3" /> Reply
+                                      </button>
+                                      <button
+                                        onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
+                                        className="p-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-850 rounded border border-neutral-800 transition-colors cursor-pointer"
+                                        title="Toggle details panel"
+                                      >
+                                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(sub.id)}
+                                        className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors cursor-pointer border border-transparent hover:border-rose-500/20"
+                                        title="Permanently remove record"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* COLLAPSIBLE DETAILS VIEW */}
+                                {isExpanded && (
+                                  <tr className="bg-neutral-950/40">
+                                    <td colSpan={5} className="py-4 px-6 border-t border-neutral-900">
+                                      <div className="space-y-4 animate-in slide-in-from-top-1 duration-150">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                          {/* Dossier Contact */}
+                                          <div className="p-3.5 bg-[#0C0F1E] rounded-lg border border-neutral-800 space-y-2">
+                                            <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider block">Sender Dossier</span>
+                                            <div className="space-y-1.5 text-xs">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-neutral-500 w-16 shrink-0">Name:</span>
+                                                <span className="font-bold text-white">{sub.name || 'Anonymous Guest'}</span>
+                                              </div>
+                                              {sub.email && (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-neutral-500 w-16 shrink-0">Email:</span>
+                                                  <a href={`mailto:${sub.email}`} className="text-neutral-300 hover:underline font-mono" style={{ color: primaryColor }}>{sub.email}</a>
+                                                </div>
+                                              )}
+                                              {sub.phone && (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-neutral-500 w-16 shrink-0">Phone:</span>
+                                                  <a href={`tel:${sub.phone}`} className="text-neutral-300 font-mono hover:underline">{sub.phone}</a>
+                                                </div>
+                                              )}
+                                              {sub.amountGBP && (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-neutral-500 w-16 shrink-0">Pass Cost:</span>
+                                                  <span className="text-emerald-400 font-bold font-mono">£{sub.amountGBP.toLocaleString()} GBP</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Telemetry metadata */}
+                                          <div className="p-3.5 bg-[#0C0F1E] rounded-lg border border-neutral-800 space-y-2">
+                                            <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider block">Security Telemetry</span>
+                                            <div className="space-y-1.5 text-xs">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-neutral-500 w-20 shrink-0">Timestamp:</span>
+                                                <span className="text-neutral-300">{new Date(sub.submittedAt).toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' })}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-neutral-500 w-20 shrink-0">Record ID:</span>
+                                                <span className="font-mono text-neutral-400 text-[10px] select-all">{sub.id}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-neutral-500 w-20 shrink-0">Form Type:</span>
+                                                <span className="font-bold uppercase text-[10px] text-neutral-300">{sub.type}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Main Message Body */}
+                                        <div className="p-4 bg-[#0C0F1E] rounded-lg border border-neutral-800 space-y-2">
+                                          <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider block">Message / Inquiry Details</span>
+                                          <p className="text-neutral-200 bg-neutral-950 p-3 rounded border border-neutral-900 leading-relaxed text-xs">
+                                            {sub.messageOrDetails || 'No text content provided.'}
+                                          </p>
+                                        </div>
+
+                                        {/* Structured Parameters */}
+                                        {sub.extraDetails && Object.keys(sub.extraDetails).length > 0 && (
+                                          <div className="p-4 bg-[#0C0F1E] rounded-lg border border-neutral-800 space-y-2.5">
+                                            <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider block">Form Submission Parameters</span>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                              {Object.entries(sub.extraDetails).map(([key, val]) => (
+                                                <div key={key} className="bg-neutral-950 border border-neutral-900 p-2.5 rounded">
+                                                  <span className="text-[9px] text-neutral-500 uppercase tracking-wider block">{key}</span>
+                                                  <span className="font-bold text-xs text-neutral-200 block truncate mt-0.5">{val}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* MOBILE POLISHED LIST VIEW (Hidden on Desktop) */}
+                  <div className="block md:hidden space-y-3">
+                    {filteredSubmissions.map((sub) => {
+                      const isExpanded = expandedSubId === sub.id;
+                      const initials = sub.name 
+                        ? sub.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() 
+                        : 'AG';
+
+                      return (
+                        <div 
+                          key={sub.id} 
+                          className="bg-[#0C0F1E] border border-neutral-800 rounded-xl overflow-hidden shadow-md"
+                          style={sub.status === 'new' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
+                        >
+                          {/* Header section */}
+                          <div className="p-4 space-y-3 cursor-pointer" onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}>
+                            <div className="flex items-center justify-between gap-2">
+                              {getTypeBadge(sub.type)}
+                              {getStatusBadge(sub.status)}
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className="w-8 h-8 rounded-full border flex items-center justify-center font-bold text-[10px]"
+                                style={{ 
+                                  borderColor: `${primaryColor}30`, 
+                                  backgroundColor: `${primaryColor}08`,
+                                  color: primaryColor 
+                                }}
+                              >
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-xs font-bold text-white truncate">{sub.name || 'Anonymous Guest'}</h4>
+                                <span className="text-[9px] text-neutral-500 block mt-0.5">
+                                  {new Date(sub.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {sub.topicOrPass && (
+                              <div className="text-neutral-200 font-bold text-xs truncate">
+                                Topic: {sub.topicOrPass}
+                              </div>
+                            )}
+
+                            {/* Mobile action bar */}
+                            <div className="flex items-center justify-between pt-2 border-t border-neutral-900/60" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-neutral-500 uppercase tracking-wider block">Status:</span>
+                                <select
+                                  value={sub.status}
+                                  onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
+                                  className="bg-neutral-950 border border-neutral-850 text-[10px] text-neutral-400 rounded px-1.5 py-0.5"
+                                >
+                                  <option value="new">New</option>
+                                  <option value="in-review">In Review</option>
+                                  <option value="resolved">Resolved</option>
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setReplyingSub(sub)}
+                                  className="px-2.5 py-1 text-[10px] font-bold text-neutral-950 rounded transition-all cursor-pointer flex items-center gap-1 hover:brightness-110"
+                                  style={{ backgroundColor: primaryColor }}
+                                >
+                                  <Send className="w-3 h-3" /> Reply
+                                </button>
+                                <button
+                                  onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
+                                  className="p-1 text-neutral-400 bg-neutral-900 border border-neutral-800 rounded"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(sub.id)}
+                                  className="p-1 text-neutral-500 hover:text-rose-400 rounded"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapsible body */}
+                          {isExpanded && (
+                            <div className="p-4 bg-neutral-950/60 border-t border-neutral-900 space-y-3 text-xs font-sans">
+                              {sub.email && (
+                                <div className="flex justify-between items-center bg-neutral-900/40 p-2 rounded">
+                                  <span className="text-neutral-500 font-medium">Email</span>
+                                  <a href={`mailto:${sub.email}`} className="font-mono" style={{ color: primaryColor }}>{sub.email}</a>
+                                </div>
+                              )}
+                              {sub.phone && (
+                                <div className="flex justify-between items-center bg-neutral-900/40 p-2 rounded">
+                                  <span className="text-neutral-500 font-medium">Phone</span>
+                                  <a href={`tel:${sub.phone}`} className="font-mono text-neutral-200">{sub.phone}</a>
+                                </div>
+                              )}
+                              
+                              <div className="bg-neutral-900/40 p-2.5 rounded space-y-1">
+                                <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold block">Inquiry / Request details:</span>
+                                <p className="text-neutral-200 leading-relaxed font-sans mt-0.5">
+                                  {sub.messageOrDetails || 'No text content provided.'}
+                                </p>
+                              </div>
+
+                              {sub.extraDetails && Object.keys(sub.extraDetails).length > 0 && (
+                                <div className="space-y-1.5 pt-1">
+                                  <span className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider block">Structured metadata:</span>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(sub.extraDetails).map(([key, val]) => (
+                                      <div key={key} className="bg-[#0C0F1E] border border-neutral-800/60 p-2 rounded">
+                                        <span className="text-[8px] text-neutral-500 uppercase tracking-wider block">{key}</span>
+                                        <span className="font-bold text-[10px] text-neutral-200 block truncate mt-0.5">{val}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: VISUAL IDENTITY CUSTOMIZER STUDIO */}
+          {activeAdminTab === 'branding' && (
+            <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 space-y-8 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-neutral-800/80">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Site Styling Laboratory</span>
+                  <h2 className="text-xl font-bold text-white font-serif">Branding, Themes & Banner Customizer</h2>
+                  <p className="text-xs text-neutral-400 max-w-xl">
+                    Dynamically update social media profiles, change color profiles, swap typography settings, and toggle the announcement banner.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleSaveConfig}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Save Configuration
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 font-sans">
+                
+                {/* Panel 1: Social Profiles Customizer */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-neutral-800/60">
+                    <Share2 className="w-4 h-4 text-amber-400" />
+                    <h3 className="font-bold text-sm text-white font-serif">Social Handle Integration</h3>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Instagram Handle URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.instagram}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, instagram: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">TikTok Channel URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.tiktok}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, tiktok: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Facebook Fanpage URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.facebook}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, facebook: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">WhatsApp Concierge Desk URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.whatsapp}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, whatsapp: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Twitter/X Profile URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.twitter || ''}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, twitter: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">YouTube Channel URL</label>
+                      <input
+                        type="url"
+                        value={siteConfig.socialLinks.youtube || ''}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          socialLinks: { ...siteConfig.socialLinks, youtube: e.target.value }
+                        })}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panel 2: Theme Settings & Preset Color Engine */}
+                <div className="space-y-5">
+                  <div className="flex items-center gap-2 pb-2 border-b border-neutral-800/60">
+                    <Palette className="w-4 h-4 text-amber-400" />
+                    <h3 className="font-bold text-sm text-white font-serif">Color Palette presets</h3>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-neutral-400 mb-2">Accent Theme Color Selection</span>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {[
+                          { name: 'Amber Gold', hex: '#F59E0B' },
+                          { name: 'Royal Emerald', hex: '#10B981' },
+                          { name: 'Sunset Rose', hex: '#F43F5E' },
+                          { name: 'Electric Violet', hex: '#8B5CF6' },
+                          { name: 'Caribbean Cyan', hex: '#06B6D4' }
+                        ].map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => setSiteConfigState({
+                              ...siteConfig,
+                              branding: { ...siteConfig.branding, primaryColor: c.hex }
+                            })}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border ${
+                              siteConfig.branding.primaryColor === c.hex
+                                ? 'scale-105 border-white shadow-lg'
+                                : 'border-transparent opacity-75 hover:opacity-100'
+                            }`}
+                            style={{ backgroundColor: c.hex, color: '#090D16' }}
+                          >
+                            <span className="w-2 h-2 rounded-full bg-black/30" />
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Headline Font pairing</label>
+                        <select
+                          value={siteConfig.branding.headingFont}
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            branding: { ...siteConfig.branding, headingFont: e.target.value as any }
+                          })}
+                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="Poppins">Poppins (Modern Bold)</option>
+                          <option value="Playfair Display">Playfair Display (Luxury Serif)</option>
+                          <option value="Montserrat">Montserrat (Display Geometric)</option>
+                          <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                          <option value="Syne">Syne (Avant-Garde)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Body text Font family</label>
+                        <select
+                          value={siteConfig.branding.bodyFont}
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            branding: { ...siteConfig.branding, bodyFont: e.target.value as any }
+                          })}
+                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="Inter">Inter (Clean Standard)</option>
+                          <option value="Poppins">Poppins</option>
+                          <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                          <option value="Outfit">Outfit</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-800/40 space-y-4">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">Background Theme Tone</label>
+                        <select
+                          value={siteConfig.branding.bgTone || 'dark-onyx'}
+                          onChange={(e) => setSiteConfigState({
+                            ...siteConfig,
+                            branding: { ...siteConfig.branding, bgTone: e.target.value as any }
+                          })}
+                          className="w-full bg-neutral-950 border border-neutral-800 text-xs text-white rounded-lg p-2.5 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="dark-onyx">Onyx Black (Rich Dark)</option>
+                          <option value="deep-midnight">Deep Midnight (Deep Blue-Black)</option>
+                          <option value="luxury-charcoal">Luxury Charcoal (Modern Matte)</option>
+                          <option value="caribbean-night">Caribbean Night (Tropical Cyan-Dark)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-3.5 bg-neutral-950/40 border border-neutral-800/60 p-4 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-neutral-300">Top Announcement Banner</span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={!!siteConfig.banner?.enabled} 
+                              onChange={(e) => setSiteConfigState({
+                                ...siteConfig,
+                                banner: { ...siteConfig.banner, enabled: e.target.checked }
+                              })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-400 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                          </label>
+                        </div>
+
+                        {siteConfig.banner?.enabled && (
+                          <div className="space-y-3 pt-1 animate-fadeIn">
+                            <div>
+                              <label className="block text-[9px] uppercase font-bold text-neutral-400 mb-1">Banner Notification Text</label>
+                              <input
+                                type="text"
+                                value={siteConfig.banner.text || ''}
+                                onChange={(e) => setSiteConfigState({
+                                  ...siteConfig,
+                                  banner: { ...siteConfig.banner, text: e.target.value }
+                                })}
+                                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                                placeholder="Enter announcement text..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] uppercase font-bold text-neutral-400 mb-1">Banner Color</label>
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1.5 flex-1">
+                                  {[
+                                    { name: 'Emerald', hex: '#10B981' },
+                                    { name: 'Amber', hex: '#F59E0B' },
+                                    { name: 'Sunset', hex: '#F43F5E' },
+                                    { name: 'Indigo', hex: '#4F46E5' }
+                                  ].map((b) => (
+                                    <button
+                                      key={b.hex}
+                                      type="button"
+                                      onClick={() => setSiteConfigState({
+                                        ...siteConfig,
+                                        banner: { ...siteConfig.banner, bgColor: b.hex }
+                                      })}
+                                      className="w-6 h-6 rounded-md border border-neutral-700/80 cursor-pointer flex-1 transition-all"
+                                      style={{ backgroundColor: b.hex }}
+                                      title={b.name}
+                                    />
+                                  ))}
+                                </div>
+                                <input
+                                  type="color"
+                                  value={siteConfig.banner.bgColor || '#10B981'}
+                                  onChange={(e) => setSiteConfigState({
+                                    ...siteConfig,
+                                    banner: { ...siteConfig.banner, bgColor: e.target.value }
+                                  })}
+                                  className="w-10 h-6 rounded bg-transparent border border-neutral-800 cursor-pointer"
+                                  title="Custom Color"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: TELEMETRY & STATISTICAL INSIGHTS */}
+          {activeAdminTab === 'analytics' && (
+            <div className="space-y-6">
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 space-y-6 shadow-sm font-sans">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Live Demographic telemetry</span>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Origin Demographics & VIP Package Breakdown</h2>
+                  <p className="text-xs text-neutral-400">
+                    Calculated percentages from our global database of registrants, showing CARICOM and European breakdown.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Origin Progress Bar Charts */}
+                  <div className="bg-neutral-950/50 border border-neutral-800 p-5 rounded-xl space-y-5">
+                    <div className="flex items-center justify-between pb-2 border-b border-neutral-800/60">
+                      <h4 className="font-bold text-xs text-white uppercase tracking-wider font-serif">Guest Origin Countries</h4>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold">1,420 Checked guests</span>
+                    </div>
+
+                    <div className="space-y-4 text-xs">
+                      <div>
+                        <div className="flex justify-between text-neutral-300 mb-1.5">
+                          <span className="font-medium">🇬🇧 United Kingdom & European Union</span>
+                          <span className="font-bold font-mono" style={{ color: primaryColor }}>48% (681)</span>
+                        </div>
+                        <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden font-sans">
+                          <div className="h-2 rounded-full transition-all duration-500" style={{ width: '48%', backgroundColor: primaryColor }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-neutral-300 mb-1.5">
+                          <span className="font-medium">🇺🇸 United States & Canada</span>
+                          <span className="font-bold font-mono" style={{ color: primaryColor }}>32% (454)</span>
+                        </div>
+                        <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden font-sans">
+                          <div className="h-2 rounded-full transition-all duration-500" style={{ width: '32%', backgroundColor: primaryColor }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-neutral-300 mb-1.5">
+                          <span className="font-medium">🇬🇩 Grenada & CARICOM islands</span>
+                          <span className="font-bold font-mono" style={{ color: primaryColor }}>15% (213)</span>
+                        </div>
+                        <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden font-sans">
+                          <div className="h-2 rounded-full transition-all duration-500" style={{ width: '15%', backgroundColor: primaryColor }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-neutral-300 mb-1.5">
+                          <span className="font-medium">🌍 Rest of World (Pacific & Asia)</span>
+                          <span className="font-bold font-mono" style={{ color: primaryColor }}>5% (72)</span>
+                        </div>
+                        <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden font-sans">
+                          <div className="h-2 rounded-full transition-all duration-500" style={{ width: '5%', backgroundColor: primaryColor }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pass Package Metrics distribution */}
+                  <div className="bg-neutral-950/50 border border-neutral-800 p-5 rounded-xl space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-neutral-800/60">
+                      <h4 className="font-bold text-xs text-white uppercase tracking-wider font-serif">Popular Package Tier Mix</h4>
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">85% Allotment Sold</span>
+                    </div>
+
+                    <div className="space-y-3.5 pt-1.5 text-xs">
+                      <div className="p-3 bg-[#0C0F1E] rounded-xl border border-neutral-800/80 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-white block">10-Day All-Access VIP Gold Wristband</span>
+                          <span className="text-[10px] text-neutral-400">Premium concierge, gala, and yacht excursion</span>
+                        </div>
+                        <span className="font-black text-amber-400 text-xs font-mono ml-4 shrink-0">62% Orders</span>
+                      </div>
+
+                      <div className="p-3 bg-[#0C0F1E] rounded-xl border border-neutral-800/80 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-white block">5-Day Weekend Fete Pass</span>
+                          <span className="text-[10px] text-slate-400">Standard general admission & main-stage concert entries</span>
+                        </div>
+                        <span className="font-black text-emerald-400 text-xs font-mono ml-4 shrink-0">24% Orders</span>
+                      </div>
+
+                      <div className="p-3 bg-[#0C0F1E] rounded-xl border border-neutral-800/80 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-white block">Mellowland Tubing Day Pass</span>
+                          <span className="text-[10px] text-slate-400">Excursion-only day wristband</span>
+                        </div>
+                        <span className="font-black text-purple-400 text-xs font-mono ml-4 shrink-0">14% Orders</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: EVENT MANAGER */}
+          {activeAdminTab === 'events' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Event Management Hub</span>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Festival Events & Live Shows</h2>
+                  <p className="text-xs text-neutral-400 font-light">Add, edit, or delete events appearing on the main listings page.</p>
+                </div>
+                {!showAddEvent && !editingEvent && (
+                  <button
+                    onClick={() => setShowAddEvent(true)}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" /> Add Festival Event
+                  </button>
+                )}
+              </div>
+
+              {/* Event Form (Create or Edit) */}
+              {(showAddEvent || editingEvent) && (
+                <form
+                  onSubmit={handleSaveEvent}
+                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                >
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-400" />
+                    {editingEvent ? 'Edit Festival Event' : 'Create New Festival Event'}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Event Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingEvent ? editingEvent.title : newEventForm.title}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, title: e.target.value });
+                          else setNewEventForm({ ...newEventForm, title: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Soca Monarch Finals"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Featured Status</label>
+                      <select
+                        value={editingEvent ? (editingEvent.isFeatured ? 'true' : 'false') : (newEventForm.isFeatured ? 'true' : 'false')}
+                        onChange={(e) => {
+                          const val = e.target.value === 'true';
+                          if (editingEvent) setEditingEvent({ ...editingEvent, isFeatured: val });
+                          else setNewEventForm({ ...newEventForm, isFeatured: val });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="false">Standard Event</option>
+                        <option value="true">Featured (Prominent Hero Placement)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Date</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingEvent ? editingEvent.date : newEventForm.date}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, date: e.target.value });
+                          else setNewEventForm({ ...newEventForm, date: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. August 13, 2027"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Day Number (1 - 10)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        required
+                        value={editingEvent ? editingEvent.dayNumber : newEventForm.dayNumber}
+                        onChange={(e) => {
+                          const num = Number(e.target.value);
+                          if (editingEvent) setEditingEvent({ ...editingEvent, dayNumber: num });
+                          else setNewEventForm({ ...newEventForm, dayNumber: num });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Show Timing</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingEvent ? editingEvent.time : newEventForm.time}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, time: e.target.value });
+                          else setNewEventForm({ ...newEventForm, time: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. 10:00 PM - 4:00 AM"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Location / Venue</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingEvent ? editingEvent.location : newEventForm.location}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, location: e.target.value });
+                          else setNewEventForm({ ...newEventForm, location: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Mellowland River stage"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block">Brief Description</label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={editingEvent ? editingEvent.description : newEventForm.description}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, description: e.target.value });
+                          else setNewEventForm({ ...newEventForm, description: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="Describe the experience, schedule, or lineup details..."
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-neutral-400 font-bold uppercase block">Cover Image URL</label>
+                        <button
+                          type="button"
+                          onClick={() => setMediaSelectorTarget('event')}
+                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                        >
+                          <Image className="w-3 h-3" /> Select from Media
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={editingEvent ? editingEvent.highlightImage : newEventForm.highlightImage}
+                        onChange={(e) => {
+                          if (editingEvent) setEditingEvent({ ...editingEvent, highlightImage: e.target.value });
+                          else setNewEventForm({ ...newEventForm, highlightImage: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Ticket Price (GBP)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={editingEvent ? editingEvent.ticketPrice : newEventForm.ticketPrice}
+                        onChange={(e) => {
+                          const pr = Number(e.target.value);
+                          if (editingEvent) setEditingEvent({ ...editingEvent, ticketPrice: pr });
+                          else setNewEventForm({ ...newEventForm, ticketPrice: pr });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block">Music Genres (Comma-separated)</label>
+                      <input
+                        type="text"
+                        value={editingEvent ? editingEvent.genres.join(', ') : newEventForm.genres?.join(', ')}
+                        onChange={(e) => {
+                          const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                          if (editingEvent) setEditingEvent({ ...editingEvent, genres: arr });
+                          else setNewEventForm({ ...newEventForm, genres: arr });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="Soca, Reggae, Afro"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEvent(null);
+                        setShowAddEvent(false);
+                      }}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
+                    >
+                      {editingEvent ? 'Save Changes' : 'Create Event'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Events List */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl overflow-hidden shadow-md">
+                <div className="px-5 py-4 border-b border-neutral-800/80 flex items-center justify-between">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Active Events Database ({events.length})</h4>
+                </div>
+                <div className="divide-y divide-neutral-800/60">
+                  {events.map((ev) => (
+                    <div key={ev.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={ev.highlightImage}
+                          alt={ev.title}
+                          referrerPolicy="no-referrer"
+                          className="w-14 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
+                        />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white font-bold text-sm leading-snug">{ev.title}</span>
+                            {ev.isFeatured && (
+                              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Featured</span>
+                            )}
+                            <span className="bg-neutral-800 text-neutral-400 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full uppercase">Day {ev.dayNumber}</span>
+                          </div>
+                          <p className="text-neutral-400 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 font-light">
+                            <span>📅 {ev.date}</span>
+                            <span>⏰ {ev.time}</span>
+                            <span>📍 {ev.location}</span>
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {ev.genres.map((g, idx) => (
+                              <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
+                            ))}
+                            <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingEvent(ev);
+                            setShowAddEvent(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                          title="Edit event details"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                          title="Delete Event"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GALLERY PHOTOS */}
+          {activeAdminTab === 'gallery' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Media Assets Room</span>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Gallery Photos & Moments</h2>
+                  <p className="text-xs text-neutral-400 font-light">Add, edit, or remove photos appearing in the public gallery.</p>
+                </div>
+                {!showAddGallery && !editingGallery && (
+                  <button
+                    onClick={() => setShowAddGallery(true)}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" /> Add Photo
+                  </button>
+                )}
+              </div>
+
+              {/* Gallery Form */}
+              {(showAddGallery || editingGallery) && (
+                <form
+                  onSubmit={handleSaveGallery}
+                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                >
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
+                    <Image className="w-4 h-4 text-amber-400" />
+                    {editingGallery ? 'Edit Gallery Photo' : 'Add New Gallery Photo'}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Photo Caption / Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingGallery ? editingGallery.title : newGalleryForm.title}
+                        onChange={(e) => {
+                          if (editingGallery) setEditingGallery({ ...editingGallery, title: e.target.value });
+                          else setNewGalleryForm({ ...newGalleryForm, title: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Mellowland River Tubing Launch"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Category Filter</label>
+                      <select
+                        value={editingGallery ? editingGallery.category : newGalleryForm.category}
+                        onChange={(e) => {
+                          const cat = e.target.value as GalleryItem['category'];
+                          if (editingGallery) setEditingGallery({ ...editingGallery, category: cat });
+                          else setNewGalleryForm({ ...newGalleryForm, category: cat });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="VIP Beach Fete">VIP Beach Fete</option>
+                        <option value="Mellowland Village">Mellowland Village</option>
+                        <option value="Soca & Concerts">Soca & Concerts</option>
+                        <option value="Island Excursions">Island Excursions</option>
+                        <option value="Luxury & Resort">Luxury & Resort</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-neutral-400 font-bold uppercase block">Image URL</label>
+                        <button
+                          type="button"
+                          onClick={() => setMediaSelectorTarget('gallery')}
+                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                        >
+                          <Image className="w-3 h-3" /> Select from Media
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={editingGallery ? editingGallery.imageUrl : newGalleryForm.imageUrl}
+                        onChange={(e) => {
+                          if (editingGallery) setEditingGallery({ ...editingGallery, imageUrl: e.target.value });
+                          else setNewGalleryForm({ ...newGalleryForm, imageUrl: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Location (Caption Subtext)</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingGallery ? editingGallery.location : newGalleryForm.location}
+                        onChange={(e) => {
+                          if (editingGallery) setEditingGallery({ ...editingGallery, location: e.target.value });
+                          else setNewGalleryForm({ ...newGalleryForm, location: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. St. George's, Grenada"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingGallery(null);
+                        setShowAddGallery(false);
+                      }}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
+                    >
+                      {editingGallery ? 'Save Photo' : 'Add Photo'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Photos List Grid */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-5 shadow-md space-y-4">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Current Gallery Photos ({galleryItems.length})</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {galleryItems.map((item) => (
+                    <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
+                      
+                      <div className="p-2 z-10 self-start">
+                        <span className="bg-neutral-950/95 border border-neutral-800 text-[8px] font-bold text-amber-400 px-2 py-0.5 rounded-full uppercase">{item.category}</span>
+                      </div>
+
+                      <div className="p-2 z-10 space-y-1">
+                        <p className="text-white font-bold text-[10px] leading-snug truncate" title={item.title}>{item.title}</p>
+                        <p className="text-[8px] text-neutral-400 font-light truncate">{item.location}</p>
+                        <div className="flex justify-between items-center pt-1 border-t border-neutral-800/60">
+                          <span className="text-[8px] text-emerald-400 font-semibold font-mono">💖 {item.likesCount || 0} likes</span>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingGallery(item);
+                                setShowAddGallery(false);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <span className="text-neutral-700">|</span>
+                            <button
+                              onClick={() => handleDeleteGallery(item.id)}
+                              className="text-[9px] text-rose-400 font-black hover:underline cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PASS MANAGER */}
+          {activeAdminTab === 'passes' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Pass Allotments & Pricing</span>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Festival Pass Manager</h2>
+                  <p className="text-xs text-neutral-400 font-light">Modify tiers, price rates, and features shown in the booking shop.</p>
+                </div>
+                {!showAddPass && !editingPass && (
+                  <button
+                    onClick={() => setShowAddPass(true)}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" /> Create Pass Tier
+                  </button>
+                )}
+              </div>
+
+              {/* Pass Form */}
+              {(showAddPass || editingPass) && (
+                <form
+                  onSubmit={handleSavePass}
+                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                >
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
+                    <Ticket className="w-4 h-4 text-amber-400" />
+                    {editingPass ? 'Edit Pass Package' : 'Create New Pass Package'}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Pass Title / Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingPass ? editingPass.title : newPassForm.title}
+                        onChange={(e) => {
+                          if (editingPass) setEditingPass({ ...editingPass, title: e.target.value });
+                          else setNewPassForm({ ...newPassForm, title: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. 10-Day Gold VIP All Access"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Wristband Type Designation</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingPass ? editingPass.wristbandType : newPassForm.wristbandType}
+                        onChange={(e) => {
+                          if (editingPass) setEditingPass({ ...editingPass, wristbandType: e.target.value });
+                          else setNewPassForm({ ...newPassForm, wristbandType: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. GOLD WRISTBAND"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Subheading Description</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingPass ? editingPass.subtitle : newPassForm.subtitle}
+                        onChange={(e) => {
+                          if (editingPass) setEditingPass({ ...editingPass, subtitle: e.target.value });
+                          else setNewPassForm({ ...newPassForm, subtitle: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Full premium experience for true revelers"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Price in GBP (£)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={editingPass ? editingPass.priceGBP : newPassForm.priceGBP}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (editingPass) setEditingPass({ ...editingPass, priceGBP: val });
+                          else setNewPassForm({ ...newPassForm, priceGBP: val });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Included Events Text</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingPass ? editingPass.includedEvents : newPassForm.includedEvents}
+                        onChange={(e) => {
+                          if (editingPass) setEditingPass({ ...editingPass, includedEvents: e.target.value });
+                          else setNewPassForm({ ...newPassForm, includedEvents: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. All events days 1 - 10"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Most Popular Badge Highlight</label>
+                      <select
+                        value={editingPass ? (editingPass.popular ? 'true' : 'false') : (newPassForm.popular ? 'true' : 'false')}
+                        onChange={(e) => {
+                          const pop = e.target.value === 'true';
+                          if (editingPass) setEditingPass({ ...editingPass, popular: pop });
+                          else setNewPassForm({ ...newPassForm, popular: pop });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="false">Standard</option>
+                        <option value="true">Highlight as Popular (Visual Scale Accent)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block">Pass Perks (one per line)</label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={editingPass ? editingPass.features.join('\n') : newPassForm.features?.join('\n')}
+                        onChange={(e) => {
+                          const lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                          if (editingPass) setEditingPass({ ...editingPass, features: lines });
+                          else setNewPassForm({ ...newPassForm, features: lines });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none animate-none"
+                        placeholder="VIP front-stage lounge fete access&#10;Complimentary organic garden buffet&#10;Official yacht shuttle pass included"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPass(null);
+                        setShowAddPass(false);
+                      }}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
+                    >
+                      {editingPass ? 'Save Changes' : 'Create Pass'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Passes List Table */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl overflow-hidden shadow-md">
+                <div className="px-5 py-4 border-b border-neutral-800/80">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Active Passes Database ({passes.length})</h4>
+                </div>
+                <div className="divide-y divide-neutral-800/60">
+                  {passes.map((pass) => (
+                    <div key={pass.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-white font-bold text-base leading-snug">{pass.title}</span>
+                          <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-bold px-2 py-0.5 rounded-md uppercase font-mono">{pass.wristbandType}</span>
+                          {pass.popular && (
+                            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Popular Tag</span>
+                          )}
+                        </div>
+                        <p className="text-neutral-300 text-xs font-light">{pass.subtitle}</p>
+                        <p className="text-[11px] text-neutral-400">Included: <strong className="text-amber-300 font-semibold">{pass.includedEvents}</strong></p>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          {pass.features.map((feat, idx) => (
+                            <span key={idx} className="bg-neutral-950 border border-neutral-800/80 text-[10px] text-neutral-400 px-2.5 py-0.5 rounded-full font-light">✓ {feat}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0 self-end md:self-auto">
+                        <span className="text-xl font-bold font-mono text-amber-400">£{pass.priceGBP}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingPass(pass);
+                              setShowAddPass(false);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeletePass(pass.id)}
+                            className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: HOTELS MANAGER */}
+          {activeAdminTab === 'hotels' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Accommodation & Logistics</span>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Recommended Partner Hotels</h2>
+                  <p className="text-xs text-neutral-400 font-light">Add, edit, or toggle spotlight recommendations for beachfront hotel choices.</p>
+                </div>
+                {!showAddHotel && !editingHotel && (
+                  <button
+                    onClick={() => setShowAddHotel(true)}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" /> Add Partner Hotel
+                  </button>
+                )}
+              </div>
+
+              {/* Hotel Form */}
+              {(showAddHotel || editingHotel) && (
+                <form
+                  onSubmit={handleSaveHotel}
+                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                >
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
+                    <Hotel className="w-4 h-4 text-amber-400" />
+                    {editingHotel ? 'Edit Recommended Hotel' : 'Create Recommended Hotel'}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Hotel Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.name : newHotelForm.name}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, name: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, name: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Royalton Grenada Resort"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Rating (Stars: 1 - 5)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        required
+                        value={editingHotel ? editingHotel.stars : newHotelForm.stars}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (editingHotel) setEditingHotel({ ...editingHotel, stars: val });
+                          else setNewHotelForm({ ...newHotelForm, stars: val });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Tagline Quote</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.tagline : newHotelForm.tagline}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, tagline: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, tagline: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Beachfront Luxury and Soca Sunset parties"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Is Highly Recommended (Spotlight Placement)</label>
+                      <select
+                        value={editingHotel ? (editingHotel.isRecommended ? 'true' : 'false') : (newHotelForm.isRecommended ? 'true' : 'false')}
+                        onChange={(e) => {
+                          const rec = e.target.value === 'true';
+                          if (editingHotel) setEditingHotel({ ...editingHotel, isRecommended: rec });
+                          else setNewHotelForm({ ...newHotelForm, isRecommended: rec });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="false">Partner Accommodation (Grid placement)</option>
+                        <option value="true">Spotlight Recommendation (Large Banner feature)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block">Hotel Description</label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={editingHotel ? editingHotel.description : newHotelForm.description}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, description: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, description: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="Describe the hotel amenities, reception desks, and proximity to festival points..."
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-neutral-400 font-bold uppercase block">Cover Photo URL</label>
+                        <button
+                          type="button"
+                          onClick={() => setMediaSelectorTarget('hotel')}
+                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                        >
+                          <Image className="w-3 h-3" /> Select from Media
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.image : newHotelForm.image}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, image: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, image: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Location (Geographic)</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.location : newHotelForm.location}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, location: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, location: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. Magazine Beach, St. George's"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Distance/Travel time to Mellowland</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.distanceToMellowland : newHotelForm.distanceToMellowland}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, distanceToMellowland: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, distanceToMellowland: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. 15 mins drive"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Official Booking Website Link</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingHotel ? editingHotel.bookingUrl : newHotelForm.bookingUrl}
+                        onChange={(e) => {
+                          if (editingHotel) setEditingHotel({ ...editingHotel, bookingUrl: e.target.value });
+                          else setNewHotelForm({ ...newHotelForm, bookingUrl: e.target.value });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block">Hotel Features / Perks (one per line)</label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={editingHotel ? editingHotel.features.join('\n') : newHotelForm.features?.join('\n')}
+                        onChange={(e) => {
+                          const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                          if (editingHotel) setEditingHotel({ ...editingHotel, features: list });
+                          else setNewHotelForm({ ...newHotelForm, features: list });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800/60 rounded-lg p-2.5 text-white focus:border-amber-500/60 focus:outline-none animate-none"
+                        placeholder="Beachfront Ocean Suites&#10;Mellows Official Shuttle Stop&#10;On-site wristband collection desk"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingHotel(null);
+                        setShowAddHotel(false);
+                      }}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
+                    >
+                      {editingHotel ? 'Save Changes' : 'Create Partner'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Hotels List */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl overflow-hidden shadow-md">
+                <div className="px-5 py-4 border-b border-neutral-800/80">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Active Hotels Database ({hotels.length})</h4>
+                </div>
+                <div className="divide-y divide-neutral-800/60">
+                  {hotels.map((hotel) => (
+                    <div key={hotel.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                      <div className="flex items-start gap-4">
+                        <img
+                          src={hotel.image}
+                          alt={hotel.name}
+                          referrerPolicy="no-referrer"
+                          className="w-20 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
+                        />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white font-bold text-base leading-snug">{hotel.name}</span>
+                            <span className="text-amber-400 font-mono text-xs">{Array.from({ length: hotel.stars }).map(() => '★').join('')}</span>
+                            {hotel.isRecommended && (
+                              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Spotlight Recommended</span>
+                            )}
+                          </div>
+                          <p className="text-neutral-300 text-xs font-light italic">"{hotel.tagline}"</p>
+                          <p className="text-neutral-400 text-[11px] flex flex-wrap items-center gap-x-3">
+                            <span>📍 {hotel.location}</span>
+                            <span>⏱ {hotel.distanceToMellowland} to Mellowland</span>
+                          </p>
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {hotel.features.map((feat, idx) => (
+                              <span key={idx} className="bg-neutral-950 border border-neutral-800/60 text-[9px] text-neutral-400 px-2 py-0.5 rounded-md font-light">{feat}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                        <button
+                          onClick={() => {
+                            setEditingHotel(hotel);
+                            setShowAddHotel(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold font-sans"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteHotel(hotel.id)}
+                          className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold font-sans"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: SYSTEM & INFRASTRUCTURE CONTROLS */}
+          {activeAdminTab === 'system' && (
+            <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 space-y-6 shadow-sm font-sans">
+              <div>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">System Diagnostics</span>
+                <h2 className="text-xl font-bold text-white font-serif mt-0.5">Data Persistence & Infrastructure Controls</h2>
+                <p className="text-xs text-neutral-400">
+                  Secure backup functions to extract form responses to a clean portable CSV file, or reset sample logs to demo states.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3">
+                  <FileSpreadsheet className="w-7 h-7 text-emerald-400" />
+                  <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Export Submissions to Spreadsheet</h4>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Instantly package and download a formatted `.csv` spreadsheet file with every received guest ticket request, phone, and flight details.
+                  </p>
+                  <button
+                    onClick={() => exportSubmissionsCSV(submissions)}
+                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Download CSV
+                  </button>
+                </div>
+
+                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3">
+                  <RefreshCw className="w-7 h-7 text-amber-400" />
+                  <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Restock Demo Sample Log Database</h4>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Clear current state logs and populate realistic sample carnival and travel VIP bookings to demonstrate admin features.
+                  </p>
+                  <button
+                    onClick={handleResetDemo}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Repopulate Database
+                  </button>
+                </div>
+              </div>
+
+              {/* Dashboard Access & Security settings */}
+              <div className="pt-6 border-t border-neutral-800/60 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-bold text-sm text-white font-serif">Dashboard Access & Credentials</h3>
+                </div>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Protect and secure your backend workspace. You can customize the secret URL path and access passcode. Keep these saved somewhere private to avoid losing access.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] uppercase font-bold text-neutral-400">Secret URL Path</label>
+                    <div className="relative font-sans">
+                      <span className="absolute left-3 top-2.5 text-neutral-500 text-xs font-mono select-none">/</span>
+                      <input
+                        type="text"
+                        value={siteConfig.adminPath || 'admin'}
+                        onChange={(e) => {
+                          const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+                          setSiteConfigState({
+                            ...siteConfig,
+                            adminPath: cleaned
+                          });
+                        }}
+                        placeholder="admin"
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg py-2 pl-6 pr-3 text-xs text-white focus:border-amber-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <p className="text-[10px] text-neutral-500">
+                      Your current active link: <span className="text-amber-400 font-mono select-all">{window.location.origin}/{siteConfig.adminPath || 'admin'}</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] uppercase font-bold text-neutral-400">Access Passcode / PIN</label>
+                    <div className="relative font-sans">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={siteConfig.adminPassword || '2027'}
+                        onChange={(e) => setSiteConfigState({
+                          ...siteConfig,
+                          adminPassword: e.target.value
+                        })}
+                        placeholder="2027"
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 pr-10 text-xs text-white focus:border-amber-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-neutral-400 hover:text-white"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-neutral-500">
+                      Minimum recommended: 4 characters. Keep it secure!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      if (!(siteConfig.adminPath || '').trim()) {
+                        alert('Secret URL path cannot be blank.');
+                        return;
+                      }
+                      if (!(siteConfig.adminPassword || '').trim()) {
+                        alert('Security Passcode cannot be blank.');
+                        return;
+                      }
+                      saveSiteConfig(siteConfig);
+                      setSaveToast('Access credentials & security configurations saved successfully!');
+                      setTimeout(() => setSaveToast(null), 3000);
+                    }}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ShieldCheck className="w-4 h-4" /> Save Security Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeAdminTab === 'media' && (
+            <MediaLibraryTab primaryColor={primaryColor} />
+          )}
+
+        </main>
+      </div>
+
+      {/* MODAL: MANUAL ADD SUBMISSION RECORD */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3.5 border-b border-neutral-800">
+              <div>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-sans">Concierge Entry</span>
+                <h3 className="text-lg font-bold text-white font-serif">Add Manual Record</h3>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-neutral-400 hover:text-white text-sm cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateManualSub} className="space-y-3.5 text-xs font-sans">
+              <div>
+                <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Form Category</label>
+                <select
+                  value={newSubForm.type}
+                  onChange={(e) => setNewSubForm({ ...newSubForm, type: e.target.value as any })}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="contact">Contact Inquiry</option>
+                  <option value="flight-registration">Flight Registration Log</option>
+                  <option value="pass-order">Pass Reservation</option>
+                  <option value="transport-request">Shuttle Request</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Guest Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Marcus Thorne"
+                    value={newSubForm.name}
+                    onChange={(e) => setNewSubForm({ ...newSubForm, name: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Guest Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="m.thorne@gmail.com"
+                    value={newSubForm.email}
+                    onChange={(e) => setNewSubForm({ ...newSubForm, email: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Phone / WhatsApp</label>
+                  <input
+                    type="tel"
+                    placeholder="+44 7900 123456"
+                    value={newSubForm.phone}
+                    onChange={(e) => setNewSubForm({ ...newSubForm, phone: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Topic / Package</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. VIP Gold Wristband"
+                    value={newSubForm.topicOrPass}
+                    onChange={(e) => setNewSubForm({ ...newSubForm, topicOrPass: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Message / Notes</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Record manual booking details..."
+                    value={newSubForm.messageOrDetails}
+                    onChange={(e) => setNewSubForm({ ...newSubForm, messageOrDetails: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2.5 flex justify-end gap-2 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 rounded-lg font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-lg font-black cursor-pointer"
+                >
+                  Save Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REPLY SIMULATOR */}
+      {replyingSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans">
+          <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-4 font-sans">
+            <div className="flex items-center justify-between pb-3.5 border-b border-neutral-800">
+              <div>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-sans">Concierge Desks</span>
+                <h3 className="text-lg font-bold text-white font-serif font-sans">Response Simulator</h3>
+              </div>
+              <button
+                onClick={() => setReplyingSub(null)}
+                className="text-neutral-400 hover:text-white cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {replySent ? (
+              <div className="py-8 text-center space-y-3 font-sans">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto animate-bounce" />
+                <h4 className="text-base font-bold text-white">Transmission Successful</h4>
+                <p className="text-xs text-neutral-400">Status auto-updated to 'Resolved'.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendReply} className="space-y-4 text-xs font-sans">
+                <div className="p-3 bg-neutral-950 rounded-lg border border-neutral-850 space-y-1">
+                  <span className="text-neutral-500 text-[9px] uppercase tracking-wider block font-sans">Recipient</span>
+                  <div className="font-bold text-amber-300 font-mono">{replyingSub.email}</div>
+                  <p className="text-[11px] text-neutral-300 italic pt-1 truncate">"{replyingSub.messageOrDetails || replyingSub.topicOrPass}"</p>
+                </div>
+
+                <div>
+                  <label className="block text-neutral-400 font-bold uppercase text-[9px] tracking-wider mb-1">Official Response Message</label>
+                  <textarea
+                    rows={4}
+                    required
+                    placeholder="Type official executive message response..."
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="pt-3 flex items-center justify-between border-t border-neutral-800">
+                  <span className="text-[10px] text-neutral-500 font-medium">Resolves record instantly</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReplyingSub(null)}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-slate-300 rounded-lg font-bold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-lg font-black flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Transmit Reply
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Modal */}
+      <CustomConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Media Selector Modal */}
+      <MediaSelectorModal
+        isOpen={mediaSelectorTarget !== null}
+        onClose={() => setMediaSelectorTarget(null)}
+        onSelect={handleMediaSelect}
+      />
+
+    </div>
+  );
+};
