@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActiveTab, PassItem } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { getPageImage } from '../services/submissionService';
 import { Waves, Shield, Utensils, Ticket, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -94,7 +95,7 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
 
           <div className="relative rounded-2xl overflow-hidden h-[340px] border border-neutral-700 shadow-xl">
             <img
-              src={FESTIVAL_IMAGES.riverTubing}
+              src={getPageImage('aboutMellowlandRiver', FESTIVAL_IMAGES.riverTubing)}
               alt="Mellowland River Tubing"
               referrerPolicy="no-referrer"
               onError={(e) => {

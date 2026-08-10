@@ -96,14 +96,14 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
   };
 
   useEffect(() => {
-    const existing = localStorage.getItem('gcf_flight_registrations');
-    if (existing) {
-      try {
+    try {
+      const existing = typeof localStorage !== 'undefined' ? localStorage.getItem('gcf_flight_registrations') : null;
+      if (existing) {
         const parsed = JSON.parse(existing);
         setSavedRegistrations(parsed);
-      } catch (e) {
-        console.error(e);
       }
+    } catch (e) {
+      console.error('Failed to load registrations from localStorage:', e);
     }
   }, []);
 
@@ -137,9 +137,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
       const updated = [newReg, ...savedRegistrations];
       setSavedRegistrations(updated);
       try {
-        localStorage.setItem('gcf_flight_registrations', JSON.stringify(updated));
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('gcf_flight_registrations', JSON.stringify(updated));
+        }
       } catch (err) {
-        console.warn('localStorage quota exceeded when saving flight registration:', err);
+        console.warn('localStorage write failed when saving flight registration:', err);
       }
       setActiveReg(newReg);
       setIsSubmitting(false);

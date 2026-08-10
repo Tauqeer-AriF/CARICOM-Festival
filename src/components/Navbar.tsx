@@ -251,15 +251,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
 
             {/* Right Section: Controls */}
-            <div className="flex items-center justify-end gap-2.5 sm:gap-3 shrink-0">
-              <div className="hidden sm:flex items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center justify-end gap-2 sm:gap-2.5 shrink-0">
+              {/* Extra Secondary Controls (Currency & Flight Arrival) */}
+              <div className="hidden sm:flex items-center gap-2 sm:gap-2.5">
                 {/* Currency Selector */}
                 <div className="flex bg-neutral-900 border border-amber-500/20 rounded-xl p-0.5 text-[11px] font-semibold text-neutral-300 shadow-inner">
                   {(['GBP', 'USD', 'XCD'] as const).map((c) => (
                     <button
                       key={c}
                       onClick={() => setCurrency(c)}
-                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                      className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                         currency === c 
                           ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm font-bold' 
                           : 'hover:text-white opacity-80 hover:opacity-100'
@@ -274,78 +275,51 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => handleTabClick('register')}
                   id="nav-btn-register"
-                  className="px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
+                  className="hidden md:flex px-3 sm:px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap items-center gap-1.5 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
                 >
                   <Plane className="w-3.5 h-3.5 fill-neutral-950" />
                   <span>Flight Arrival</span>
                 </button>
-
-                {/* Theme Toggle Button (Desktop) */}
-                <button
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  id="nav-btn-theme-toggle"
-                  className="p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
-                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                  {theme === 'dark' ? (
-                    <Sun className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                  ) : (
-                    <Moon className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                  )}
-                </button>
-
-                {/* Cart Icon */}
-                <button
-                  onClick={onOpenCart}
-                  id="nav-btn-cart"
-                  className="relative p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
-                  title="View Reserved Passes"
-                >
-                  <ShoppingBag className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-neutral-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] animate-pulse">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
               </div>
 
-              {/* Mobile / Tablet Toggle */}
-              <div className="flex xl:hidden items-center gap-2">
-                {/* Theme Toggle Button (Mobile/Tablet) */}
-                <button
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  id="nav-btn-theme-toggle-mobile"
-                  className="p-2 bg-neutral-900 border border-amber-500/30 rounded-xl text-amber-400 shrink-0 cursor-pointer"
-                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                  {theme === 'dark' ? (
-                    <Sun className="w-4 h-4 text-amber-400" />
-                  ) : (
-                    <Moon className="w-4 h-4 text-amber-400" />
-                  )}
-                </button>
+              {/* Single Theme Toggle Button (Mobile, Tablet, Desktop) */}
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                id="nav-btn-theme-toggle"
+                className="p-2 sm:p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
+                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                ) : (
+                  <Moon className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                )}
+              </button>
 
-                <button
-                  onClick={onOpenCart}
-                  className="relative p-2 bg-neutral-900 border border-amber-500/30 rounded-xl text-amber-400"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-neutral-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
+              {/* Single Cart Icon Button (Mobile, Tablet, Desktop) */}
+              <button
+                onClick={onOpenCart}
+                id="nav-btn-cart"
+                className="relative p-2 sm:p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
+                title="View Reserved Passes"
+              >
+                <ShoppingBag className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-neutral-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] animate-pulse">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
 
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  id="nav-btn-mobile-toggle"
-                  className="p-2 bg-neutral-900 border border-amber-500/30 rounded-xl text-neutral-200 hover:text-white"
-                >
-                  {mobileMenuOpen ? <X className="w-5 h-5 text-amber-400" /> : <Menu className="w-5 h-5 text-amber-400" />}
-                </button>
-              </div>
+              {/* Mobile & Tablet Hamburger Toggle */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                id="nav-btn-mobile-toggle"
+                className="xl:hidden p-2 sm:p-2.5 bg-neutral-900 border border-amber-500/30 rounded-xl text-neutral-200 hover:text-white cursor-pointer"
+                title="Toggle Menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5 text-amber-400" /> : <Menu className="w-5 h-5 text-amber-400" />}
+              </button>
             </div>
 
           </div>

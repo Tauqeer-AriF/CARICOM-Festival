@@ -77,6 +77,8 @@ import {
   Image,
   Hotel,
   FolderOpen,
+  Save,
+  RotateCcw,
   Menu,
   Upload
 } from 'lucide-react';
@@ -145,9 +147,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [attachPassPdf, setAttachPassPdf] = useState<boolean>(true);
 
   // Pagination & PDF Badge states
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 9;
   const [submissionPage, setSubmissionPage] = useState<number>(1);
   const [ordersPage, setOrdersPage] = useState<number>(1);
+  const [eventsPage, setEventsPage] = useState<number>(1);
+  const [galleryPage, setGalleryPage] = useState<number>(1);
+  const [passesPage, setPassesPage] = useState<number>(1);
+  const [hotelsPage, setHotelsPage] = useState<number>(1);
+  const [testimonialsPage, setTestimonialsPage] = useState<number>(1);
   const [previewPdfSub, setPreviewPdfSub] = useState<FormSubmissionItem | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const selectedPassOrder = submissions.find(s => s.id === selectedOrderId) || null;
@@ -218,8 +225,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     });
   };
   
-  type AdminTab = 'submissions' | 'orders' | 'branding' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials';
+  type AdminTab = 'submissions' | 'orders' | 'branding' | 'page-images' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials';
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('submissions');
+  const [pageImagesSubTab, setPageImagesSubTab] = useState<'home' | 'about-grenada' | 'about-mellowland' | 'events' | 'gallery' | 'hotels' | 'banners'>('home');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   // Auto-dismiss saveToast after 3.5 seconds
@@ -239,6 +247,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [selectedPasses, setSelectedPasses] = useState<string[]>([]);
   const [selectedHotels, setSelectedHotels] = useState<string[]>([]);
   const [selectedTestimonials, setSelectedTestimonials] = useState<string[]>([]);
+
+  // Interactive Live Sandbox slide index & rotation timer
+  const [sandboxSlideIndex, setSandboxSlideIndex] = useState<number>(0);
+
+  useEffect(() => {
+    const intervalSec = siteConfig.hero?.autoplayInterval || 4;
+    const timer = setInterval(() => {
+      setSandboxSlideIndex((prev) => prev + 1);
+    }, intervalSec * 1000);
+    return () => clearInterval(timer);
+  }, [siteConfig.hero?.autoplayInterval]);
 
   useEffect(() => {
     // Clear all bulk selections when changing tabs
@@ -277,11 +296,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   // Media Selector State
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
-    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | { heroIndex: number } | null
+    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
 
   const handleMediaSelect = (url: string) => {
-    if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'heroIndex' in mediaSelectorTarget) {
+    if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'pageImageKey' in mediaSelectorTarget) {
+      const key = mediaSelectorTarget.pageImageKey;
+      const updatedPageImages = {
+        ...(siteConfig.pageImages || {}),
+        [key]: url
+      };
+      const updatedConfig = {
+        ...siteConfig,
+        pageImages: updatedPageImages
+      };
+      setSiteConfigState(updatedConfig);
+      saveSiteConfig(updatedConfig);
+      setSaveToast(`Updated image for '${key}' successfully!`);
+    } else if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'heroIndex' in mediaSelectorTarget) {
       const idx = mediaSelectorTarget.heroIndex;
       const defaultImages = [
         { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
@@ -296,24 +328,44 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
       if (idx >= 0 && idx < currentImages.length) {
         currentImages[idx] = { ...currentImages[idx], url };
-        setSiteConfigState({
+        const updatedConfig = {
           ...siteConfig,
           hero: {
             ...(siteConfig.hero || { displayCount: 5, autoplayInterval: 4 }),
             images: currentImages
           }
-        });
-        setSaveToast(`Updated image #${idx + 1} from Media Library!`);
+        };
+        setSiteConfigState(updatedConfig);
+        saveSiteConfig(updatedConfig);
+        setSaveToast(`Updated hero background #${idx + 1} from Media Library!`);
       }
     } else if (mediaSelectorTarget === 'event') {
-      if (editingEvent) setEditingEvent({ ...editingEvent, highlightImage: url });
-      else setNewEventForm({ ...newEventForm, highlightImage: url });
+      if (editingEvent) {
+        const updated = { ...editingEvent, highlightImage: url };
+        setEditingEvent(updated);
+        const newEvents = events.map(e => e.id === updated.id ? updated : e);
+        setEvents(newEvents);
+        saveEvents(newEvents);
+      } else setNewEventForm({ ...newEventForm, highlightImage: url });
+      setSaveToast('Updated event image from Media Library!');
     } else if (mediaSelectorTarget === 'gallery') {
-      if (editingGallery) setEditingGallery({ ...editingGallery, imageUrl: url });
-      else setNewGalleryForm({ ...newGalleryForm, imageUrl: url });
+      if (editingGallery) {
+        const updated = { ...editingGallery, imageUrl: url };
+        setEditingGallery(updated);
+        const newGallery = galleryItems.map(g => g.id === updated.id ? updated : g);
+        setGalleryItems(newGallery);
+        saveGalleryItems(newGallery);
+      } else setNewGalleryForm({ ...newGalleryForm, imageUrl: url });
+      setSaveToast('Updated gallery image from Media Library!');
     } else if (mediaSelectorTarget === 'hotel') {
-      if (editingHotel) setEditingHotel({ ...editingHotel, image: url });
-      else setNewHotelForm({ ...newHotelForm, image: url });
+      if (editingHotel) {
+        const updated = { ...editingHotel, image: url };
+        setEditingHotel(updated);
+        const newHotels = hotels.map(h => h.id === updated.id ? updated : h);
+        setHotels(newHotels);
+        saveHotels(newHotels);
+      } else setNewHotelForm({ ...newHotelForm, image: url });
+      setSaveToast('Updated hotel photo from Media Library!');
     } else if (mediaSelectorTarget === 'testimonial') {
       if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, avatar: url });
       else setNewTestimonialForm({ ...newTestimonialForm, avatar: url });
@@ -331,14 +383,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
         images: defaultImages
       };
       const newImages = [...(currentHero.images && currentHero.images.length > 0 ? currentHero.images : defaultImages), { url, alt: 'Custom Hero Background' }];
-      setSiteConfigState({
+      const updatedConfig = {
         ...siteConfig,
         hero: {
           ...currentHero,
           images: newImages,
           displayCount: currentHero.displayCount || Math.min(newImages.length, 5)
         }
-      });
+      };
+      setSiteConfigState(updatedConfig);
+      saveSiteConfig(updatedConfig);
       setSaveToast('Added new background to Hero slideshow!');
     }
   };
@@ -463,8 +517,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     if (configStr === lastSavedConfigRef.current) {
       return;
     }
-    lastSavedConfigRef.current = configStr;
     saveSiteConfig(siteConfig);
+    const savedFresh = getSiteConfig();
+    lastSavedConfigRef.current = JSON.stringify(savedFresh);
   }, [siteConfig]);
 
   const loadData = () => {
@@ -1235,6 +1290,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
           >
             <Palette className="w-4 h-4" /> Customizer Studio
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('page-images');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'page-images'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'page-images' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Image className="w-4 h-4 text-emerald-400" /> Page Images Manager
           </button>
 
           <button
@@ -3362,45 +3432,104 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                           </div>
                         </div>
 
-                        {/* Simulated Hero */}
-                        <div className="p-6 space-y-3 text-center">
-                          <h4 
-                            className="text-base font-black text-white leading-tight"
-                            style={{ fontFamily: siteConfig.branding.headingFont }}
-                          >
-                            Feel the Rhythm of the <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Spice Island</span>
-                          </h4>
-                          <p 
-                            className="text-[11px] text-neutral-400 max-w-xs mx-auto leading-relaxed"
-                            style={{ fontFamily: siteConfig.branding.bodyFont }}
-                          >
-                            Experience high-definition soca, luxury beachside suites, and concierge tubing trips in beautiful Grenada.
-                          </p>
-                          
-                          <div className="flex justify-center gap-2 pt-2">
-                            <button 
-                              type="button"
-                              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-neutral-950 transition-all active:scale-95 shadow-md"
-                              style={{ 
-                                backgroundColor: siteConfig.branding.primaryColor || '#F59E0B',
-                                fontFamily: siteConfig.branding.bodyFont
-                              }}
-                            >
-                              Get Passes
-                            </button>
-                            <button 
-                              type="button"
-                              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-white/10 text-white transition-all active:scale-95"
-                              style={{ 
-                                backgroundColor: 'rgba(255,255,255,0.04)',
-                                borderColor: 'rgba(255,255,255,0.12)',
-                                fontFamily: siteConfig.branding.bodyFont
-                              }}
-                            >
-                              Learn More
-                            </button>
-                          </div>
-                        </div>
+                        {/* Simulated Hero with Live Background Slideshow Preview */}
+                        {(() => {
+                          const sandboxImages = (siteConfig.hero?.images && siteConfig.hero.images.length > 0
+                            ? siteConfig.hero.images
+                            : [
+                                { url: FESTIVAL_IMAGES.hero, alt: "Grenada Beach DJ Showcase 2027" },
+                                { url: FESTIVAL_IMAGES.festivalHero, alt: "Spectacular Spice Isle Festival Crowd" },
+                                { url: FESTIVAL_IMAGES.whiteGala, alt: "Premium VIP White Gala Party Lounge" },
+                                { url: FESTIVAL_IMAGES.riverTubing, alt: "Mellowland Tropical River Tubing Adventure" },
+                                { url: FESTIVAL_IMAGES.ecoParadise, alt: "Beautiful Grenada Eco Paradise Coastline" }
+                              ]
+                          ).slice(0, Math.max(1, Math.min(siteConfig.hero?.displayCount ?? 5, (siteConfig.hero?.images?.length || 5))));
+
+                          const activeIndex = sandboxSlideIndex % Math.max(1, sandboxImages.length);
+                          const currentSlide = sandboxImages[activeIndex] || sandboxImages[0];
+
+                          return (
+                            <div className="relative p-6 min-h-[280px] flex flex-col justify-between text-center overflow-hidden">
+                              {/* Background Slide Image */}
+                              <div className="absolute inset-0 z-0">
+                                <img
+                                  key={`${currentSlide?.url}-${activeIndex}`}
+                                  src={currentSlide?.url || FESTIVAL_IMAGES.hero}
+                                  alt={currentSlide?.alt || "Hero Slide"}
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                  }}
+                                  className="w-full h-full object-cover filter brightness-[0.45] contrast-[1.05] transition-all duration-700"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#080A0F] via-black/40 to-black/20" />
+                              </div>
+
+                              {/* Slide Counter Badge */}
+                              <div className="relative z-10 flex items-center justify-between text-[9px] text-white/90">
+                                <span className="bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-amber-500/40 font-black uppercase text-amber-400 tracking-wider">
+                                  Slide {activeIndex + 1} of {sandboxImages.length}
+                                </span>
+                                <span className="bg-black/60 backdrop-blur-md px-2 py-1 rounded-full border border-white/10 font-mono text-neutral-300">
+                                  {(siteConfig.hero?.autoplayInterval || 4)}s rotation
+                                </span>
+                              </div>
+
+                              {/* Simulated Hero Text */}
+                              <div className="relative z-10 space-y-2 my-auto py-3">
+                                <h4 
+                                  className="text-base font-black text-white leading-tight drop-shadow-md"
+                                  style={{ fontFamily: siteConfig.branding.headingFont }}
+                                >
+                                  Feel the Rhythm of the <span style={{ color: siteConfig.branding.primaryColor || '#F59E0B' }}>Spice Island</span>
+                                </h4>
+                                <p 
+                                  className="text-[11px] text-neutral-200 max-w-xs mx-auto leading-relaxed drop-shadow"
+                                  style={{ fontFamily: siteConfig.branding.bodyFont }}
+                                >
+                                  {currentSlide?.alt || "Experience high-definition soca, luxury beachside suites, and concierge tubing trips in beautiful Grenada."}
+                                </p>
+                                
+                                <div className="flex justify-center gap-2 pt-2">
+                                  <button 
+                                    type="button"
+                                    className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-neutral-950 transition-all active:scale-95 shadow-md cursor-pointer"
+                                    style={{ 
+                                      backgroundColor: siteConfig.branding.primaryColor || '#F59E0B',
+                                      fontFamily: siteConfig.branding.bodyFont
+                                    }}
+                                  >
+                                    Get Passes
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-white/20 text-white transition-all active:scale-95 bg-black/40 backdrop-blur-sm cursor-pointer"
+                                    style={{ fontFamily: siteConfig.branding.bodyFont }}
+                                  >
+                                    Learn More
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Carousel Dots */}
+                              {sandboxImages.length > 1 && (
+                                <div className="relative z-10 flex items-center justify-center gap-1.5 pt-1">
+                                  {sandboxImages.map((_, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => setSandboxSlideIndex(idx)}
+                                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                                        activeIndex === idx ? 'w-5 bg-amber-400' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                                      }`}
+                                      title={`Go to slide #${idx + 1}`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -3642,7 +3771,719 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             </div>
           )}
 
-          {/* TAB 3: TELEMETRY & STATISTICAL INSIGHTS */}
+          {/* TAB 2.5: PAGE IMAGES & BANNERS MANAGER */}
+          {activeAdminTab === 'page-images' && (
+            <div className="space-y-8 animate-fadeIn font-sans">
+              
+              {/* Header Card */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+                <div className="space-y-1.5 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold uppercase tracking-widest">
+                    <Image className="w-3.5 h-3.5" /> Full Visual Autonomy
+                  </div>
+                  <h2 className="text-2xl font-black text-white font-serif tracking-tight">Dynamic Page Images Manager</h2>
+                  <p className="text-xs text-neutral-400 leading-relaxed font-light">
+                    As senior software developers, we give you full control over all website imagery. Select any page below to preview and replace images anytime. Upload from your phone/computer or choose from your media library.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={handleSaveConfig}
+                    className="px-5 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
+                  >
+                    <Save className="w-4 h-4" /> Save All Changes
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-Tab Navigation Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-neutral-800">
+                {[
+                  { id: 'home', label: '🏠 Home Page', count: 4 },
+                  { id: 'about-grenada', label: '🌴 About Grenada', count: 3 },
+                  { id: 'about-mellowland', label: '🌊 About Mellowland', count: 3 },
+                  { id: 'events', label: '📅 10-Day Events Schedule', count: events.length },
+                  { id: 'gallery', label: '🖼️ Gallery Photos', count: galleryItems.length },
+                  { id: 'hotels', label: '🏨 Hotels & Resorts', count: hotels.length },
+                  { id: 'banners', label: 'ℹ️ Header Banners', count: 5 }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPageImagesSubTab(tab.id as any)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                      pageImagesSubTab === tab.id
+                        ? 'bg-amber-500 text-neutral-950 shadow-lg'
+                        : 'bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 border border-neutral-800/80'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                      pageImagesSubTab === tab.id ? 'bg-black/20 text-neutral-950' : 'bg-neutral-800 text-neutral-400'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* --- SUB-TAB: HOME PAGE --- */}
+              {pageImagesSubTab === 'home' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white font-serif">Home Page Imagery</h3>
+                      <p className="text-xs text-neutral-400">Manage feature section images displayed on the main home screen.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      {
+                        key: 'homeWhiteGala',
+                        title: 'Flagship White Gala Beach Party Card Image',
+                        desc: 'Main feature card showing the beach DJ and white gala party venue.',
+                        defaultUrl: FESTIVAL_IMAGES.whiteGala
+                      },
+                      {
+                        key: 'homeLondonVibes',
+                        title: 'London Vibes Meets Spice Isle Banner Image',
+                        desc: 'High-energy crowd and DJ stage photo for the festival introduction.',
+                        defaultUrl: FESTIVAL_IMAGES.festivalHero
+                      },
+                      {
+                        key: 'homeBeachDJ',
+                        title: 'Beach DJ Showcase Showcase Image',
+                        desc: 'Beachfront turntable & Caribbean ocean sunset view.',
+                        defaultUrl: FESTIVAL_IMAGES.hero
+                      },
+                      {
+                        key: 'homeRiverTubing',
+                        title: 'Mellowland River Tubing Feature Section Image',
+                        desc: 'Lazy river tubing adventure in the tropical rainforest.',
+                        defaultUrl: FESTIVAL_IMAGES.riverTubing
+                      }
+                    ].map((slot) => {
+                      const currentVal = (siteConfig.pageImages as any)?.[slot.key] || slot.defaultUrl;
+                      const isCustom = currentVal !== slot.defaultUrl;
+
+                      return (
+                        <div key={slot.key} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{slot.title}</h4>
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{slot.desc}</p>
+                              </div>
+                              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 ${
+                                isCustom ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-neutral-900 text-neutral-500 border border-neutral-800'
+                              }`}>
+                                {isCustom ? 'Custom Image' : 'Default Preset'}
+                              </span>
+                            </div>
+
+                            {/* Image Preview */}
+                            <div className="relative h-48 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 group">
+                              <img
+                                src={currentVal}
+                                alt={slot.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
+                                <a
+                                  href={currentVal}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 bg-neutral-900/90 text-white text-xs font-bold rounded-lg border border-neutral-700 flex items-center gap-1.5"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" /> View Full Image
+                                </a>
+                              </div>
+                            </div>
+
+                            {/* URL Input */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
+                              <input
+                                type="url"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const url = e.target.value;
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: url
+                                    }
+                                  });
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-200 font-mono focus:border-amber-500 focus:outline-none"
+                                placeholder="https://..."
+                              />
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-neutral-900">
+                            <button
+                              type="button"
+                              onClick={() => setMediaSelectorTarget({ pageImageKey: slot.key })}
+                              className="flex-1 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <FolderOpen className="w-4 h-4" /> Replace / Upload
+                            </button>
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: slot.defaultUrl
+                                    }
+                                  });
+                                  setSaveToast('Reset to original default image');
+                                }}
+                                className="px-3 py-2.5 bg-neutral-900 hover:bg-rose-950/50 text-neutral-400 hover:text-rose-400 border border-neutral-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                                title="Reset to default image"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: ABOUT GRENADA --- */}
+              {pageImagesSubTab === 'about-grenada' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-white font-serif">About Grenada Page Imagery</h3>
+                    <p className="text-xs text-neutral-400">Customize nature photos and attraction cards on the Grenada island guide page.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      {
+                        key: 'aboutGrenadaEco',
+                        title: 'Grenada Eco Paradise Coastline Photo',
+                        desc: 'Top card showing turquoise mountain cascades and rainforest peaks.',
+                        defaultUrl: FESTIVAL_IMAGES.ecoParadise
+                      },
+                      {
+                        key: 'aboutGrenadaUnderwater',
+                        title: 'Molinière Bay Underwater Sculpture Park Banner',
+                        desc: 'Banner photo for the world-famous underwater sculpture park.',
+                        defaultUrl: FESTIVAL_IMAGES.underwaterPark
+                      },
+                      {
+                        key: 'aboutGrenadaHero',
+                        title: 'About Grenada Header Background',
+                        desc: 'Background banner for the Island guide page header.',
+                        defaultUrl: FESTIVAL_IMAGES.hero
+                      }
+                    ].map((slot) => {
+                      const currentVal = (siteConfig.pageImages as any)?.[slot.key] || slot.defaultUrl;
+                      const isCustom = currentVal !== slot.defaultUrl;
+
+                      return (
+                        <div key={slot.key} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{slot.title}</h4>
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{slot.desc}</p>
+                              </div>
+                              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 ${
+                                isCustom ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-neutral-900 text-neutral-500 border border-neutral-800'
+                              }`}>
+                                {isCustom ? 'Custom Image' : 'Default Preset'}
+                              </span>
+                            </div>
+
+                            <div className="relative h-48 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 group">
+                              <img
+                                src={currentVal}
+                                alt={slot.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
+                              <input
+                                type="url"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const url = e.target.value;
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: url
+                                    }
+                                  });
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-200 font-mono focus:border-amber-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-2 border-t border-neutral-900">
+                            <button
+                              type="button"
+                              onClick={() => setMediaSelectorTarget({ pageImageKey: slot.key })}
+                              className="flex-1 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <FolderOpen className="w-4 h-4" /> Replace / Upload
+                            </button>
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: slot.defaultUrl
+                                    }
+                                  });
+                                  setSaveToast('Reset to original default image');
+                                }}
+                                className="px-3 py-2.5 bg-neutral-900 hover:bg-rose-950/50 text-neutral-400 hover:text-rose-400 border border-neutral-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: ABOUT MELLOWLAND --- */}
+              {pageImagesSubTab === 'about-mellowland' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-white font-serif">About Mellowland Tubing Imagery</h3>
+                    <p className="text-xs text-neutral-400">Change river tubing and tropical garden sanctuary imagery.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      {
+                        key: 'aboutMellowlandRiver',
+                        title: '45-Minute River Tubing Feature Image',
+                        desc: 'Main action photo showing river tubing supervised sessions.',
+                        defaultUrl: FESTIVAL_IMAGES.riverTubing
+                      },
+                      {
+                        key: 'aboutMellowlandGarden',
+                        title: 'Tropical Garden Sanctuary Image',
+                        desc: 'Botanical garden lounge and riverbank relaxation area.',
+                        defaultUrl: FESTIVAL_IMAGES.mellowlandGarden
+                      },
+                      {
+                        key: 'aboutMellowlandHero',
+                        title: 'Mellowland Page Header Banner',
+                        desc: 'Background banner for the Mellowland page top header.',
+                        defaultUrl: FESTIVAL_IMAGES.riverTubing
+                      }
+                    ].map((slot) => {
+                      const currentVal = (siteConfig.pageImages as any)?.[slot.key] || slot.defaultUrl;
+                      const isCustom = currentVal !== slot.defaultUrl;
+
+                      return (
+                        <div key={slot.key} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{slot.title}</h4>
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{slot.desc}</p>
+                              </div>
+                              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 ${
+                                isCustom ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-neutral-900 text-neutral-500 border border-neutral-800'
+                              }`}>
+                                {isCustom ? 'Custom Image' : 'Default Preset'}
+                              </span>
+                            </div>
+
+                            <div className="relative h-48 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 group">
+                              <img
+                                src={currentVal}
+                                alt={slot.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
+                              <input
+                                type="url"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const url = e.target.value;
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: url
+                                    }
+                                  });
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-200 font-mono focus:border-amber-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-2 border-t border-neutral-900">
+                            <button
+                              type="button"
+                              onClick={() => setMediaSelectorTarget({ pageImageKey: slot.key })}
+                              className="flex-1 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <FolderOpen className="w-4 h-4" /> Replace / Upload
+                            </button>
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: slot.defaultUrl
+                                    }
+                                  });
+                                  setSaveToast('Reset to original default image');
+                                }}
+                                className="px-3 py-2.5 bg-neutral-900 hover:bg-rose-950/50 text-neutral-400 hover:text-rose-400 border border-neutral-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: 10-DAY EVENTS SCHEDULE --- */}
+              {pageImagesSubTab === 'events' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white font-serif">10-Day Festival Schedule Images</h3>
+                      <p className="text-xs text-neutral-400">Directly swap the featured highlight photo for any of the 10 daily festival events.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAdminTab('events')}
+                      className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 border border-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Calendar className="w-3.5 h-3.5" /> Full Event Manager →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {events.map((ev) => (
+                      <div key={ev.id} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              DAY {ev.dayNumber} • {ev.date}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-mono">{ev.genre}</span>
+                          </div>
+                          <h4 className="font-bold text-sm text-white line-clamp-1">{ev.title}</h4>
+
+                          <div className="relative h-40 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900">
+                            <img
+                              src={ev.highlightImage}
+                              alt={ev.title}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                              }}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-neutral-900">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingEvent(ev);
+                              setMediaSelectorTarget('event');
+                            }}
+                            className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5" /> Change Event Image
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: GALLERY PHOTOS --- */}
+              {pageImagesSubTab === 'gallery' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white font-serif">Public Gallery Photos ({galleryItems.length})</h3>
+                      <p className="text-xs text-neutral-400">Replace any photo in the official 2027 media gallery.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAdminTab('gallery')}
+                      className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 border border-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Image className="w-3.5 h-3.5" /> Full Gallery Manager →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {galleryItems.map((item) => (
+                      <div key={item.id} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-3 space-y-2 shadow-lg flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                          <div className="relative h-32 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                              }}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <span className="font-bold text-xs text-white block truncate">{item.title}</span>
+                          <span className="text-[10px] text-neutral-400 block truncate">{item.location}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingGallery(item);
+                            setMediaSelectorTarget('gallery');
+                          }}
+                          className="w-full py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-amber-400 font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <FolderOpen className="w-3 h-3" /> Replace Photo
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: HOTELS --- */}
+              {pageImagesSubTab === 'hotels' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white font-serif">Partner Resort & Hotel Photos</h3>
+                      <p className="text-xs text-neutral-400">Update photos for official partner resort accommodations.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAdminTab('hotels')}
+                      className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 border border-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Hotel className="w-3.5 h-3.5" /> Full Hotel Manager →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {hotels.map((hotel) => (
+                      <div key={hotel.id} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm text-white">{hotel.name}</h4>
+                            <span className="text-[10px] text-amber-400 font-bold">{hotel.stars}★</span>
+                          </div>
+
+                          <div className="relative h-40 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900">
+                            <img
+                              src={hotel.image}
+                              alt={hotel.name}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                              }}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingHotel(hotel);
+                            setMediaSelectorTarget('hotel');
+                          }}
+                          className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" /> Change Hotel Photo
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* --- SUB-TAB: INFO PAGE BANNERS --- */}
+              {pageImagesSubTab === 'banners' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-white font-serif">Info Page Header Banners</h3>
+                    <p className="text-xs text-neutral-400">Header background photos for secondary pages (Transportation, Contact, Insurance, Terms).</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      {
+                        key: 'transportationBanner',
+                        title: 'Transportation & Airport Shuttles Banner',
+                        desc: 'Top header background for Maurice Bishop GND transfers.',
+                        defaultUrl: FESTIVAL_IMAGES.hero
+                      },
+                      {
+                        key: 'testimonialsBanner',
+                        title: 'Guest Testimonials & Reviews Banner',
+                        desc: 'Top header background for guest reviews & festival feedback.',
+                        defaultUrl: FESTIVAL_IMAGES.festivalHero
+                      },
+                      {
+                        key: 'contactBanner',
+                        title: 'Contact & VIP Concierge Banner',
+                        desc: 'Top header background for executive concierge & helpline.',
+                        defaultUrl: FESTIVAL_IMAGES.whiteGala
+                      },
+                      {
+                        key: 'travelInsuranceBanner',
+                        title: 'Travel Insurance & Guarantee Banner',
+                        desc: 'Top header background for insurance & health coverage info.',
+                        defaultUrl: FESTIVAL_IMAGES.ecoParadise
+                      },
+                      {
+                        key: 'termsBanner',
+                        title: 'Terms, Wristbands & Refund Policy Banner',
+                        desc: 'Top header background for legal terms & wristband rules.',
+                        defaultUrl: FESTIVAL_IMAGES.mellowlandGarden
+                      }
+                    ].map((slot) => {
+                      const currentVal = (siteConfig.pageImages as any)?.[slot.key] || slot.defaultUrl;
+                      const isCustom = currentVal !== slot.defaultUrl;
+
+                      return (
+                        <div key={slot.key} className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{slot.title}</h4>
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{slot.desc}</p>
+                              </div>
+                              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 ${
+                                isCustom ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-neutral-900 text-neutral-500 border border-neutral-800'
+                              }`}>
+                                {isCustom ? 'Custom Banner' : 'Default Preset'}
+                              </span>
+                            </div>
+
+                            <div className="relative h-40 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 group">
+                              <img
+                                src={currentVal}
+                                alt={slot.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                                }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
+                              <input
+                                type="url"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const url = e.target.value;
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: url
+                                    }
+                                  });
+                                }}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-200 font-mono focus:border-amber-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-2 border-t border-neutral-900">
+                            <button
+                              type="button"
+                              onClick={() => setMediaSelectorTarget({ pageImageKey: slot.key })}
+                              className="flex-1 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <FolderOpen className="w-4 h-4" /> Replace / Upload
+                            </button>
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSiteConfigState({
+                                    ...siteConfig,
+                                    pageImages: {
+                                      ...(siteConfig.pageImages || {}),
+                                      [slot.key]: slot.defaultUrl
+                                    }
+                                  });
+                                  setSaveToast('Reset to original default image');
+                                }}
+                                className="px-3 py-2.5 bg-neutral-900 hover:bg-rose-950/50 text-neutral-400 hover:text-rose-400 border border-neutral-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
           {activeAdminTab === 'analytics' && (
             <div className="space-y-6">
               <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 space-y-6 shadow-sm font-sans">
@@ -4002,71 +4843,109 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
                 </div>
                 <div className="divide-y divide-neutral-800/60">
-                  {events.map((ev) => (
-                    <div key={ev.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedEvents.includes(ev.id)}
-                          onChange={() => {
-                            setSelectedEvents(prev => 
-                              prev.includes(ev.id) ? prev.filter(id => id !== ev.id) : [...prev, ev.id]
-                            );
-                          }}
-                          className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0"
-                        />
-                        <img
-                          src={ev.highlightImage}
-                          alt={ev.title}
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                          }}
-                          className="w-14 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
-                        />
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-white font-bold text-sm leading-snug">{ev.title}</span>
-                            {ev.isFeatured && (
-                              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Featured</span>
-                            )}
-                            <span className="bg-neutral-800 text-neutral-400 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full uppercase">Day {ev.dayNumber}</span>
+                  {(() => {
+                    const totalEventPages = Math.ceil(events.length / ITEMS_PER_PAGE) || 1;
+                    const currentEventsPage = Math.min(eventsPage, totalEventPages);
+                    const paginatedEvents = events.slice((currentEventsPage - 1) * ITEMS_PER_PAGE, currentEventsPage * ITEMS_PER_PAGE);
+                    return (
+                      <>
+                        {paginatedEvents.map((ev) => (
+                          <div key={ev.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedEvents.includes(ev.id)}
+                                onChange={() => {
+                                  setSelectedEvents(prev => 
+                                    prev.includes(ev.id) ? prev.filter(id => id !== ev.id) : [...prev, ev.id]
+                                  );
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0"
+                              />
+                              <img
+                                src={ev.highlightImage}
+                                alt={ev.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                                }}
+                                className="w-14 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
+                              />
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-white font-bold text-sm leading-snug">{ev.title}</span>
+                                  {ev.isFeatured && (
+                                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Featured</span>
+                                  )}
+                                  <span className="bg-neutral-800 text-neutral-400 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full uppercase">Day {ev.dayNumber}</span>
+                                </div>
+                                <p className="text-neutral-400 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 font-light">
+                                  <span>📅 {ev.date}</span>
+                                  <span>⏰ {ev.time}</span>
+                                  <span>📍 {ev.location}</span>
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  {ev.genres.map((g, idx) => (
+                                    <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
+                                  ))}
+                                  <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingEvent(ev);
+                                  setShowAddEvent(false);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                                title="Edit event details"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEvent(ev.id)}
+                                className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                                title="Delete Event"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-neutral-400 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 font-light">
-                            <span>📅 {ev.date}</span>
-                            <span>⏰ {ev.time}</span>
-                            <span>📍 {ev.location}</span>
-                          </p>
-                          <div className="flex items-center gap-1">
-                            {ev.genres.map((g, idx) => (
-                              <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
-                            ))}
-                            <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                        ))}
+
+                        {totalEventPages > 1 && (
+                          <div className="flex items-center justify-between pt-4 px-5 py-3 border-t border-neutral-800 bg-neutral-950/20">
+                            <span className="text-[11px] text-neutral-400 font-sans">
+                              Showing <span className="text-white font-bold">{((currentEventsPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentEventsPage * ITEMS_PER_PAGE, events.length)}</span> of <span className="text-white font-bold">{events.length}</span> events
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEventsPage(p => Math.max(1, p - 1))}
+                                disabled={currentEventsPage === 1}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Prev
+                              </button>
+                              <span className="text-xs font-mono text-neutral-300">
+                                {currentEventsPage} / {totalEventPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEventsPage(p => Math.min(totalEventPages, p + 1))}
+                                disabled={currentEventsPage === totalEventPages}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                        <button
-                          onClick={() => {
-                            setEditingEvent(ev);
-                            setShowAddEvent(false);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                          className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
-                          title="Edit event details"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
-                          title="Delete Event"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4241,61 +5120,99 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {galleryItems.map((item) => (
-                    <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                        }}
-                        className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
-                      
-                      <div className="p-2 z-10 flex items-center justify-between w-full">
-                        <span className="bg-neutral-950/95 border border-neutral-800 text-[8px] font-bold text-amber-400 px-2 py-0.5 rounded-full uppercase">{item.category}</span>
-                        <input
-                          type="checkbox"
-                          checked={selectedGallery.includes(item.id)}
-                          onChange={() => {
-                            setSelectedGallery(prev => 
-                              prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
-                            );
-                          }}
-                          className="rounded border-neutral-700 bg-neutral-950/90 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer z-20"
-                        />
-                      </div>
-
-                      <div className="p-2 z-10 space-y-1">
-                        <p className="text-white font-bold text-[10px] leading-snug truncate" title={item.title}>{item.title}</p>
-                        <p className="text-[8px] text-neutral-400 font-light truncate">{item.location}</p>
-                        <div className="flex justify-between items-center pt-1 border-t border-neutral-800/60">
-                          <span className="text-[8px] text-emerald-400 font-semibold font-mono">💖 {item.likesCount || 0} likes</span>
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => {
-                                setEditingGallery(item);
-                                setShowAddGallery(false);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                  {(() => {
+                    const totalGalleryPages = Math.ceil(galleryItems.length / ITEMS_PER_PAGE) || 1;
+                    const currentGalleryPage = Math.min(galleryPage, totalGalleryPages);
+                    const paginatedGallery = galleryItems.slice((currentGalleryPage - 1) * ITEMS_PER_PAGE, currentGalleryPage * ITEMS_PER_PAGE);
+                    return (
+                      <>
+                        {paginatedGallery.map((item) => (
+                          <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
                               }}
-                              className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <span className="text-neutral-700">|</span>
-                            <button
-                              onClick={() => handleDeleteGallery(item.id)}
-                              className="text-[9px] text-rose-400 font-black hover:underline cursor-pointer"
-                            >
-                              Delete
-                            </button>
+                              className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
+                            
+                            <div className="p-2 z-10 flex items-center justify-between w-full">
+                              <span className="bg-neutral-950/95 border border-neutral-800 text-[8px] font-bold text-amber-400 px-2 py-0.5 rounded-full uppercase">{item.category}</span>
+                              <input
+                                type="checkbox"
+                                checked={selectedGallery.includes(item.id)}
+                                onChange={() => {
+                                  setSelectedGallery(prev => 
+                                    prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                                  );
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950/90 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer z-20"
+                              />
+                            </div>
+
+                            <div className="p-2 z-10 space-y-1">
+                              <p className="text-white font-bold text-[10px] leading-snug truncate" title={item.title}>{item.title}</p>
+                              <p className="text-[8px] text-neutral-400 font-light truncate">{item.location}</p>
+                              <div className="flex justify-between items-center pt-1 border-t border-neutral-800/60">
+                                <span className="text-[8px] text-emerald-400 font-semibold font-mono">💖 {item.likesCount || 0} likes</span>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => {
+                                      setEditingGallery(item);
+                                      setShowAddGallery(false);
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
+                                  >
+                                    Edit
+                                  </button>
+                                  <span className="text-neutral-700">|</span>
+                                  <button
+                                    onClick={() => handleDeleteGallery(item.id)}
+                                    className="text-[9px] text-rose-400 font-black hover:underline cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                        ))}
+
+                        {totalGalleryPages > 1 && (
+                          <div className="col-span-full flex items-center justify-between pt-4 border-t border-neutral-800/40 bg-neutral-950/10 px-3 py-2 rounded-lg">
+                            <span className="text-[11px] text-neutral-400 font-sans">
+                              Showing <span className="text-white font-bold">{((currentGalleryPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentGalleryPage * ITEMS_PER_PAGE, galleryItems.length)}</span> of <span className="text-white font-bold">{galleryItems.length}</span> photos
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setGalleryPage(p => Math.max(1, p - 1))}
+                                disabled={currentGalleryPage === 1}
+                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Prev
+                              </button>
+                              <span className="text-xs font-mono text-neutral-300">
+                                {currentGalleryPage} / {totalGalleryPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setGalleryPage(p => Math.min(totalGalleryPages, p + 1))}
+                                disabled={currentGalleryPage === totalGalleryPages}
+                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4506,60 +5423,100 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
                 </div>
                 <div className="divide-y divide-neutral-800/60">
-                  {passes.map((pass) => (
-                    <div key={pass.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
-                      <div className="flex items-start gap-3 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedPasses.includes(pass.id)}
-                          onChange={() => {
-                            setSelectedPasses(prev => 
-                              prev.includes(pass.id) ? prev.filter(id => id !== pass.id) : [...prev, pass.id]
-                            );
-                          }}
-                          className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
-                        />
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-white font-bold text-base leading-snug">{pass.title}</span>
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-bold px-2 py-0.5 rounded-md uppercase font-mono">{pass.wristbandType}</span>
-                            {pass.popular && (
-                              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Popular Tag</span>
-                            )}
-                          </div>
-                          <p className="text-neutral-300 text-xs font-light">{pass.subtitle}</p>
-                          <p className="text-[11px] text-neutral-400">Included: <strong className="text-amber-300 font-semibold">{pass.includedEvents}</strong></p>
-                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            {pass.features.map((feat, idx) => (
-                              <span key={idx} className="bg-neutral-950 border border-neutral-800/80 text-[10px] text-neutral-400 px-2.5 py-0.5 rounded-full font-light">✓ {feat}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                  {(() => {
+                    const totalPassPages = Math.ceil(passes.length / ITEMS_PER_PAGE) || 1;
+                    const currentPassesPage = Math.min(passesPage, totalPassPages);
+                    const paginatedPasses = passes.slice((currentPassesPage - 1) * ITEMS_PER_PAGE, currentPassesPage * ITEMS_PER_PAGE);
+                    return (
+                      <>
+                        {paginatedPasses.map((pass) => (
+                          <div key={pass.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                            <div className="flex items-start gap-3 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedPasses.includes(pass.id)}
+                                onChange={() => {
+                                  setSelectedPasses(prev => 
+                                    prev.includes(pass.id) ? prev.filter(id => id !== pass.id) : [...prev, pass.id]
+                                  );
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
+                              />
+                              <div className="space-y-2 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-white font-bold text-base leading-snug">{pass.title}</span>
+                                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-bold px-2 py-0.5 rounded-md uppercase font-mono">{pass.wristbandType}</span>
+                                  {pass.popular && (
+                                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Popular Tag</span>
+                                  )}
+                                </div>
+                                <p className="text-neutral-300 text-xs font-light">{pass.subtitle}</p>
+                                <p className="text-[11px] text-neutral-400">Included: <strong className="text-amber-300 font-semibold">{pass.includedEvents}</strong></p>
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                  {pass.features.map((feat, idx) => (
+                                    <span key={idx} className="bg-neutral-950 border border-neutral-800/80 text-[10px] text-neutral-400 px-2.5 py-0.5 rounded-full font-light">✓ {feat}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
 
-                      <div className="flex items-center gap-4 shrink-0 self-end md:self-auto">
-                        <span className="text-xl font-bold font-heading text-amber-400">£{pass.priceGBP}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingPass(pass);
-                              setShowAddPass(false);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeletePass(pass.id)}
-                            className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                            <div className="flex items-center gap-4 shrink-0 self-end md:self-auto">
+                              <span className="text-xl font-bold font-heading text-amber-400">£{pass.priceGBP}</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPass(pass);
+                                    setShowAddPass(false);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }}
+                                  className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePass(pass.id)}
+                                  className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {totalPassPages > 1 && (
+                          <div className="flex items-center justify-between pt-4 px-5 py-3 border-t border-neutral-800 bg-neutral-950/20">
+                            <span className="text-[11px] text-neutral-400 font-sans">
+                              Showing <span className="text-white font-bold">{((currentPassesPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentPassesPage * ITEMS_PER_PAGE, passes.length)}</span> of <span className="text-white font-bold">{passes.length}</span> packages
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setPassesPage(p => Math.max(1, p - 1))}
+                                disabled={currentPassesPage === 1}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Prev
+                              </button>
+                              <span className="text-xs font-mono text-neutral-300">
+                                {currentPassesPage} / {totalPassPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setPassesPage(p => Math.min(totalPassPages, p + 1))}
+                                disabled={currentPassesPage === totalPassPages}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4823,69 +5780,109 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
                 </div>
                 <div className="divide-y divide-neutral-800/60">
-                  {hotels.map((hotel) => (
-                    <div key={hotel.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
-                      <div className="flex items-start gap-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedHotels.includes(hotel.id)}
-                          onChange={() => {
-                            setSelectedHotels(prev => 
-                              prev.includes(hotel.id) ? prev.filter(id => id !== hotel.id) : [...prev, hotel.id]
-                            );
-                          }}
-                          className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
-                        />
-                        <img
-                          src={hotel.image}
-                          alt={hotel.name}
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&q=80';
-                          }}
-                          className="w-20 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
-                        />
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-white font-bold text-base leading-snug">{hotel.name}</span>
-                            <span className="text-amber-400 font-mono text-xs">{Array.from({ length: hotel.stars }).map(() => '★').join('')}</span>
-                            {hotel.isRecommended && (
-                              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Spotlight Recommended</span>
-                            )}
-                          </div>
-                          <p className="text-neutral-300 text-xs font-light italic">"{hotel.tagline}"</p>
-                          <p className="text-neutral-400 text-[11px] flex flex-wrap items-center gap-x-3">
-                            <span>📍 {hotel.location}</span>
-                            <span>⏱ {hotel.distanceToMellowland} to Mellowland</span>
-                          </p>
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {hotel.features.map((feat, idx) => (
-                              <span key={idx} className="bg-neutral-950 border border-neutral-800/60 text-[9px] text-neutral-400 px-2 py-0.5 rounded-md font-light">{feat}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                  {(() => {
+                    const totalHotelPages = Math.ceil(hotels.length / ITEMS_PER_PAGE) || 1;
+                    const currentHotelsPage = Math.min(hotelsPage, totalHotelPages);
+                    const paginatedHotels = hotels.slice((currentHotelsPage - 1) * ITEMS_PER_PAGE, currentHotelsPage * ITEMS_PER_PAGE);
+                    return (
+                      <>
+                        {paginatedHotels.map((hotel) => (
+                          <div key={hotel.id} className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedHotels.includes(hotel.id)}
+                                onChange={() => {
+                                  setSelectedHotels(prev => 
+                                    prev.includes(hotel.id) ? prev.filter(id => id !== hotel.id) : [...prev, hotel.id]
+                                  );
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
+                              />
+                              <img
+                                src={hotel.image}
+                                alt={hotel.name}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&q=80';
+                                }}
+                                className="w-20 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
+                              />
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-white font-bold text-base leading-snug">{hotel.name}</span>
+                                  <span className="text-amber-400 font-mono text-xs">{Array.from({ length: hotel.stars }).map(() => '★').join('')}</span>
+                                  {hotel.isRecommended && (
+                                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-sans">Spotlight Recommended</span>
+                                  )}
+                                </div>
+                                <p className="text-neutral-300 text-xs font-light italic">"{hotel.tagline}"</p>
+                                <p className="text-neutral-400 text-[11px] flex flex-wrap items-center gap-x-3">
+                                  <span>📍 {hotel.location}</span>
+                                  <span>⏱ {hotel.distanceToMellowland} to Mellowland</span>
+                                </p>
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  {hotel.features.map((feat, idx) => (
+                                    <span key={idx} className="bg-neutral-950 border border-neutral-800/60 text-[9px] text-neutral-400 px-2 py-0.5 rounded-md font-light">{feat}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                        <button
-                          onClick={() => {
-                            setEditingHotel(hotel);
-                            setShowAddHotel(false);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                          className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold font-sans"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteHotel(hotel.id)}
-                          className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold font-sans"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingHotel(hotel);
+                                  setShowAddHotel(false);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold font-sans"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteHotel(hotel.id)}
+                                className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold font-sans"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {totalHotelPages > 1 && (
+                          <div className="flex items-center justify-between pt-4 px-5 py-3 border-t border-neutral-800 bg-neutral-950/20">
+                            <span className="text-[11px] text-neutral-400 font-sans">
+                              Showing <span className="text-white font-bold">{((currentHotelsPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentHotelsPage * ITEMS_PER_PAGE, hotels.length)}</span> of <span className="text-white font-bold">{hotels.length}</span> hotels
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setHotelsPage(p => Math.max(1, p - 1))}
+                                disabled={currentHotelsPage === 1}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-855 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Prev
+                              </button>
+                              <span className="text-xs font-mono text-neutral-300">
+                                {currentHotelsPage} / {totalHotelPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setHotelsPage(p => Math.min(totalHotelPages, p + 1))}
+                                disabled={currentHotelsPage === totalHotelPages}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-855 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -5225,68 +6222,106 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     No testimonials registered yet. Click "Add Testimonial" to create your first card.
                   </div>
                 ) : (
-                  <div className="divide-y divide-neutral-800/60">
-                    {testimonials.map((t) => (
-                      <div key={t.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
-                        <div className="flex items-start gap-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedTestimonials.includes(t.id)}
-                            onChange={() => {
-                              setSelectedTestimonials(prev => 
-                                prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
-                              );
-                            }}
-                            className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
-                          />
-                          <img
-                            src={t.avatar}
-                            alt={t.name}
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-                            }}
-                            className="w-12 h-12 rounded-full object-cover border border-neutral-800 bg-neutral-950 shrink-0"
-                          />
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-white font-bold text-sm leading-snug">{t.name}</span>
-                              <span className="text-neutral-500 text-[11px]">• {t.role}</span>
-                              <span className="text-amber-400 font-mono text-[10px] ml-2">
-                                {Array.from({ length: t.rating }).map(() => '★').join('')}
-                              </span>
+                  (() => {
+                    const totalTestimonialPages = Math.ceil(testimonials.length / ITEMS_PER_PAGE) || 1;
+                    const currentTestimonialsPage = Math.min(testimonialsPage, totalTestimonialPages);
+                    const paginatedTestimonials = testimonials.slice((currentTestimonialsPage - 1) * ITEMS_PER_PAGE, currentTestimonialsPage * ITEMS_PER_PAGE);
+                    return (
+                      <div className="divide-y divide-neutral-800/60">
+                        {paginatedTestimonials.map((t) => (
+                          <div key={t.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedTestimonials.includes(t.id)}
+                                onChange={() => {
+                                  setSelectedTestimonials(prev => 
+                                    prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                                  );
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
+                              />
+                              <img
+                                src={t.avatar}
+                                alt={t.name}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+                                }}
+                                className="w-12 h-12 rounded-full object-cover border border-neutral-800 bg-neutral-950 shrink-0"
+                              />
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-white font-bold text-sm leading-snug">{t.name}</span>
+                                  <span className="text-neutral-500 text-[11px]">• {t.role}</span>
+                                  <span className="text-amber-400 font-mono text-[10px] ml-2">
+                                    {Array.from({ length: t.rating }).map(() => '★').join('')}
+                                  </span>
+                                </div>
+                                <p className="text-neutral-400 text-xs italic font-light font-sans line-clamp-2">
+                                  "{t.quote}"
+                                </p>
+                                <p className="text-[10px] text-neutral-500 font-mono">
+                                  Origin: {t.location}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-neutral-400 text-xs italic font-light font-sans line-clamp-2">
-                              "{t.quote}"
-                            </p>
-                            <p className="text-[10px] text-neutral-500 font-mono">
-                              Origin: {t.location}
-                            </p>
+                            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTestimonial(t);
+                                  setShowAddTestimonial(false);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                                title="Edit testimonial details"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTestimonial(t.id)}
+                                className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                                title="Delete Testimonial"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                          <button
-                            onClick={() => {
-                              setEditingTestimonial(t);
-                              setShowAddTestimonial(false);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
-                            title="Edit testimonial details"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTestimonial(t.id)}
-                            className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
-                            title="Delete Testimonial"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        ))}
+
+                        {totalTestimonialPages > 1 && (
+                          <div className="flex items-center justify-between pt-4 px-5 py-3 border-t border-neutral-800 bg-neutral-950/20">
+                            <span className="text-[11px] text-neutral-400 font-sans">
+                              Showing <span className="text-white font-bold">{((currentTestimonialsPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentTestimonialsPage * ITEMS_PER_PAGE, testimonials.length)}</span> of <span className="text-white font-bold">{testimonials.length}</span> testimonials
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setTestimonialsPage(p => Math.max(1, p - 1))}
+                                disabled={currentTestimonialsPage === 1}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-855 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Prev
+                              </button>
+                              <span className="text-xs font-mono text-neutral-300">
+                                {currentTestimonialsPage} / {totalTestimonialPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setTestimonialsPage(p => Math.min(totalTestimonialPages, p + 1))}
+                                disabled={currentTestimonialsPage === totalTestimonialPages}
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-855 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()
                 )}
               </div>
             </div>

@@ -49,6 +49,56 @@ export interface HeroImageConfig {
   alt?: string;
 }
 
+export interface PageImagesConfig {
+  // Home Page
+  homeWhiteGala?: string;
+  homeLondonVibes?: string;
+  homeBeachDJ?: string;
+  homeRiverTubing?: string;
+  
+  // Events Page
+  eventsBanner?: string;
+  
+  // Gallery Page
+  galleryBanner?: string;
+  
+  // About Grenada Page
+  aboutGrenadaHero?: string;
+  aboutGrenadaEco?: string;
+  aboutGrenadaUnderwater?: string;
+  aboutGrenadaWaterfall?: string;
+  aboutGrenadaSpiceMarket?: string;
+  
+  // About Mellowland Page
+  aboutMellowlandHero?: string;
+  aboutMellowlandRiver?: string;
+  aboutMellowlandGarden?: string;
+  
+  // Hotels Page
+  hotelsBanner?: string;
+  
+  // Passes / Shop Page
+  passesBanner?: string;
+  
+  // Transportation Page
+  transportationBanner?: string;
+  
+  // Testimonials Page
+  testimonialsBanner?: string;
+  
+  // Contact Page
+  contactBanner?: string;
+  
+  // Travel Insurance Page
+  travelInsuranceBanner?: string;
+  
+  // Terms Page
+  termsBanner?: string;
+
+  // Custom key-value pairs
+  customPageImages?: Record<string, string>;
+}
+
 export interface SiteConfig {
   socialLinks: {
     instagram: string;
@@ -75,6 +125,7 @@ export interface SiteConfig {
     displayCount: number;
     autoplayInterval?: number; // rotation speed in seconds
   };
+  pageImages?: PageImagesConfig;
   adminPath?: string;
   adminPassword?: string;
   contactEmail?: string;

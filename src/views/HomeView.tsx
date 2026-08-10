@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ActiveTab, PassItem, SiteConfig } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
-import { getSiteConfig } from '../services/submissionService';
+import { getSiteConfig, getPageImage } from '../services/submissionService';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { GrenadaWeatherWidget } from '../components/GrenadaWeatherWidget';
 import { motion, AnimatePresence } from 'motion/react';
@@ -17,7 +17,11 @@ import {
   Mic2,
   Palmtree,
   Star,
-  Compass
+  Compass,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Pause
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -58,6 +62,8 @@ const staggerContainer = {
 export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart }) => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const handleConfigUpdate = (e: any) => {
@@ -67,8 +73,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         setSiteConfig(getSiteConfig());
       }
     };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'grenada_site_config') {
+        setSiteConfig(getSiteConfig());
+      }
+    };
     window.addEventListener('site_config_updated', handleConfigUpdate);
-    return () => window.removeEventListener('site_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('site_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Compute active background images considering displayCount setting
@@ -87,6 +102,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
     return imagesList.slice(0, count);
   }, [siteConfig]);
 
+  // Preload all active hero images for instantaneous crossfading
+  useEffect(() => {
+    activeHeroImages.forEach((img) => {
+      if (img?.url) {
+        const imgObj = new Image();
+        imgObj.src = img.url;
+      }
+    });
+  }, [activeHeroImages]);
+
   // Reset current index if it goes out of bounds when active images change
   useEffect(() => {
     if (currentImageIndex >= activeHeroImages.length) {
@@ -94,16 +119,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
     }
   }, [activeHeroImages.length, currentImageIndex]);
 
+  // Autoplay rotation timer
   useEffect(() => {
-    if (activeHeroImages.length <= 1) return;
-    const intervalMs = (siteConfig.hero?.autoplayInterval || 4) * 1000;
+    if (activeHeroImages.length <= 1 || isPaused) return;
+    const intervalMs = Math.max(2, siteConfig.hero?.autoplayInterval || 4) * 1000;
     const timer = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length);
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [activeHeroImages.length, siteConfig.hero?.autoplayInterval]);
-
-  const currentHeroImage = activeHeroImages[currentImageIndex] || activeHeroImages[0];
+  }, [activeHeroImages.length, siteConfig.hero?.autoplayInterval, isPaused]);
 
   return (
     <div className="space-y-20 pb-16">
@@ -113,28 +137,44 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         initial="hidden"
         animate="visible"
         variants={fadeInUp}
-        className="relative rounded-3xl overflow-hidden min-h-[620px] sm:min-h-[680px] flex items-center justify-center border border-amber-500/20 shadow-2xl"
+        className="relative rounded-3xl overflow-hidden min-h-[620px] sm:min-h-[680px] flex items-center justify-center border border-amber-500/20 shadow-2xl group"
       >
-        {/* Background Slideshow with Ambient Shimmer */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <AnimatePresence mode="popLayout">
-            <motion.img 
-              key={`${currentHeroImage?.url}-${currentImageIndex}`}
-              src={currentHeroImage?.url || FESTIVAL_IMAGES.hero} 
-              alt={currentHeroImage?.alt || "Grenada CARICOM Festival Background"} 
-              referrerPolicy="no-referrer"
-              initial={{ opacity: 0, scale: 1.12 }}
-              animate={{ opacity: 1, scale: 1.04 }}
-              exit={{ opacity: 0, scale: 1.08 }}
-              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-              }}
-              className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.7] contrast-[1.05]"
-            />
-          </AnimatePresence>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/60 to-[#07090D]/30 z-[1]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent z-[1]" />
+        {/* Background Slideshow - Hardware Accelerated Layer Crossfade */}
+        <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-950">
+          {activeHeroImages.map((imgItem, idx) => {
+            const isActive = idx === currentImageIndex;
+            const isBroken = failedImages[imgItem.url];
+            const srcUrl = isBroken ? FESTIVAL_IMAGES.hero : (imgItem.url || FESTIVAL_IMAGES.hero);
+
+            return (
+              <motion.div
+                key={`${imgItem.url}-${idx}`}
+                initial={false}
+                animate={{
+                  opacity: isActive ? 1 : 0,
+                  scale: isActive ? 1.05 : 1.0,
+                }}
+                transition={{
+                  opacity: { duration: 1.2, ease: [0.25, 1, 0.5, 1] },
+                  scale: { duration: (siteConfig.hero?.autoplayInterval || 4) + 1, ease: 'linear' }
+                }}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ zIndex: isActive ? 1 : 0 }}
+              >
+                <img
+                  src={srcUrl}
+                  alt={imgItem.alt || "Grenada CARICOM Festival Background"}
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    setFailedImages((prev) => ({ ...prev, [imgItem.url]: true }));
+                  }}
+                  className="w-full h-full object-cover object-center filter brightness-[0.68] contrast-[1.06]"
+                />
+              </motion.div>
+            );
+          })}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/60 to-[#07090D]/30 z-[2]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent z-[2]" />
         </div>
 
         {/* Content Box */}
@@ -186,22 +226,63 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
 
         </div>
 
-        {/* Carousel Navigation Dots */}
+        {/* Carousel Navigation Controls */}
         {activeHeroImages.length > 1 && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#07090D]/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-            {activeHeroImages.map((_, idx) => (
+          <>
+            {/* Left Chevron */}
+            <button
+              onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden sm:flex items-center justify-center"
+              title="Previous Background Slide"
+              aria-label="Previous Slide"
+            >
+              <ChevronLeft className="w-5 h-5 text-amber-400" />
+            </button>
+
+            {/* Right Chevron */}
+            <button
+              onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden sm:flex items-center justify-center"
+              title="Next Background Slide"
+              aria-label="Next Slide"
+            >
+              <ChevronRight className="w-5 h-5 text-amber-400" />
+            </button>
+
+            {/* Bottom Controls Pill Bar */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-[#07090D]/70 backdrop-blur-md px-4 py-2 rounded-full border border-amber-500/30 shadow-2xl">
+              {/* Slide Counter */}
+              <span className="text-[10px] font-mono font-extrabold text-amber-400 uppercase tracking-widest border-r border-white/15 pr-3">
+                {String(currentImageIndex + 1).padStart(2, '0')} / {String(activeHeroImages.length).padStart(2, '0')}
+              </span>
+
+              {/* Dots */}
+              <div className="flex items-center gap-1.5">
+                {activeHeroImages.map((imgItem, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      currentImageIndex === idx 
+                        ? 'w-6 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]' 
+                        : 'w-2 bg-white/30 hover:bg-white/60'
+                    }`}
+                    title={imgItem.alt || `Slide ${idx + 1}`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              {/* Pause/Play Toggle */}
               <button
-                key={idx}
-                onClick={() => setCurrentImageIndex(idx)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  currentImageIndex === idx 
-                    ? 'w-6 bg-amber-400' 
-                    : 'w-2 bg-white/40 hover:bg-white/70'
-                }`}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
-            ))}
-          </div>
+                onClick={() => setIsPaused((prev) => !prev)}
+                className="ml-1 text-white/70 hover:text-amber-300 transition-colors cursor-pointer border-l border-white/15 pl-2.5 flex items-center"
+                title={isPaused ? "Resume Autoplay" : "Pause Autoplay"}
+              >
+                {isPaused ? <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
+              </button>
+            </div>
+          </>
         )}
       </motion.section>
 
@@ -265,7 +346,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
 
           <div className="relative rounded-2xl overflow-hidden border border-white/15 shadow-2xl h-[380px] group">
             <img 
-              src={FESTIVAL_IMAGES.whiteGala} 
+              src={getPageImage('homeWhiteGala', FESTIVAL_IMAGES.whiteGala)} 
               alt="White Gala Party Grenada" 
               referrerPolicy="no-referrer"
               onError={(e) => {

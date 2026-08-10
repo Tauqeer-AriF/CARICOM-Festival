@@ -24,11 +24,16 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 }) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadStats, setUploadStats] = useState<{ original: number; compressed: number; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   useEffect(() => {
     setMedia(getMediaItems());
@@ -187,6 +192,10 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     item.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const ITEMS_PER_PAGE = 9;
+  const totalPages = Math.ceil(filteredMedia.length / ITEMS_PER_PAGE) || 1;
+  const paginatedMedia = filteredMedia.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
       {/* Tab Heading */}
@@ -307,90 +316,121 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredMedia.map((item) => {
-                const compressionSavings = item.originalSize - item.compressedSize;
-                const pctSavings = Math.round((1 - item.compressedSize / item.originalSize) * 100);
-                return (
-                  <div
-                    key={item.id}
-                    className="group border border-neutral-800/80 bg-[#0C0F1E] rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-neutral-700 transition-all duration-250"
-                  >
-                    {/* Image Preview Window */}
-                    <div className="relative aspect-video bg-neutral-950 overflow-hidden border-b border-neutral-900">
-                      <img
-                        src={item.url}
-                        alt={item.name}
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors duration-300" />
-                      
-                      {/* Technical Meta badge */}
-                      <span className="absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md border border-neutral-800 text-[8px] font-extrabold text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
-                        {item.type.split('/')[1] || 'IMAGE'}
-                      </span>
-                    </div>
-
-                    {/* Metadata & Actions */}
-                    <div className="p-4 space-y-3.5">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
-                          {item.name}
-                        </h4>
-                        <span className="text-[9px] text-neutral-500 font-mono block">
-                          Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {paginatedMedia.map((item) => {
+                  const compressionSavings = item.originalSize - item.compressedSize;
+                  const pctSavings = Math.round((1 - item.compressedSize / item.originalSize) * 100);
+                  return (
+                    <div
+                      key={item.id}
+                      className="group border border-neutral-800/80 bg-[#0C0F1E] rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-neutral-700 transition-all duration-250"
+                    >
+                      {/* Image Preview Window */}
+                      <div className="relative aspect-video bg-neutral-950 overflow-hidden border-b border-neutral-900">
+                        <img
+                          src={item.url}
+                          alt={item.name}
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors duration-300" />
+                        
+                        {/* Technical Meta badge */}
+                        <span className="absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md border border-neutral-800 text-[8px] font-extrabold text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                          {item.type.split('/')[1] || 'IMAGE'}
                         </span>
                       </div>
 
-                      {/* Storage Analytics Ribbon */}
-                      <div className="bg-neutral-950/40 p-2 border border-neutral-800/40 rounded-xl grid grid-cols-2 gap-2 text-[10px] font-mono leading-tight">
-                        <div>
-                          <span className="text-neutral-500 text-[8px] block uppercase font-bold">Saved Disk</span>
-                          <span className="text-emerald-400 font-bold">{formatBytes(item.compressedSize)}</span>
+                      {/* Metadata & Actions */}
+                      <div className="p-4 space-y-3.5">
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
+                            {item.name}
+                          </h4>
+                          <span className="text-[9px] text-neutral-500 font-mono block">
+                            Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
                         </div>
-                        <div>
-                          <span className="text-neutral-500 text-[8px] block uppercase font-bold">Reduction</span>
-                          <span className="text-amber-400 font-bold">-{pctSavings}%</span>
-                        </div>
-                      </div>
 
-                      {/* Operations row */}
-                      <div className="flex items-center gap-2 pt-1.5 border-t border-neutral-900">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyLink(item)}
-                          className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          {copiedId === item.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-emerald-400 font-bold">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Copy URL</span>
-                            </>
-                          )}
-                        </button>
-                        
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 bg-neutral-900 hover:bg-rose-950/10 border border-neutral-800 text-neutral-500 hover:text-rose-400 hover:border-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Asset"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Storage Analytics Ribbon */}
+                        <div className="bg-neutral-950/40 p-2 border border-neutral-800/40 rounded-xl grid grid-cols-2 gap-2 text-[10px] font-mono leading-tight">
+                          <div>
+                            <span className="text-neutral-500 text-[8px] block uppercase font-bold">Saved Disk</span>
+                            <span className="text-emerald-400 font-bold">{formatBytes(item.compressedSize)}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 text-[8px] block uppercase font-bold">Reduction</span>
+                            <span className="text-amber-400 font-bold">-{pctSavings}%</span>
+                          </div>
+                        </div>
+
+                        {/* Operations row */}
+                        <div className="flex items-center gap-2 pt-1.5 border-t border-neutral-900">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(item)}
+                            className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            {copiedId === item.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400 font-bold">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy URL</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1.5 bg-neutral-900 hover:bg-rose-950/10 border border-neutral-800 text-neutral-500 hover:text-rose-400 hover:border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Asset"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-6 border-t border-neutral-800 bg-neutral-950/20 px-4 py-3 rounded-xl">
+                  <span className="text-[11px] text-neutral-400">
+                    Showing <span className="text-white font-bold">{((page - 1) * ITEMS_PER_PAGE) + 1}</span> to{' '}
+                    <span className="text-white font-bold">{Math.min(page * ITEMS_PER_PAGE, filteredMedia.length)}</span> of{' '}
+                    <span className="text-white font-bold">{filteredMedia.length}</span> assets
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-3 py-1 bg-neutral-900 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs font-mono text-neutral-300">
+                      {page} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="px-3 py-1 bg-neutral-900 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      Next
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>

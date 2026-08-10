@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActiveTab } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { getPageImage } from '../services/submissionService';
 import { Waves, Utensils, Mountain, Sun, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -86,7 +87,7 @@ export const AboutGrenadaView: React.FC<AboutGrenadaViewProps> = ({ setActiveTab
         <div className="space-y-3">
           <div className="relative rounded-2xl overflow-hidden h-[300px] border border-white/15 shadow-xl group">
             <img
-              src={FESTIVAL_IMAGES.ecoParadise}
+              src={getPageImage('aboutGrenadaEco', FESTIVAL_IMAGES.ecoParadise)}
               alt="Grenada Eco Paradise"
               referrerPolicy="no-referrer"
               onError={(e) => {
@@ -161,7 +162,7 @@ export const AboutGrenadaView: React.FC<AboutGrenadaViewProps> = ({ setActiveTab
         className="relative rounded-3xl overflow-hidden border border-teal-500/30 p-8 sm:p-12 text-white shadow-2xl"
       >
         <img
-          src={FESTIVAL_IMAGES.underwaterPark}
+          src={getPageImage('aboutGrenadaUnderwater', FESTIVAL_IMAGES.underwaterPark)}
           alt="Underwater Sculpture Park"
           referrerPolicy="no-referrer"
           onError={(e) => {

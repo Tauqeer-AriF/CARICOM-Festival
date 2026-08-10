@@ -43,6 +43,29 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
       { url: FESTIVAL_IMAGES.ecoParadise, alt: 'Beautiful Grenada Eco Paradise Coastline' },
     ]
   },
+  pageImages: {
+    homeWhiteGala: FESTIVAL_IMAGES.whiteGala,
+    homeLondonVibes: FESTIVAL_IMAGES.whiteGala,
+    homeBeachDJ: FESTIVAL_IMAGES.hero,
+    homeRiverTubing: FESTIVAL_IMAGES.riverTubing,
+    eventsBanner: FESTIVAL_IMAGES.festivalHero,
+    galleryBanner: FESTIVAL_IMAGES.gallery5,
+    aboutGrenadaHero: FESTIVAL_IMAGES.ecoParadise,
+    aboutGrenadaEco: FESTIVAL_IMAGES.ecoParadise,
+    aboutGrenadaUnderwater: FESTIVAL_IMAGES.underwaterPark,
+    aboutGrenadaWaterfall: FESTIVAL_IMAGES.waterfall,
+    aboutGrenadaSpiceMarket: FESTIVAL_IMAGES.spiceMarket,
+    aboutMellowlandHero: FESTIVAL_IMAGES.riverTubing,
+    aboutMellowlandRiver: FESTIVAL_IMAGES.riverTubing,
+    aboutMellowlandGarden: FESTIVAL_IMAGES.mellowlandGarden,
+    hotelsBanner: FESTIVAL_IMAGES.royaltonResort,
+    passesBanner: FESTIVAL_IMAGES.festivalHero,
+    transportationBanner: FESTIVAL_IMAGES.day1_welcome,
+    testimonialsBanner: FESTIVAL_IMAGES.whiteGala,
+    contactBanner: FESTIVAL_IMAGES.ecoParadise,
+    travelInsuranceBanner: FESTIVAL_IMAGES.royaltonResort,
+    termsBanner: FESTIVAL_IMAGES.gemini1,
+  },
   adminPath: 'admin',
   adminPassword: '2027',
   contactEmail: 'info@grenadacaricomfestival.com',
@@ -258,20 +281,47 @@ export const INITIAL_DEMO_MEDIA: MediaItem[] = [
   }
 ];
 
-// --- Dual Local-First SQLite Synchronizer ---
-function safeSetItem(key: string, value: string): boolean {
+// --- Robust storage wrapper with in-memory fallback for iframe compatibility ---
+const memoryStore: Record<string, string> = {};
+
+export function safeGetItem(key: string): string | null {
   try {
-    localStorage.setItem(key, value);
-    // Validation step: read back and verify
-    const verifiedValue = localStorage.getItem(key);
-    if (verifiedValue !== value) {
-      console.error(`localStorage verification failed for key '${key}': retrieved value does not match written value.`);
-      return false;
+    if (typeof localStorage !== 'undefined') {
+      const val = localStorage.getItem(key);
+      if (val !== null) return val;
     }
-    return true;
+  } catch (err) {
+    console.warn(`localStorage.getItem failed for key '${key}':`, err);
+  }
+  return memoryStore[key] !== undefined ? memoryStore[key] : null;
+}
+
+export function safeSetItem(key: string, value: string): boolean {
+  memoryStore[key] = value;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+      const verifiedValue = localStorage.getItem(key);
+      if (verifiedValue === value) {
+        return true;
+      }
+      console.warn(`localStorage verification failed for key '${key}': retrieved value does not match written value.`);
+    }
   } catch (err) {
     console.warn(`localStorage write failed for key '${key}':`, err);
-    return false;
+  }
+  // Return true because it is safely persisted in the memoryStore fallback
+  return true;
+}
+
+export function safeRemoveItem(key: string): void {
+  delete memoryStore[key];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.warn(`localStorage.removeItem failed for key '${key}':`, err);
   }
 }
 
@@ -323,24 +373,15 @@ export async function syncResource(type: string): Promise<void> {
         const resConfig = await fetchWithRetry('/api/site-config');
         if (resConfig?.ok) {
           const serverConfig = await resConfig.json();
-          const localConfigStr = localStorage.getItem(SITE_CONFIG_KEY);
+          const localConfigStr = safeGetItem(SITE_CONFIG_KEY);
           if (localConfigStr) {
             try {
               const localConfig = JSON.parse(localConfigStr);
-              if (localConfig && localConfig.updatedAt && serverConfig && serverConfig.updatedAt) {
-                const localTime = new Date(localConfig.updatedAt).getTime();
-                const serverTime = new Date(serverConfig.updatedAt).getTime();
-                if (localTime > serverTime) {
-                  console.log('[Sync] Local Site Config is newer than server. Pushing local config to server.');
-                  await safeApiCall('/api/site-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(localConfig)
-                  });
-                  break;
-                }
-              } else if (localConfig && localConfig.updatedAt && (!serverConfig || !serverConfig.updatedAt)) {
-                console.log('[Sync] Local Site Config has updatedAt but server doesn\'t. Pushing local config.');
+              const localTime = localConfig?.updatedAt ? new Date(localConfig.updatedAt).getTime() : 0;
+              const serverTime = serverConfig?.updatedAt ? new Date(serverConfig.updatedAt).getTime() : 0;
+
+              if (localTime > serverTime) {
+                console.log('[Sync] Local Site Config is newer than server. Pushing local config to server.');
                 await safeApiCall('/api/site-config', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -348,14 +389,21 @@ export async function syncResource(type: string): Promise<void> {
                 });
                 break;
               }
+
+              // If server config is identical to local config, skip redundant state reloads
+              if (JSON.stringify(serverConfig) === localConfigStr) {
+                break;
+              }
             } catch (err) {
               console.error('[Sync] Error comparing site_config timestamps:', err);
             }
           }
-          safeSetItem(SITE_CONFIG_KEY, JSON.stringify(serverConfig));
-          const event = new CustomEvent('site_config_updated', { detail: serverConfig });
-          (event as any).isRemoteSync = true;
-          window.dispatchEvent(event);
+          if (serverConfig && Object.keys(serverConfig).length > 0) {
+            safeSetItem(SITE_CONFIG_KEY, JSON.stringify(serverConfig));
+            const event = new CustomEvent('site_config_updated', { detail: serverConfig });
+            (event as any).isRemoteSync = true;
+            window.dispatchEvent(event);
+          }
         }
         break;
       }
@@ -523,7 +571,7 @@ if (typeof window !== 'undefined') {
 // --- SUBMISSIONS SERVICE ---
 export const getSubmissions = (): FormSubmissionItem[] => {
   try {
-    const raw = localStorage.getItem(SUBMISSIONS_KEY);
+    const raw = safeGetItem(SUBMISSIONS_KEY);
     if (!raw) {
       safeSetItem(SUBMISSIONS_KEY, JSON.stringify(INITIAL_DEMO_SUBMISSIONS));
       return INITIAL_DEMO_SUBMISSIONS;
@@ -646,7 +694,7 @@ export const resetSubmissionsToDemo = (): FormSubmissionItem[] => {
 // --- SITE CONFIG SERVICE ---
 export const getSiteConfig = (): SiteConfig => {
   try {
-    const raw = localStorage.getItem(SITE_CONFIG_KEY);
+    const raw = safeGetItem(SITE_CONFIG_KEY);
     if (!raw) {
       safeSetItem(SITE_CONFIG_KEY, JSON.stringify(DEFAULT_SITE_CONFIG));
       return DEFAULT_SITE_CONFIG;
@@ -664,6 +712,10 @@ export const getSiteConfig = (): SiteConfig => {
         images: (parsed.hero?.images && Array.isArray(parsed.hero.images) && parsed.hero.images.length > 0)
           ? parsed.hero.images
           : (DEFAULT_SITE_CONFIG.hero?.images || [])
+      },
+      pageImages: {
+        ...DEFAULT_SITE_CONFIG.pageImages,
+        ...(parsed.pageImages || {})
       }
     };
   } catch (e) {
@@ -672,30 +724,66 @@ export const getSiteConfig = (): SiteConfig => {
   }
 };
 
+export const getPageImage = (key: string, defaultUrl: string): string => {
+  const config = getSiteConfig();
+  if (config.pageImages) {
+    const customVal = (config.pageImages as any)[key];
+    if (customVal && typeof customVal === 'string' && customVal.trim()) {
+      return customVal.trim();
+    }
+    if (config.pageImages.customPageImages && config.pageImages.customPageImages[key]) {
+      return config.pageImages.customPageImages[key];
+    }
+  }
+  return defaultUrl;
+};
+
+export const updatePageImage = (key: string, newUrl: string): void => {
+  const config = getSiteConfig();
+  if (!config.pageImages) {
+    config.pageImages = {};
+  }
+  (config.pageImages as any)[key] = newUrl;
+  saveSiteConfig(config);
+};
+
 let siteConfigSyncTimeout: any = null;
 
 export const saveSiteConfig = (config: SiteConfig): void => {
   try {
     // Add/update timestamp for Last-Write-Wins conflict resolution
-    config.updatedAt = new Date().toISOString();
+    const normalizedConfig: SiteConfig = {
+      ...DEFAULT_SITE_CONFIG,
+      ...config,
+      socialLinks: { ...DEFAULT_SITE_CONFIG.socialLinks, ...(config.socialLinks || {}) },
+      branding: { ...DEFAULT_SITE_CONFIG.branding, ...(config.branding || {}) },
+      banner: { ...DEFAULT_SITE_CONFIG.banner, ...(config.banner || {}) },
+      hero: {
+        displayCount: config.hero?.displayCount ?? DEFAULT_SITE_CONFIG.hero?.displayCount ?? 5,
+        autoplayInterval: config.hero?.autoplayInterval ?? DEFAULT_SITE_CONFIG.hero?.autoplayInterval ?? 4,
+        images: (config.hero?.images && Array.isArray(config.hero.images) && config.hero.images.length > 0)
+          ? config.hero.images
+          : (DEFAULT_SITE_CONFIG.hero?.images || [])
+      },
+      pageImages: {
+        ...DEFAULT_SITE_CONFIG.pageImages,
+        ...(config.pageImages || {})
+      },
+      updatedAt: new Date().toISOString()
+    };
 
-    const success = safeSetItem(SITE_CONFIG_KEY, JSON.stringify(config));
+    const success = safeSetItem(SITE_CONFIG_KEY, JSON.stringify(normalizedConfig));
     if (!success) {
       throw new Error('Write verification failed for site config');
     }
-    window.dispatchEvent(new CustomEvent('site_config_updated', { detail: config }));
+    window.dispatchEvent(new CustomEvent('site_config_updated', { detail: normalizedConfig }));
 
-    // Sync to backend SQLite (debounced to avoid network spamming on rapid changes)
-    if (siteConfigSyncTimeout) {
-      clearTimeout(siteConfigSyncTimeout);
-    }
-    siteConfigSyncTimeout = setTimeout(() => {
-      safeApiCall('/api/site-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-    }, 300);
+    // Sync to backend SQLite immediately
+    safeApiCall('/api/site-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(normalizedConfig)
+    }).catch(err => console.error('Failed to sync site config to server:', err));
   } catch (e) {
     console.error('Error saving site config:', e);
   }
@@ -731,26 +819,12 @@ export const exportSubmissionsCSV = (submissions: FormSubmissionItem[]): void =>
 // --- EVENTS SERVICE ---
 export const getEvents = (): EventItem[] => {
   try {
-    const raw = localStorage.getItem(EVENTS_KEY);
+    const raw = safeGetItem(EVENTS_KEY);
     if (!raw) {
       safeSetItem(EVENTS_KEY, JSON.stringify(FESTIVAL_EVENTS));
       return FESTIVAL_EVENTS;
     }
-    const events: EventItem[] = JSON.parse(raw);
-    let updated = false;
-    const fixedEvents = events.map(ev => {
-      const matchingDefault = FESTIVAL_EVENTS.find(fe => fe.id === ev.id);
-      if (matchingDefault && ev.highlightImage !== matchingDefault.highlightImage) {
-        updated = true;
-        return { ...ev, highlightImage: matchingDefault.highlightImage };
-      }
-      return ev;
-    });
-    if (updated) {
-      safeSetItem(EVENTS_KEY, JSON.stringify(fixedEvents));
-      return fixedEvents;
-    }
-    return events;
+    return JSON.parse(raw);
   } catch (e) {
     console.error('Error loading events:', e);
     return FESTIVAL_EVENTS;
@@ -780,26 +854,12 @@ export const saveEvents = (events: EventItem[]): void => {
 // --- GALLERY SERVICE ---
 export const getGalleryItems = (): GalleryItem[] => {
   try {
-    const raw = localStorage.getItem(GALLERY_KEY);
+    const raw = safeGetItem(GALLERY_KEY);
     if (!raw) {
       safeSetItem(GALLERY_KEY, JSON.stringify(GALLERY_ITEMS));
       return GALLERY_ITEMS;
     }
-    const items: GalleryItem[] = JSON.parse(raw);
-    let updated = false;
-    const fixedItems = items.map(item => {
-      const matchingDefault = GALLERY_ITEMS.find(gi => gi.id === item.id);
-      if (matchingDefault && item.imageUrl !== matchingDefault.imageUrl) {
-        updated = true;
-        return { ...item, imageUrl: matchingDefault.imageUrl };
-      }
-      return item;
-    });
-    if (updated) {
-      safeSetItem(GALLERY_KEY, JSON.stringify(fixedItems));
-      return fixedItems;
-    }
-    return items;
+    return JSON.parse(raw);
   } catch (e) {
     console.error('Error loading gallery items:', e);
     return GALLERY_ITEMS;
@@ -829,7 +889,7 @@ export const saveGalleryItems = (items: GalleryItem[]): void => {
 // --- HOTELS SERVICE ---
 export const getHotels = (): HotelItem[] => {
   try {
-    const raw = localStorage.getItem(HOTELS_KEY);
+    const raw = safeGetItem(HOTELS_KEY);
     if (!raw) {
       safeSetItem(HOTELS_KEY, JSON.stringify(FESTIVAL_HOTELS));
       return FESTIVAL_HOTELS;
@@ -864,7 +924,7 @@ export const saveHotels = (hotels: HotelItem[]): void => {
 // --- PASSES SERVICE ---
 export const getPasses = (): PassItem[] => {
   try {
-    const raw = localStorage.getItem(PASSES_KEY);
+    const raw = safeGetItem(PASSES_KEY);
     if (!raw) {
       safeSetItem(PASSES_KEY, JSON.stringify(FESTIVAL_PASSES));
       return FESTIVAL_PASSES;
@@ -899,7 +959,7 @@ export const savePasses = (passes: PassItem[]): void => {
 // --- TESTIMONIALS SERVICE ---
 export const getTestimonials = (): TestimonialItem[] => {
   try {
-    const raw = localStorage.getItem(TESTIMONIALS_KEY);
+    const raw = safeGetItem(TESTIMONIALS_KEY);
     if (!raw) {
       safeSetItem(TESTIMONIALS_KEY, JSON.stringify(FESTIVAL_TESTIMONIALS));
       return FESTIVAL_TESTIMONIALS;
@@ -934,7 +994,7 @@ export const saveTestimonials = (testimonials: TestimonialItem[]): void => {
 // --- MEDIA SERVICE ---
 export const getMediaItems = (): MediaItem[] => {
   try {
-    const raw = localStorage.getItem(MEDIA_KEY);
+    const raw = safeGetItem(MEDIA_KEY);
     if (!raw) {
       safeSetItem(MEDIA_KEY, JSON.stringify(INITIAL_DEMO_MEDIA));
       return INITIAL_DEMO_MEDIA;
@@ -986,21 +1046,21 @@ export const deleteMediaItem = (id: string): void => {
 // --- GLOBAL RESET ---
 export const resetAllDynamicDataToDefault = (): void => {
   try {
-    localStorage.removeItem(EVENTS_KEY);
-    localStorage.removeItem(GALLERY_KEY);
-    localStorage.removeItem(HOTELS_KEY);
-    localStorage.removeItem(PASSES_KEY);
-    localStorage.removeItem(TESTIMONIALS_KEY);
-    localStorage.removeItem(MEDIA_KEY);
+    safeRemoveItem(EVENTS_KEY);
+    safeRemoveItem(GALLERY_KEY);
+    safeRemoveItem(HOTELS_KEY);
+    safeRemoveItem(PASSES_KEY);
+    safeRemoveItem(TESTIMONIALS_KEY);
+    safeRemoveItem(MEDIA_KEY);
 
     // Validate that removal succeeded before triggering broadcasts
     if (
-      localStorage.getItem(EVENTS_KEY) !== null ||
-      localStorage.getItem(GALLERY_KEY) !== null ||
-      localStorage.getItem(HOTELS_KEY) !== null ||
-      localStorage.getItem(PASSES_KEY) !== null ||
-      localStorage.getItem(TESTIMONIALS_KEY) !== null ||
-      localStorage.getItem(MEDIA_KEY) !== null
+      safeGetItem(EVENTS_KEY) !== null ||
+      safeGetItem(GALLERY_KEY) !== null ||
+      safeGetItem(HOTELS_KEY) !== null ||
+      safeGetItem(PASSES_KEY) !== null ||
+      safeGetItem(TESTIMONIALS_KEY) !== null ||
+      safeGetItem(MEDIA_KEY) !== null
     ) {
       throw new Error('Verification failed: One or more localStorage keys were not deleted');
     }

@@ -77,8 +77,12 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('theme');
-    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    try {
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null;
+      return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    } catch {
+      return 'dark';
+    }
   });
 
   useEffect(() => {
@@ -87,7 +91,13 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('light-mode');
     }
-    localStorage.setItem('theme', theme);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('theme', theme);
+      }
+    } catch (err) {
+      console.warn('Failed to save theme to localStorage:', err);
+    }
   }, [theme]);
 
   const [events, setEvents] = useState(() => getEvents());
@@ -590,7 +600,7 @@ export default function App() {
 
   return (
     <div 
-      className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950 relative overflow-x-hidden"
+      className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950 relative overflow-x-clip"
       style={{
         fontFamily: `${bodyFont}, sans-serif`
       }}
