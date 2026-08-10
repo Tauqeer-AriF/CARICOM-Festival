@@ -1,28 +1,36 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ActiveTab } from '../types';
-import { FESTIVAL_IMAGES } from '../data/festivalData';
-import { MapPin, Hotel, MessageCircle, ShieldCheck, CheckCircle2, Plane, Sparkles, PhoneCall, ArrowRight } from 'lucide-react';
+import { MapPin, Hotel, MessageCircle, ShieldCheck, Plane, ArrowRight } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface TransportationViewProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
 
-export const TransportationView: React.FC<TransportationViewProps> = ({ setActiveTab }) => {
-  const [phoneSubmitted, setPhoneSubmitted] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-
-  const handlePhoneSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (phoneNumber) {
-      setPhoneSubmitted(true);
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
     }
-  };
+  }
+};
 
+export const TransportationView: React.FC<TransportationViewProps> = ({ setActiveTab }) => {
   return (
     <div className="space-y-12 pb-12">
       
       {/* Title */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center max-w-3xl mx-auto space-y-3"
+      >
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-400 font-sans-display">SEAMLESS ISLAND LOGISTICS</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
           Transportation & Hotel Transfers
@@ -30,10 +38,16 @@ export const TransportationView: React.FC<TransportationViewProps> = ({ setActiv
         <p className="text-slate-300 text-sm font-light leading-relaxed">
           From airport pickup to daily event shuttles, Mellows Entertainment ensures your stay in Grenada is smooth and completely stress-free.
         </p>
-      </div>
+      </motion.div>
 
       {/* Main Pick-up & Drop-off Feature */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 md:p-12 space-y-8 shadow-2xl">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 md:p-12 space-y-8 shadow-2xl"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           
           <div className="space-y-5">
@@ -83,50 +97,39 @@ export const TransportationView: React.FC<TransportationViewProps> = ({ setActiv
             </div>
 
             <p className="text-xs text-neutral-300 leading-relaxed">
-              We highly recommend the use of WhatsApp for event timings and anything related to your stay. Please submit your telephone number below.
+              We highly recommend using WhatsApp for instant updates on event shuttle timings and concierge assistance throughout your stay.
             </p>
 
             <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-200 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <span>
-                <strong>Confidentiality Guarantee:</strong> This will not be shared with anyone and is held strictly confidential under Mellows Entertainment privacy guidelines.
+                <strong>Direct VIP Concierge:</strong> Connect directly with our team on WhatsApp for immediate shuttle coordination.
               </span>
             </div>
 
-            {phoneSubmitted ? (
-              <div className="p-4 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
-                <p className="text-sm font-bold text-white">Telephone Number Registered!</p>
-                <p className="text-xs text-neutral-300">
-                  Our representative will reach out on WhatsApp prior to your departure to confirm your pickup window.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handlePhoneSubmit} className="space-y-3">
-                <input
-                  type="tel"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="Enter WhatsApp # (e.g. +44 7900 123456)"
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-[1.02] cursor-pointer"
-                >
-                  Submit Confidential Number
-                </button>
-              </form>
-            )}
+            <a
+              href="https://wa.me/447900123456?text=Hello%20Mellows%20Concierge,%20I%20need%20assistance%20with%20shuttle%20transfers%20and%20event%20timings."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition-all hover:scale-[1.02] cursor-pointer flex items-center justify-center gap-2.5 border border-emerald-400/30"
+            >
+              <MessageCircle className="w-5 h-5 fill-white text-emerald-600" />
+              <span>Chat Directly on WhatsApp (+44 7900 123456)</span>
+            </a>
 
           </div>
 
         </div>
-      </div>
+      </motion.div>
 
       {/* Flight Details Submission Box */}
-      <div className="bg-gradient-to-r from-amber-600/30 via-emerald-600/20 to-teal-600/30 border border-amber-500/40 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-gradient-to-r from-amber-600/30 via-emerald-600/20 to-teal-600/30 border border-amber-500/40 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl"
+      >
         <div className="space-y-2">
           <div className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
             <Plane className="w-3.5 h-3.5" /> MANDATORY FOR TRANSFERS
@@ -144,7 +147,7 @@ export const TransportationView: React.FC<TransportationViewProps> = ({ setActiv
           <Plane className="w-4 h-4" />
           Submit Flight Details
         </button>
-      </div>
+      </motion.div>
 
     </div>
   );

@@ -49,37 +49,37 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widge
 
         <div className="flex items-center gap-3 sm:gap-6 text-center">
           <div className="flex flex-col items-center">
-            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.days).padStart(2, '0')}
             </span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Days</span>
+            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">Days</span>
           </div>
 
           <span className="text-amber-500/40 text-lg font-bold pb-2.5">:</span>
 
           <div className="flex flex-col items-center">
-            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.hours).padStart(2, '0')}
             </span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Hours</span>
+            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">Hours</span>
           </div>
 
           <span className="text-amber-500/40 text-lg font-bold pb-2.5">:</span>
 
           <div className="flex flex-col items-center">
-            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.minutes).padStart(2, '0')}
             </span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Mins</span>
+            <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">Mins</span>
           </div>
 
           <span className="hidden sm:inline text-amber-500/40 text-lg font-bold pb-2.5">:</span>
 
           <div className="hidden sm:flex flex-col items-center">
-            <span className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight animate-pulse tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight animate-pulse tabular-nums font-heading">
               {String(timeLeft.seconds).padStart(2, '0')}
             </span>
-            <span className="text-[9px] uppercase tracking-widest text-amber-300/80 font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Secs</span>
+            <span className="text-[9px] uppercase tracking-widest text-amber-300/80 font-semibold">Secs</span>
           </div>
         </div>
       </div>
@@ -105,31 +105,31 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widge
 
         <div className="grid grid-cols-4 gap-3 md:gap-4 text-center w-full md:w-auto">
           <div className="bg-[#0B0E14] border border-white/10 rounded-2xl p-3 min-w-[60px] sm:min-w-[70px] md:min-w-[88px] shadow-inner">
-            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.days).padStart(2, '0')}
             </span>
-            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Days</span>
+            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Days</span>
           </div>
 
           <div className="bg-[#0B0E14] border border-white/10 rounded-2xl p-3 min-w-[60px] sm:min-w-[70px] md:min-w-[88px] shadow-inner">
-            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.hours).padStart(2, '0')}
             </span>
-            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Hours</span>
+            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Hours</span>
           </div>
 
           <div className="bg-[#0B0E14] border border-white/10 rounded-2xl p-3 min-w-[60px] sm:min-w-[70px] md:min-w-[88px] shadow-inner">
-            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="block text-2xl md:text-3xl font-black text-amber-300 tracking-tight tabular-nums font-heading">
               {String(timeLeft.minutes).padStart(2, '0')}
             </span>
-            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Mins</span>
+            <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Mins</span>
           </div>
 
           <div className="bg-[#0B0E14] border border-amber-500/30 rounded-2xl p-3 min-w-[60px] sm:min-w-[70px] md:min-w-[88px] shadow-inner bg-amber-500/5">
-            <span className="block text-2xl md:text-3xl font-black text-amber-400 tracking-tight animate-pulse tabular-nums" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <span className="block text-2xl md:text-3xl font-black text-amber-400 tracking-tight animate-pulse tabular-nums font-heading">
               {String(timeLeft.seconds).padStart(2, '0')}
             </span>
-            <span className="text-[9px] md:text-[10px] text-amber-300 uppercase tracking-widest font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>Secs</span>
+            <span className="text-[9px] md:text-[10px] text-amber-300 uppercase tracking-widest font-semibold">Secs</span>
           </div>
         </div>
       </div>

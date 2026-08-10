@@ -42,15 +42,16 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
       const { jsPDF } = await import('jspdf');
 
       const imgData = await toPng(element, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
+        pixelRatio: 2.5,
+        backgroundColor: '#090D1A',
         width: element.scrollWidth,
         height: element.scrollHeight,
         style: {
           margin: '0',
           transform: 'none',
-          color: '#000000',
-          borderRadius: '0',
+          backgroundColor: '#090D1A',
+          color: '#ffffff',
+          borderRadius: '16px',
         }
       });
       
@@ -60,16 +61,30 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
         img.onload = resolve;
       });
       
-      const pdfWidth = img.width / 2;
-      const pdfHeight = img.height / 2;
-      
       const pdf = new jsPDF({
-        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-        unit: 'px',
-        format: [pdfWidth, pdfHeight]
+        orientation: 'p',
+        unit: 'pt',
+        format: 'a4'
       });
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const marginTop = 30;
+      const marginBottom = 65;
+      const marginX = 30;
+
+      const printableWidth = pdfWidth - (marginX * 2);
+      const printableHeight = pdfHeight - marginTop - marginBottom;
+
+      const ratio = Math.min(printableWidth / img.width, printableHeight / img.height);
+      const finalWidth = img.width * ratio;
+      const finalHeight = img.height * ratio;
+
+      const xOffset = (pdfWidth - finalWidth) / 2;
+      const yOffset = marginTop;
+
+      pdf.addImage(imgData, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
       pdf.save(`Mellows_Registration_${activeReg?.id || 'Badge'}.pdf`);
       
     } catch (err) {
@@ -166,7 +181,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
           </div>
 
           {/* Digital Badge Card */}
-          <div id="registration-badge" className="max-w-md mx-auto bg-gradient-to-br from-neutral-950 via-neutral-900 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 text-left shadow-2xl relative overflow-hidden">
+          <div id="registration-badge" className="max-w-md mx-auto bg-gradient-to-br from-neutral-950 via-neutral-900 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 pb-9 text-left shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-amber-500 text-neutral-950 font-mono text-[10px] font-extrabold px-4 py-1 rounded-bl-2xl uppercase">
               CONFIRMED PASS
             </div>
@@ -393,7 +408,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
 
           <button
             type="submit"
-            className="w-full py-4 bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 hover:from-amber-400 hover:to-teal-400 text-neutral-950 font-extrabold text-base rounded-2xl shadow-xl transition-all transform hover:scale-[1.01] active:scale-95 cursor-pointer"
+            className="w-full py-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-neutral-950 font-extrabold text-base rounded-2xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 border border-amber-300/40 transition-all transform hover:scale-[1.01] active:scale-95 cursor-pointer"
           >
             Submit Flight Details & Generate Event Badge
           </button>

@@ -1,13 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { FESTIVAL_EVENTS } from '../data/festivalData';
+import React, { useState } from 'react';
 import { ActiveTab, EventItem } from '../types';
 import { MapPin, Clock, Filter, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
+import { motion, AnimatePresence } from 'motion/react';
+import { FESTIVAL_IMAGES } from '../data/festivalData';
 
 interface EventListingViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   events?: EventItem[];
 }
+
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.12
+    }
+  }
+};
 
 export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab, events = [] }) => {
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
@@ -29,7 +52,7 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
     setTimeout(() => setIsFiltering(false), 260);
   };
 
-  const activeEvents = events.length > 0 ? events : FESTIVAL_EVENTS;
+  const activeEvents = events;
 
   const filteredEvents = activeEvents.filter((ev) => {
     const matchesGenre = selectedGenre === 'All' || ev.genres.includes(selectedGenre);
@@ -41,7 +64,12 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
     <div className="space-y-10 pb-16">
       
       {/* Title */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center max-w-3xl mx-auto space-y-3"
+      >
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">MAY 13 - MAY 22, 2027</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
           10-Day Official Event Schedule
@@ -49,10 +77,15 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
         <p className="text-slate-300 text-sm font-light leading-relaxed">
           Explore the full 10-day schedule of music fetes, White Gala parties, river tubing limes, and cultural showcases across Grenada.
         </p>
-      </div>
+      </motion.div>
 
       {/* Filter Bar */}
-      <div className="glass-card p-4 rounded-3xl flex flex-wrap items-center justify-between gap-4 border border-white/10">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="glass-card p-4 rounded-3xl flex flex-wrap items-center justify-between gap-4 border border-white/10"
+      >
         
         {/* Genre Filters */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
@@ -83,108 +116,125 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
             className="bg-[#0D121A] border border-white/15 text-xs font-semibold text-white p-2 px-3 rounded-full focus:outline-none focus:border-amber-400 cursor-pointer"
           >
             <option value="All">All 10 Days</option>
-            {FESTIVAL_EVENTS.map((ev) => (
-              <option key={ev.id} value={ev.dayNumber}>
-                Day {ev.dayNumber} - {ev.date}
-              </option>
-            ))}
+            {Array.from(new Set(activeEvents.map(ev => ev.dayNumber))).map((dayNum) => {
+              const ev = activeEvents.find(e => e.dayNumber === dayNum);
+              return (
+                <option key={dayNum} value={dayNum}>
+                  Day {dayNum} - {ev?.date || ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
-      </div>
+      </motion.div>
 
       {/* Events Grid or Luxury Skeleton Overlay */}
       {isFiltering ? (
         <LuxurySkeletonOverlay type="cards" count={4} />
+      ) : filteredEvents.length === 0 ? (
+        <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800">
+          <Filter className="w-12 h-12 text-slate-500 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No Events Found</h3>
+          <p className="text-sm text-slate-400 font-light max-w-sm mx-auto">There are no events matching your criteria or currently listed in our database.</p>
+        </div>
       ) : (
-        <div
-          key={`${selectedGenre}-${selectedDay}`}
-          className="grid grid-cols-1 md:grid-cols-2 gap-8"
-        >
-        {filteredEvents.map((ev, index) => (
-          <div
-            key={ev.id}
-            style={{ animationDelay: `${index * 70}ms` }}
-            className="animate-card-entrance glass-card glass-card-interactive rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between group shadow-xl"
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${selectedGenre}-${selectedDay}`}
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="grid grid-cols-1 md:grid-cols-2 gap-8"
           >
-            {/* Image Header */}
-            <div className="relative h-60 overflow-hidden">
-              <img
-                src={ev.highlightImage}
-                alt={ev.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-90"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/40 to-transparent" />
+            {filteredEvents.map((ev) => (
+              <motion.div
+                key={ev.id}
+                variants={fadeInUp}
+                className="glass-card glass-card-interactive rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between group shadow-xl"
+              >
+                {/* Image Header */}
+                <div className="relative h-60 overflow-hidden">
+                  <img
+                    src={ev.highlightImage}
+                    alt={ev.title}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-90"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/40 to-transparent" />
 
-              <div className="absolute top-3 left-3 bg-[#0B0E14]/90 backdrop-blur-md text-amber-300 text-[11px] font-mono font-bold px-3 py-1 rounded-full border border-amber-500/30">
-                DAY {ev.dayNumber} • {ev.date}
-              </div>
-
-              {ev.wristbandRequired && (
-                <div className="absolute top-3 right-3 bg-emerald-500/20 backdrop-blur-md text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-emerald-500/30">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Wristband Required
-                </div>
-              )}
-            </div>
-
-            {/* Content Body */}
-            <div className="p-6 sm:p-8 space-y-5 flex-1 flex flex-col justify-between">
-              
-              <div className="space-y-3.5">
-                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-300">
-                  <span className="flex items-center gap-1.5 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 text-amber-300 font-light">
-                    <MapPin className="w-3.5 h-3.5 text-amber-400" /> {ev.location}
-                  </span>
-                  <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10 text-slate-300 font-light">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" /> {ev.time}
-                  </span>
-                </div>
-
-                <h3 className="text-2xl font-bold text-white group-hover:text-amber-300 transition-colors">
-                  {ev.title}
-                </h3>
-
-                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-light">
-                  {ev.description}
-                </p>
-
-                {/* DJ Lineup & Dress code */}
-                <div className="pt-3 border-t border-white/10 space-y-1.5 text-xs font-light">
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <strong className="text-white font-semibold">DJs / Artists:</strong> {ev.djLineup.join(', ')}
+                  <div className="absolute top-3 left-3 bg-[#0B0E14]/90 backdrop-blur-md text-amber-300 text-[11px] font-mono font-bold px-3 py-1 rounded-full border border-amber-500/30">
+                    DAY {ev.dayNumber} • {ev.date}
                   </div>
-                  {ev.dressCode && (
-                    <div className="text-amber-200/90 font-medium">
-                      ✨ <strong className="text-amber-300">Dress Code:</strong> {ev.dressCode}
+
+                  {ev.wristbandRequired && (
+                    <div className="absolute top-3 right-3 bg-emerald-500/20 backdrop-blur-md text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-emerald-500/30">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" /> Wristband Required
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Action */}
-              <div className="pt-4 flex items-center justify-between border-t border-white/10">
-                <div className="flex flex-wrap gap-1">
-                  {ev.genres.map((g) => (
-                    <span key={g} className="text-[10px] bg-white/5 text-slate-400 px-2.5 py-0.5 rounded-full border border-white/5">
-                      #{g}
-                    </span>
-                  ))}
+                {/* Content Body */}
+                <div className="p-6 sm:p-8 space-y-5 flex-1 flex flex-col justify-between">
+                  
+                  <div className="space-y-3.5">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-300">
+                      <span className="flex items-center gap-1.5 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 text-amber-300 font-light">
+                        <MapPin className="w-3.5 h-3.5 text-amber-400" /> {ev.location}
+                      </span>
+                      <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10 text-slate-300 font-light">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" /> {ev.time}
+                      </span>
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {ev.title}
+                    </h3>
+
+                    <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-light">
+                      {ev.description}
+                    </p>
+
+                    {/* DJ Lineup & Dress code */}
+                    <div className="pt-3 border-t border-white/10 space-y-1.5 text-xs font-light">
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <strong className="text-white font-semibold">DJs / Artists:</strong> {ev.djLineup.join(', ')}
+                      </div>
+                      {ev.dressCode && (
+                        <div className="text-amber-200/90 font-medium">
+                          ✨ <strong className="text-amber-300">Dress Code:</strong> {ev.dressCode}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action */}
+                  <div className="pt-4 flex items-center justify-between border-t border-white/10">
+                    <div className="flex flex-wrap gap-1">
+                      {ev.genres.map((g) => (
+                        <span key={g} className="text-[10px] bg-white/5 text-slate-400 px-2.5 py-0.5 rounded-full border border-white/5">
+                          #{g}
+                        </span>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab('shop')}
+                      className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-full border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
+                    >
+                      <Ticket className="w-3.5 h-3.5" /> Get Pass
+                    </button>
+                  </div>
+
                 </div>
-
-                <button
-                  onClick={() => setActiveTab('shop')}
-                  className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-full border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
-                >
-                  <Ticket className="w-3.5 h-3.5" /> Get Pass
-                </button>
-              </div>
-
-            </div>
-          </div>
-        ))}
-      </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       )}
 
     </div>

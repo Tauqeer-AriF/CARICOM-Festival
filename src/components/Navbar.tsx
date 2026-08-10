@@ -12,7 +12,10 @@ import {
   Calendar,
   HelpCircle,
   FileText,
-  Star
+  Star,
+  Image,
+  Building,
+  Car
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -33,25 +36,43 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCart
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [activeHoverDropdown, setActiveHoverDropdown] = useState<string | null>(null);
 
-  const primaryNavItems: { id: ActiveTab; label: string }[] = [
-    { id: 'home', label: 'Home' },
-    { id: 'events', label: 'Schedule' },
-    { id: 'gallery', label: 'Gallery' },
-    { id: 'about-grenada', label: 'Spice Isle' },
-    { id: 'about-mellowland', label: 'Mellowland' },
-    { id: 'hotels', label: 'Hotels' },
-    { id: 'transportation', label: 'Shuttles' },
-    { id: 'shop', label: 'Passes & VIP' },
+  const flatLinks = [
+    { id: 'home' as ActiveTab, label: 'Home' },
+    { id: 'events' as ActiveTab, label: 'Events' },
+    { id: 'shop' as ActiveTab, label: 'Passes & VIP' },
   ];
 
-  const secondaryNavItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'register', label: 'Flight Arrival', icon: <Plane className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'testimonials', label: 'Reveler Reviews', icon: <Star className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'travel-insurance', label: 'Travel Insurance', icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'contact', label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'terms', label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
+  const dropdownMenus = [
+    {
+      id: 'experience',
+      label: 'Experience',
+      items: [
+        { id: 'about-grenada' as ActiveTab, label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'about-mellowland' as ActiveTab, label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'gallery' as ActiveTab, label: 'Photo Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'testimonials' as ActiveTab, label: 'Reveler Reviews', icon: <Star className="w-3.5 h-3.5 text-amber-400" /> },
+      ]
+    },
+    {
+      id: 'planning',
+      label: 'Planning',
+      items: [
+        { id: 'hotels' as ActiveTab, label: 'Partner Hotels', icon: <Building className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'transportation' as ActiveTab, label: 'VIP Shuttles', icon: <Car className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'register' as ActiveTab, label: 'Flight Arrival Log', icon: <Plane className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'travel-insurance' as ActiveTab, label: 'Travel Insurance', icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> },
+      ]
+    },
+    {
+      id: 'support',
+      label: 'Support',
+      items: [
+        { id: 'contact' as ActiveTab, label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'terms' as ActiveTab, label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
+      ]
+    }
   ];
 
   const handleTabClick = (tab: ActiveTab) => {
@@ -60,7 +81,65 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isMoreActive = secondaryNavItems.some(item => item.id === activeTab);
+  const renderDropdown = (
+    dropdownId: string, 
+    label: string, 
+    items: { id: ActiveTab; label: string; icon: React.ReactNode }[]
+  ) => {
+    const isDropdownActive = items.some(item => item.id === activeTab);
+    const isOpen = activeHoverDropdown === dropdownId;
+
+    return (
+      <div 
+        className="relative group"
+        onMouseEnter={() => setActiveHoverDropdown(dropdownId)}
+        onMouseLeave={() => setActiveHoverDropdown(null)}
+      >
+        <button 
+          type="button"
+          onClick={() => setActiveHoverDropdown(isOpen ? null : dropdownId)}
+          className={`px-3 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer border ${
+            isDropdownActive || isOpen
+              ? 'text-amber-300 bg-amber-500/15 border border-amber-500/35 shadow-sm shadow-amber-500/20'
+              : 'text-neutral-300 hover:text-white hover:bg-white/5 border-transparent'
+          }`}
+        >
+          <span>{label}</span>
+          <ChevronDown className={`w-3.5 h-3.5 text-amber-400/80 transition-transform duration-200 ${isOpen ? 'rotate-180' : 'group-hover:rotate-180'}`} />
+          {isDropdownActive && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400/50" />
+          )}
+        </button>
+
+        {/* Dropdown Container */}
+        <div 
+          className={`absolute left-0 top-full pt-1.5 w-56 z-50 transition-all duration-150 ${
+            isOpen ? 'block opacity-100 pointer-events-auto' : 'hidden group-hover:block opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <div className="bg-neutral-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl p-2 border border-amber-500/30 shadow-amber-500/20">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  handleTabClick(item.id);
+                  setActiveHoverDropdown(null);
+                }}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2.5 cursor-pointer transition-colors whitespace-nowrap ${
+                  activeTab === item.id 
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30' 
+                    : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 transition-all">
@@ -93,74 +172,76 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Desktop Nav Items */}
-            <nav className="hidden xl:flex items-center justify-center gap-0.5 2xl:gap-1.5 mx-auto">
-              {primaryNavItems.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    id={`nav-item-${item.id}`}
-                    onClick={() => handleTabClick(item.id)}
-                    className={`px-2.5 2xl:px-3.5 py-1.5 2xl:py-2 rounded-xl text-[11px] 2xl:text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all cursor-pointer relative ${
-                      isActive 
-                        ? 'text-amber-300 bg-amber-500/15 border border-amber-500/35 shadow-[0_0_15px_rgba(212,175,55,0.15)] font-bold' 
-                        : 'text-neutral-300 hover:text-white hover:bg-white/5 border border-transparent'
-                    }`}
-                  >
-                    {item.label}
-                    {isActive && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
-                    )}
-                  </button>
-                );
-              })}
-
-              {/* More Dropdown */}
-              <div 
-                className="relative group"
-                onMouseEnter={() => setMoreOpen(true)}
-                onMouseLeave={() => setMoreOpen(false)}
+            <nav className="hidden xl:flex items-center justify-center gap-1 2xl:gap-2 mx-auto">
+              {/* Home */}
+              <button
+                id="nav-item-home"
+                onClick={() => handleTabClick('home')}
+                className={`px-3 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all cursor-pointer relative ${
+                  activeTab === 'home'
+                    ? 'text-amber-300 bg-amber-500/15 border border-amber-500/35 shadow-sm shadow-amber-500/20 font-bold'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
               >
-                <button 
-                  type="button"
-                  onClick={() => setMoreOpen(!moreOpen)}
-                  className={`px-2.5 2xl:px-3.5 py-1.5 2xl:py-2 rounded-xl text-[11px] 2xl:text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer border ${
-                    isMoreActive || moreOpen
-                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/35 shadow-[0_0_15px_rgba(212,175,55,0.15)]'
-                      : 'text-neutral-300 hover:text-white hover:bg-white/5 border-transparent'
-                  }`}
-                >
-                  <span>More</span>
-                  <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform duration-200 ${moreOpen ? 'rotate-180' : 'group-hover:rotate-180'}`} />
-                </button>
+                Home
+                {activeTab === 'home' && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400/50" />
+                )}
+              </button>
 
-                {/* Dropdown Container with seamless top-full padding bridge */}
-                <div 
-                  className={`absolute right-0 top-full pt-1.5 w-56 z-50 transition-all duration-150 ${
-                    moreOpen ? 'block opacity-100 pointer-events-auto' : 'hidden group-hover:block opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  <div className="bg-neutral-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl p-2 border border-amber-500/30 shadow-amber-500/20">
-                    {secondaryNavItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          handleTabClick(item.id);
-                          setMoreOpen(false);
-                        }}
-                        className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2.5 cursor-pointer transition-colors whitespace-nowrap ${
-                          activeTab === item.id 
-                            ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30' 
-                            : 'text-neutral-300 hover:bg-white/5 hover:text-white'
-                        }`}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              {/* Events */}
+              <button
+                id="nav-item-events"
+                onClick={() => handleTabClick('events')}
+                className={`px-3 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all cursor-pointer relative ${
+                  activeTab === 'events'
+                    ? 'text-amber-300 bg-amber-500/15 border border-amber-500/35 shadow-sm shadow-amber-500/20 font-bold'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                Events
+                {activeTab === 'events' && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400/50" />
+                )}
+              </button>
+
+              {/* Experience Dropdown */}
+              {renderDropdown('experience', 'Experience', [
+                { id: 'about-grenada', label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'about-mellowland', label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'gallery', label: 'Photo Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'testimonials', label: 'Reveler Reviews', icon: <Star className="w-3.5 h-3.5 text-amber-400" /> },
+              ])}
+
+              {/* Planning Dropdown */}
+              {renderDropdown('planning', 'Planning', [
+                { id: 'hotels', label: 'Partner Hotels', icon: <Building className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'transportation', label: 'VIP Shuttles', icon: <Car className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'register', label: 'Flight Arrival Log', icon: <Plane className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'travel-insurance', label: 'Travel Insurance', icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> },
+              ])}
+
+              {/* Passes & VIP */}
+              <button
+                id="nav-item-shop"
+                onClick={() => handleTabClick('shop')}
+                className={`px-3 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold whitespace-nowrap transition-all cursor-pointer relative ${
+                  activeTab === 'shop'
+                    ? 'text-amber-300 bg-amber-500/15 border border-amber-500/35 shadow-sm shadow-amber-500/20 font-bold'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                Passes & VIP
+                {activeTab === 'shop' && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400/50" />
+                )}
+              </button>
+
+              {/* Support Dropdown */}
+              {renderDropdown('support', 'Support', [
+                { id: 'contact', label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'terms', label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
+              ])}
             </nav>
 
             {/* Right Section: Controls */}
@@ -172,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       key={c}
                       onClick={() => setCurrency(c)}
-                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap font-mono ${
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                         currency === c 
                           ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm font-bold' 
                           : 'hover:text-white opacity-80 hover:opacity-100'
@@ -187,7 +268,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => handleTabClick('register')}
                   id="nav-btn-register"
-                  className="px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 rounded-xl shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:shadow-[0_6px_25px_rgba(212,175,55,0.5)] transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
+                  className="px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
                 >
                   <Plane className="w-3.5 h-3.5 fill-neutral-950" />
                   <span>Flight Arrival</span>
@@ -202,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <ShoppingBag className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-neutral-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse">
+                    <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-neutral-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] animate-pulse">
                       {cartCount}
                     </span>
                   )}
@@ -240,19 +321,47 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="xl:hidden bg-neutral-950/95 backdrop-blur-2xl border-b border-amber-500/30 px-4 pt-3 pb-6 space-y-4 max-h-[80vh] overflow-y-auto animate-fadeIn shadow-2xl">
-          <div className="grid grid-cols-2 gap-2">
-            {[...primaryNavItems, ...secondaryNavItems].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleTabClick(item.id)}
-                className={`p-3 rounded-xl text-xs uppercase tracking-wider font-semibold text-left transition-all cursor-pointer ${
-                  activeTab === item.id 
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-md' 
-                    : 'bg-neutral-900 text-neutral-300 hover:bg-white/5 border border-white/5'
-                }`}
-              >
-                <span>{item.label}</span>
-              </button>
+          <div className="space-y-4">
+            {/* Direct Quick Links */}
+            <div className="grid grid-cols-3 gap-2">
+              {flatLinks.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleTabClick(item.id)}
+                  className={`p-3 rounded-xl text-[10px] sm:text-xs uppercase tracking-wider font-bold text-center transition-all cursor-pointer ${
+                    activeTab === item.id 
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-md font-bold' 
+                      : 'bg-neutral-900 text-neutral-300 hover:bg-white/5 border border-white/5'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown sections in Mobile */}
+            {dropdownMenus.map((menu) => (
+              <div key={menu.id} className="space-y-1.5">
+                <span className="block text-[9px] uppercase font-extrabold text-neutral-500 tracking-widest px-1">
+                  {menu.label}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {menu.items.map((subItem) => (
+                    <button
+                      key={subItem.id}
+                      onClick={() => handleTabClick(subItem.id)}
+                      className={`p-2.5 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer flex items-center gap-2 ${
+                        activeTab === subItem.id 
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-md' 
+                          : 'bg-neutral-900 text-neutral-300 hover:bg-white/5 border border-white/5'
+                      }`}
+                    >
+                      {subItem.icon}
+                      <span className="truncate">{subItem.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
@@ -263,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={c}
                   onClick={() => setCurrency(c)}
-                  className={`px-3 py-1 rounded-lg font-mono font-medium ${
+                  className={`px-3 py-1 rounded-lg font-medium ${
                     currency === c ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold' : ''
                   }`}
                 >
@@ -277,7 +386,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
-
-
-
-

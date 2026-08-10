@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PhoneCall, Mail, MapPin, Instagram, Facebook, MessageCircle, Send, CheckCircle2 } from 'lucide-react';
 import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
 import { addSubmission } from '../services/submissionService';
+import { motion } from 'motion/react';
 
 const TikTokIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg 
@@ -13,6 +14,19 @@ const TikTokIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
     <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-5.201 1.743l-.002-.001.002.001a2.895 2.895 0 0 1 3.183-4.51v-3.5a6.329 6.329 0 0 0-5.394 2.22 6.338 6.338 0 0 0 .195 8.736 6.335 6.335 0 0 0 8.653-.29 6.277 6.277 0 0 0 1.849-4.321V9.034a8.232 8.232 0 0 0 5.13 1.776V7.365a4.797 4.797 0 0 1-1.205-.679z" />
   </svg>
 );
+
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
 
 export const ContactView: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -49,7 +63,12 @@ export const ContactView: React.FC = () => {
     <div className="space-y-12 pb-12">
       
       {/* Title */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center max-w-3xl mx-auto space-y-3"
+      >
         <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400">24/7 REVELER SUPPORT</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold font-serif text-white">
           Contact Us & Helpline
@@ -57,12 +76,18 @@ export const ContactView: React.FC = () => {
         <p className="text-neutral-300 text-sm">
           Have questions about your event wristbands, hotel pickup, or Mellowland river tubing? Our team is ready to assist you.
         </p>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Contact Info Sidebar */}
-        <div className="space-y-6">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInUp}
+          className="space-y-6"
+        >
           
           <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-6 shadow-xl">
             <h3 className="font-bold font-serif text-xl text-white border-b border-neutral-800 pb-3">
@@ -160,10 +185,16 @@ export const ContactView: React.FC = () => {
             </div>
           </div>
 
-        </div>
+        </motion.div>
 
         {/* Form Area */}
-        <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 p-8 rounded-3xl shadow-xl">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInUp}
+          className="lg:col-span-2 bg-neutral-900 border border-neutral-800 p-8 rounded-3xl shadow-xl"
+        >
           {isSubmitting ? (
             <LuxurySkeletonOverlay type="modal" message="Transmitting Inquiry to Concierge Hotline..." />
           ) : submitted ? (
@@ -261,7 +292,7 @@ export const ContactView: React.FC = () => {
               </button>
             </form>
           )}
-        </div>
+        </motion.div>
 
       </div>
 

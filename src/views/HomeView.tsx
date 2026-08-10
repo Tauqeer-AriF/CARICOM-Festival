@@ -3,6 +3,7 @@ import { ActiveTab, PassItem } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { GrenadaWeatherWidget } from '../components/GrenadaWeatherWidget';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, 
   Calendar, 
@@ -23,22 +24,99 @@ interface HomeViewProps {
   onAddToCart: (pass: PassItem) => void;
 }
 
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1] // Custom luxury cubic-bezier ease
+    }
+  }
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { duration: 1, ease: 'easeOut' }
+  }
+};
+
+const BACKGROUND_IMAGES = [
+  {
+    url: FESTIVAL_IMAGES.hero,
+    alt: "Grenada Beach DJ Showcase 2027",
+  },
+  {
+    url: FESTIVAL_IMAGES.festivalHero,
+    alt: "Spectacular Spice Isle Festival Crowd",
+  },
+  {
+    url: FESTIVAL_IMAGES.whiteGala,
+    alt: "Premium VIP White Gala Party Lounge",
+  },
+  {
+    url: FESTIVAL_IMAGES.riverTubing,
+    alt: "Mellowland Tropical River Tubing Adventure",
+  },
+  {
+    url: FESTIVAL_IMAGES.ecoParadise,
+    alt: "Beautiful Grenada Eco Paradise Coastline",
+  }
+];
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.15
+    }
+  }
+};
+
 export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart }) => {
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="space-y-20 pb-16">
       
       {/* Hero Section */}
-      <section className="relative rounded-3xl overflow-hidden min-h-[620px] sm:min-h-[680px] flex items-center justify-center border border-amber-500/20 shadow-2xl">
-        {/* Background Image with Ambient Shimmer */}
-        <div className="absolute inset-0 z-0">
-          <img 
-            src={FESTIVAL_IMAGES.hero} 
-            alt="Grenada CARICOM Festival 2027" 
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center transform scale-105 filter brightness-[0.75] contrast-[1.1] transition-transform duration-1000"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/60 to-[#07090D]/30" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent" />
+      <motion.section 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="relative rounded-3xl overflow-hidden min-h-[620px] sm:min-h-[680px] flex items-center justify-center border border-amber-500/20 shadow-2xl"
+      >
+        {/* Background Slideshow with Ambient Shimmer */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <AnimatePresence mode="popLayout">
+            <motion.img 
+              key={currentImageIndex}
+              src={BACKGROUND_IMAGES[currentImageIndex].url} 
+              alt={BACKGROUND_IMAGES[currentImageIndex].alt} 
+              referrerPolicy="no-referrer"
+              initial={{ opacity: 0, scale: 1.12 }}
+              animate={{ opacity: 1, scale: 1.04 }}
+              exit={{ opacity: 0, scale: 1.08 }}
+              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+              }}
+              className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.7] contrast-[1.05]"
+            />
+          </AnimatePresence>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/60 to-[#07090D]/30 z-[1]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent z-[1]" />
         </div>
 
         {/* Content Box */}
@@ -89,15 +167,42 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           </div>
 
         </div>
-      </section>
+
+        {/* Carousel Navigation Dots */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#07090D]/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+          {BACKGROUND_IMAGES.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentImageIndex(idx)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                currentImageIndex === idx 
+                  ? 'w-6 bg-amber-400' 
+                  : 'w-2 bg-white/40 hover:bg-white/70'
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </motion.section>
 
       {/* Countdown Clock Widget */}
-      <section>
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-80px" }}
+        variants={fadeInUp}
+      >
         <CountdownTimer />
-      </section>
+      </motion.section>
 
       {/* London Touching Down Feature Card */}
-      <section className="glass-card-amber rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+      <motion.section 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="glass-card-amber rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           
           <div className="space-y-6">
@@ -143,21 +248,30 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
               src={FESTIVAL_IMAGES.whiteGala} 
               alt="White Gala Party Grenada" 
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+              }}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-90"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 glass-card p-4 rounded-xl border border-amber-500/30 text-xs space-y-1">
+            <div className="absolute z-10 bottom-4 left-4 right-4 glass-card p-4 rounded-xl border border-amber-500/30 text-xs space-y-1 backdrop-blur-md">
               <span className="text-amber-300 font-bold block uppercase tracking-wider text-[11px]">FLAGSHIP WHITE GALA PARTY</span>
               <span className="text-slate-300 font-light">All-White Beachfront Elegance • Top UK & Grenadian DJs</span>
             </div>
           </div>
 
         </div>
-      </section>
+      </motion.section>
 
       {/* Why You Can't Miss This Event */}
       <section className="space-y-10">
-        <div className="text-center max-w-3xl mx-auto space-y-3">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInUp}
+          className="text-center max-w-3xl mx-auto space-y-3"
+        >
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-amber-400">UNMISSABLE CARIBBEAN EXPERIENCE</span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white">
             Why You Can't Miss This Event
@@ -165,11 +279,20 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           <p className="text-slate-400 text-sm font-light">
             This is more than a festival — it is a joyful reunion celebrating Caribbean culture, sister islands, and lifetime memories.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={staggerContainer}
+          className="grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
           
-          <div className="glass-card glass-card-interactive rounded-3xl p-8 space-y-5 transition-all shadow-xl">
+          <motion.div 
+            variants={fadeInUp}
+            className="glass-card glass-card-interactive rounded-3xl p-8 space-y-5 transition-all shadow-xl"
+          >
             <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20">
               <Compass className="w-6 h-6" />
             </div>
@@ -183,9 +306,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             >
               Discover Grenada's Heritage →
             </button>
-          </div>
+          </motion.div>
 
-          <div className="glass-card glass-card-interactive rounded-3xl p-8 space-y-5 transition-all shadow-xl">
+          <motion.div 
+            variants={fadeInUp}
+            className="glass-card glass-card-interactive rounded-3xl p-8 space-y-5 transition-all shadow-xl"
+          >
             <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20">
               <Heart className="w-6 h-6" />
             </div>
@@ -199,22 +325,34 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             >
               Read Visitor Stories →
             </button>
-          </div>
+          </motion.div>
 
-        </div>
+        </motion.div>
 
-        <div className="glass-card p-6 rounded-2xl text-center space-y-2 border border-amber-500/20">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInUp}
+          className="glass-card p-6 rounded-2xl text-center space-y-2 border border-amber-500/20"
+        >
           <p className="text-sm sm:text-base text-amber-200 font-medium">
             Pack your bags, bring your energy, and let the Spice Isle capture your heart.
           </p>
           <p className="text-xs text-slate-400">
             Passes are limited to ensure an intimate, high-end reveler experience.
           </p>
-        </div>
+        </motion.div>
       </section>
 
       {/* Music Events & 10-Day Stay Overview */}
-      <section className="glass-card rounded-3xl p-8 sm:p-12 space-y-10 shadow-2xl border border-white/10">
+      <motion.section 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="glass-card rounded-3xl p-8 sm:p-12 space-y-10 shadow-2xl border border-white/10"
+      >
         <div className="max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-300 text-xs font-semibold px-3.5 py-1 rounded-full border border-amber-500/30 uppercase tracking-widest">
             <Music className="w-3.5 h-3.5 text-amber-400" /> EXCLUSIVE 10-DAY PARTY ATMOSPHERE
@@ -227,9 +365,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.div 
+          variants={staggerContainer}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
           
-          <div className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3">
+          <motion.div 
+            variants={fadeInUp}
+            className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3"
+          >
             <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl w-fit border border-amber-500/20">
               <Sparkles className="w-5 h-5" />
             </div>
@@ -237,9 +381,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             <p className="text-xs text-slate-300 leading-relaxed font-light">
               All-white attire under the stars on Grand Anse Beach with signature cocktails and world-class DJs.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3">
+          <motion.div 
+            variants={fadeInUp}
+            className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3"
+          >
             <div className="p-3 bg-teal-500/10 text-teal-400 rounded-xl w-fit border border-teal-500/20">
               <Waves className="w-5 h-5" />
             </div>
@@ -247,9 +394,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             <p className="text-xs text-slate-300 leading-relaxed font-light">
               High-energy soca and reggae fetes as the sun dips into the Caribbean horizon.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3">
+          <motion.div 
+            variants={fadeInUp}
+            className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/10 space-y-3"
+          >
             <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl w-fit border border-amber-500/20">
               <Mic2 className="w-5 h-5" />
             </div>
@@ -257,9 +407,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             <p className="text-xs text-slate-300 leading-relaxed font-light">
               A friendly rivalry karaoke night pairing classic UK hits with Caribbean anthems.
             </p>
-          </div>
+          </motion.div>
 
-        </div>
+        </motion.div>
 
         {/* Wristband Collection Info Box */}
         <div className="glass-card-amber p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -280,9 +430,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             Reserve Passes →
           </button>
         </div>
-      </section>
+      </motion.section>
 
     </div>
   );
 };
+
 

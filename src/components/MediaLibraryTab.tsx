@@ -188,7 +188,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
         <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Dashboard Media Storage</span>
         <h2 className="text-xl font-bold text-white font-serif mt-0.5">Asset & Media Library</h2>
         <p className="text-xs text-neutral-400 font-light">
-          Upload and organize assets. High-resolution photos are automatically compressed on-the-fly to protect client memory limits.
+          Upload and organise assets. High-resolution photos are automatically compressed on-the-fly to protect client memory limits.
         </p>
       </div>
 
@@ -198,7 +198,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-sm">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider font-sans">Upload Asset</h3>
             <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-              Drag and drop files. High-efficiency client-side compression reduces up to 90% of image size while preserving rich contrast and vibrant tropical colors.
+              Drag and drop files. High-efficiency client-side compression reduces up to 90% of image size while preserving rich contrast and vibrant tropical colours.
             </p>
 
             <div
@@ -316,6 +316,9 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                         src={item.url}
                         alt={item.name}
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors duration-300" />

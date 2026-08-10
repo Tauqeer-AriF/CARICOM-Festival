@@ -339,6 +339,9 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                               src={item.url}
                               alt={item.name}
                               referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                              }}
                               className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
                             />
                             

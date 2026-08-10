@@ -14,6 +14,20 @@ export type ActiveTab =
   | 'terms'
   | 'admin';
 
+export interface SubmissionReply {
+  id: string;
+  message: string;
+  sentAt: string;
+  sentBy: string;
+  method?: 'email' | 'mailto' | 'in-app';
+  attachment?: {
+    name: string;
+    type: string;
+    size?: string;
+    pdfDataUrl?: string;
+  };
+}
+
 export interface FormSubmissionItem {
   id: string;
   type: 'contact' | 'flight-registration' | 'pass-order' | 'transport-request' | 'newsletter';
@@ -26,6 +40,7 @@ export interface FormSubmissionItem {
   submittedAt: string;
   amountGBP?: number;
   extraDetails?: Record<string, string>;
+  replies?: SubmissionReply[];
 }
 
 export interface SiteConfig {
@@ -39,9 +54,10 @@ export interface SiteConfig {
   };
   branding: {
     primaryColor: string; // hex or tailwind name
+    secondaryColor?: string; // custom secondary color hex
     bgTone: 'dark-onyx' | 'deep-midnight' | 'luxury-charcoal' | 'caribbean-night';
-    headingFont: 'Poppins' | 'Playfair Display' | 'Montserrat' | 'Plus Jakarta Sans' | 'Syne';
-    bodyFont: 'Inter' | 'Poppins' | 'Plus Jakarta Sans' | 'Outfit';
+    headingFont: 'Poppins' | 'Playfair Display' | 'Montserrat' | 'Plus Jakarta Sans' | 'Syne' | 'Cinzel' | 'Outfit' | 'Cormorant Garamond' | 'Space Grotesk' | 'Bricolage Grotesque';
+    bodyFont: 'Inter' | 'Poppins' | 'Plus Jakarta Sans' | 'Outfit' | 'Roboto' | 'Space Grotesk' | 'DM Sans' | 'Work Sans';
   };
   banner: {
     enabled: boolean;
@@ -50,6 +66,8 @@ export interface SiteConfig {
   };
   adminPath?: string;
   adminPassword?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface GalleryItem {

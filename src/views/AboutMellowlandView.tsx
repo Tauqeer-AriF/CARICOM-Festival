@@ -1,21 +1,51 @@
 import React from 'react';
 import { ActiveTab, PassItem } from '../types';
-import { FESTIVAL_IMAGES, FESTIVAL_PASSES } from '../data/festivalData';
-import { Waves, Shield, Utensils, Camera, Clock, Ticket, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { Waves, Shield, Utensils, Ticket, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface AboutMellowlandViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onAddToCart: (pass: PassItem) => void;
+  passes?: PassItem[];
 }
 
-export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart }) => {
-  const tubingPass = FESTIVAL_PASSES.find((p) => p.id === 'pass-mellowland-tubing') || FESTIVAL_PASSES[0];
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.15
+    }
+  }
+};
+
+export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart, passes = [] }) => {
+  const activePasses = passes;
+  const tubingPass = activePasses.find((p) => p.id === 'pass-mellowland-tubing');
 
   return (
     <div className="space-y-12 pb-12">
       
       {/* Title */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center max-w-3xl mx-auto space-y-3"
+      >
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">PIONEERS OF RIVER TUBING IN GRENADA</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
           About Mellowland
@@ -23,10 +53,16 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
         <p className="text-slate-300 text-sm font-light leading-relaxed">
           Mellows Entertainment Complex — or Mellowland as we like to call it — is Grenada's premier river adventure, organic restaurant, and outdoor party oasis.
         </p>
-      </div>
+      </motion.div>
 
       {/* Main Banner */}
-      <div className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/50 border border-amber-500/30 rounded-3xl p-8 md:p-12 shadow-2xl space-y-8">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/50 border border-amber-500/30 rounded-3xl p-8 md:p-12 shadow-2xl space-y-8"
+      >
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           
@@ -61,6 +97,9 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
               src={FESTIVAL_IMAGES.riverTubing}
               alt="Mellowland River Tubing"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+              }}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
@@ -72,12 +111,21 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
 
         </div>
 
-      </div>
+      </motion.div>
 
       {/* Tubing Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={staggerContainer}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+      >
         
-        <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
+        >
           <div className="w-12 h-12 bg-teal-500/20 text-teal-400 rounded-2xl flex items-center justify-center">
             <Waves className="w-6 h-6" />
           </div>
@@ -85,9 +133,12 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
           <p className="text-xs text-neutral-300 leading-relaxed">
             Get ready for an exciting and fun adventure navigating the rapids, all while enjoying the beauty of untouched nature. Don’t forget to take amazing photos!
           </p>
-        </div>
+        </motion.div>
 
-        <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
+        >
           <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center">
             <Shield className="w-6 h-6" />
           </div>
@@ -95,9 +146,12 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
           <p className="text-xs text-neutral-300 leading-relaxed">
             Our sessions are 45 minutes long, and we have professional guides who will be there to supervise you, providing helmets, life jackets, and safety tubes.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
+        >
           <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
             <Utensils className="w-6 h-6" />
           </div>
@@ -105,12 +159,18 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
           <p className="text-xs text-neutral-300 leading-relaxed">
             And if you’re hungry, we have delicious organic lunch available straight from our garden, along with cold tropical drinks at our riverside bar.
           </p>
-        </div>
+        </motion.div>
 
-      </div>
+      </motion.div>
 
       {/* Book Pass CTA */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl"
+      >
         <div className="space-y-2">
           <h3 className="text-xl font-bold font-serif text-white">Ready to Tube Down the River?</h3>
           <p className="text-neutral-300 text-xs sm:text-sm">
@@ -119,13 +179,15 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
         </div>
 
         <div className="flex gap-3 shrink-0">
-          <button
-            onClick={() => onAddToCart(tubingPass)}
-            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer flex items-center gap-2"
-          >
-            <Ticket className="w-4 h-4" />
-            Add Tubing Pass (£89)
-          </button>
+          {tubingPass && (
+            <button
+              onClick={() => onAddToCart(tubingPass)}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer flex items-center gap-2"
+            >
+              <Ticket className="w-4 h-4" />
+              Add Tubing Pass (£{tubingPass.priceGBP})
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('shop')}
             className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl cursor-pointer"
@@ -133,7 +195,7 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
             View All Passes
           </button>
         </div>
-      </div>
+      </motion.div>
 
     </div>
   );

@@ -50,6 +50,21 @@ const getTabFromUrl = (): ActiveTab => {
   return 'home';
 };
 
+function hexToRgb(hex: string, fallback = '245, 158, 11'): string {
+  if (!hex) return fallback;
+  let c = hex.replace('#', '').trim();
+  if (c.length === 3) {
+    c = c.split('').map(x => x + x).join('');
+  }
+  if (c.length !== 6) return fallback;
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return fallback;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `${r}, ${g}, ${b}`;
+}
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTabState] = useState<ActiveTab>(getTabFromUrl);
@@ -210,19 +225,341 @@ export default function App() {
     }
   };
 
+  const primaryColor = siteConfig.branding.primaryColor || '#F59E0B';
+  const secondaryColor = siteConfig.branding.secondaryColor || '#10B981';
+  const headingFont = siteConfig.branding.headingFont || 'Poppins';
+  const bodyFont = siteConfig.branding.bodyFont || 'Inter';
+  const bgTone = siteConfig.branding.bgTone || 'dark-onyx';
+
+  const primaryRgb = hexToRgb(primaryColor, '245, 158, 11');
+  const secondaryRgb = hexToRgb(secondaryColor, '16, 185, 129');
+
+  // Parse background tones
+  let bgColor = '#080A0F'; // default dark-onyx
+  let cardColor = '#0D1118';
+  let borderColor = 'rgba(255, 255, 255, 0.08)';
+  let bgColorRgb = '8, 10, 15';
+  
+  if (bgTone === 'deep-midnight') {
+    bgColor = '#02040A';
+    cardColor = '#070913';
+    borderColor = 'rgba(255, 255, 255, 0.06)';
+    bgColorRgb = '2, 4, 10';
+  } else if (bgTone === 'luxury-charcoal') {
+    bgColor = '#121214';
+    cardColor = '#1A1A1E';
+    borderColor = 'rgba(255, 255, 255, 0.05)';
+    bgColorRgb = '18, 18, 20';
+  } else if (bgTone === 'caribbean-night') {
+    bgColor = '#010A0A';
+    cardColor = '#031414';
+    borderColor = 'rgba(255, 255, 255, 0.07)';
+    bgColorRgb = '1, 10, 10';
+  }
+
+  // Construct safe URL-friendly family names for Google Fonts import
+  const headingFontUrl = headingFont.replace(/ /g, '+');
+  const bodyFontUrl = bodyFont.replace(/ /g, '+');
+
+  const dynamicStyleBlock = (
+    <style>
+      {`
+        @import url('https://fonts.googleapis.com/css2?family=${headingFontUrl}:wght@400;500;600;700;800;900&family=${bodyFontUrl}:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+          --primary-color-dynamic: ${primaryColor};
+          --primary-rgb: ${primaryRgb};
+          --secondary-color-dynamic: ${secondaryColor};
+          --secondary-rgb: ${secondaryRgb};
+          --bg-color-dynamic: ${bgColor};
+          --bg-color-dynamic-rgb: ${bgColorRgb};
+          --card-color-dynamic: ${cardColor};
+          --border-color-dynamic: ${borderColor};
+          --heading-font-dynamic: '${headingFont}', sans-serif;
+          --body-font-dynamic: '${bodyFont}', sans-serif;
+        }
+        
+        body, html, #root {
+          font-family: var(--body-font-dynamic) !important;
+        }
+
+        p, span, a, button, input, select, textarea, label, li, td, th, div {
+          font-family: var(--body-font-dynamic);
+        }
+        
+        h1, h2, h3, h4, h5, h6, 
+        .font-serif, 
+        .font-sans-display, 
+        .font-heading, 
+        .font-display, 
+        .font-headline, 
+        .font-serif-luxury,
+        .heading-font {
+          font-family: var(--heading-font-dynamic) !important;
+        }
+
+        h1 *, h2 *, h3 *, h4 *, h5 *, h6 *,
+        .font-serif *,
+        .font-sans-display *,
+        .font-heading *,
+        .font-display *,
+        .font-headline *,
+        .font-serif-luxury *,
+        .heading-font * {
+          font-family: inherit !important;
+        }
+
+        .font-body-text, .font-body-text * {
+          font-family: var(--body-font-dynamic) !important;
+        }
+
+        /* Monospace font preservation */
+        .font-mono, .font-mono *, code, pre {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+        }
+
+        /* Surfaces & Backgrounds */
+        body, .bg-neutral-950, .bg-[#05070C], .bg-[#05070A], .bg-[#080A0F], .bg-[#05070c], .bg-[#03050A], .bg-black/40 {
+          background-color: var(--bg-color-dynamic) !important;
+        }
+        
+        .bg-neutral-900, .bg-[#0C0F1E], .bg-[#121822], .bg-[#12162E], .glass-card, .bg-[#0A0D14], .bg-[#0D1118], .bg-[#090D1A], .bg-[#0F172A], .bg-[#080C17], .bg-neutral-950/20 {
+          background-color: var(--card-color-dynamic) !important;
+        }
+        
+        .border-neutral-800, .border-neutral-800\\/60, .border-neutral-800\\/80, .border-white\\/10, .border-white\\/15, .border-white\\/5 {
+          border-color: var(--border-color-dynamic) !important;
+        }
+
+        /* Glass navigation */
+        .glass-nav {
+          background: rgba(var(--bg-color-dynamic-rgb), 0.9) !important;
+          border-color: var(--border-color-dynamic) !important;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* PRIMARY COLOR DYNAMIC OVERRIDES (Amber / Gold / Main Accent)   */
+        /* ------------------------------------------------------------- */
+
+        .text-amber-500, .text-amber-400, .text-amber-300, .text-amber-200, .text-amber-100, .text-amber-600, .text-amber-700, 
+        .text-amber-300\\/80, .text-amber-300\\/90, .text-amber-400\\/80, .text-amber-400\\/90, .text-amber-500\\/80,
+        .text-yellow-500, .text-yellow-400, .text-yellow-300,
+        .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover, .hover\\:text-amber-500:hover,
+        .group-hover\\:text-amber-300:group-hover, .group-hover\\:text-amber-400:group-hover, .group-hover\\:text-amber-500:group-hover,
+        .focus\\:text-amber-400:focus, .gold-text, .text-gold-subtle {
+          color: var(--primary-color-dynamic) !important;
+        }
+
+        .bg-amber-500, .bg-amber-400, .bg-amber-300, .bg-amber-600, .bg-yellow-500, .bg-yellow-400,
+        .hover\\:bg-amber-400:hover, .hover\\:bg-amber-500:hover, .hover\\:bg-amber-600:hover,
+        .group-hover\\:bg-amber-400:group-hover, .group-hover\\:bg-amber-500:group-hover, 
+        .active\\:bg-amber-600:active, .gold-btn, .bg-gold-primary {
+          background-color: var(--primary-color-dynamic) !important;
+        }
+
+        /* Primary Opacity Backgrounds */
+        .bg-amber-500\\/5, .bg-amber-400\\/5, .bg-amber-300\\/5 {
+          background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+        .bg-amber-500\\/10, .bg-amber-400\\/10, .bg-amber-300\\/10 {
+          background-color: rgba(var(--primary-rgb), 0.10) !important;
+        }
+        .bg-amber-500\\/15, .bg-amber-400\\/15, .bg-amber-300\\/15 {
+          background-color: rgba(var(--primary-rgb), 0.15) !important;
+        }
+        .bg-amber-500\\/20, .bg-amber-400\\/20, .bg-amber-300\\/20 {
+          background-color: rgba(var(--primary-rgb), 0.20) !important;
+        }
+        .bg-amber-500\\/25, .bg-amber-400\\/25, .bg-amber-300\\/25 {
+          background-color: rgba(var(--primary-rgb), 0.25) !important;
+        }
+        .bg-amber-500\\/30, .bg-amber-400\\/30, .bg-amber-300\\/30 {
+          background-color: rgba(var(--primary-rgb), 0.30) !important;
+        }
+        .bg-amber-500\\/40, .bg-amber-400\\/40 {
+          background-color: rgba(var(--primary-rgb), 0.40) !important;
+        }
+        .bg-amber-500\\/50, .bg-amber-400\\/50 {
+          background-color: rgba(var(--primary-rgb), 0.50) !important;
+        }
+
+        /* Primary Borders */
+        .border-amber-500, .border-amber-400, .border-amber-300, .border-amber-600, .border-\[\#D4AF37\],
+        .hover\\:border-amber-500:hover, .hover\\:border-amber-400:hover, .focus\\:border-amber-500:focus, .focus-within\\:border-amber-500:focus-within,
+        .group-hover\\:border-amber-500\\/50:group-hover, .group-hover\\:border-amber-400:group-hover {
+          border-color: var(--primary-color-dynamic) !important;
+        }
+
+        .border-amber-500\\/10, .border-amber-400\\/10, .border-amber-300\\/10 {
+          border-color: rgba(var(--primary-rgb), 0.10) !important;
+        }
+        .border-amber-500\\/15, .border-amber-400\\/15 {
+          border-color: rgba(var(--primary-rgb), 0.15) !important;
+        }
+        .border-amber-500\\/20, .border-amber-400\\/20, .border-amber-300\\/20 {
+          border-color: rgba(var(--primary-rgb), 0.20) !important;
+        }
+        .border-amber-500\\/30, .border-amber-400\\/30, .border-amber-300\\/30, .border-\[\#D4AF37\]\/30 {
+          border-color: rgba(var(--primary-rgb), 0.30) !important;
+        }
+        .border-amber-500\\/35, .border-amber-400\\/35, .border-amber-300\\/35 {
+          border-color: rgba(var(--primary-rgb), 0.35) !important;
+        }
+        .border-amber-500\\/40, .border-amber-400\\/40 {
+          border-color: rgba(var(--primary-rgb), 0.40) !important;
+        }
+        .border-amber-500\\/50, .border-amber-400\\/50 {
+          border-color: rgba(var(--primary-rgb), 0.50) !important;
+        }
+        .border-amber-500\\/60, .border-amber-400\\/60, .border-\[\#D4AF37\]\/60 {
+          border-color: rgba(var(--primary-rgb), 0.60) !important;
+        }
+
+        /* Primary Gradients */
+        .from-amber-300, .from-amber-400, .from-amber-500, .from-amber-600, .from-yellow-400, .from-yellow-500 {
+          --tw-gradient-from: var(--primary-color-dynamic) !important;
+          --tw-gradient-to: rgba(var(--primary-rgb), 0) !important;
+          --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)) !important;
+        }
+
+        .to-amber-300, .to-amber-400, .to-amber-500, .to-amber-600, .to-yellow-400, .to-yellow-500 {
+          --tw-gradient-to: var(--primary-color-dynamic) !important;
+        }
+
+        .via-amber-300, .via-amber-400, .via-amber-500, .via-amber-600, .via-yellow-400, .via-yellow-500 {
+          --tw-gradient-via-stops: var(--tw-gradient-from), var(--primary-color-dynamic), var(--tw-gradient-to) !important;
+          --tw-gradient-to: var(--primary-color-dynamic) !important;
+        }
+
+        .hover\\:from-amber-300:hover, .hover\\:from-amber-400:hover, .hover\\:to-amber-500:hover {
+          --tw-gradient-from: var(--primary-color-dynamic) !important;
+          --tw-gradient-to: var(--primary-color-dynamic) !important;
+        }
+
+        /* Primary Shadows & Glass Cards */
+        .shadow-amber-500\\/10, .shadow-amber-500\\/20, .shadow-amber-500\\/30, .shadow-amber-500\\/40, .shadow-amber-400\\/20, .shadow-amber-500\\/50,
+        .shadow-yellow-500\\/20, .shadow-yellow-500\\/30 {
+          box-shadow: 0 10px 25px -5px rgba(var(--primary-rgb), 0.35) !important;
+        }
+
+        .glass-card-amber {
+          background: rgba(var(--primary-rgb), 0.08) !important;
+          border-color: rgba(var(--primary-rgb), 0.3) !important;
+        }
+
+        .glass-card-interactive:hover {
+          border-color: rgba(var(--primary-rgb), 0.45) !important;
+          box-shadow: 0 15px 35px -10px rgba(var(--primary-rgb), 0.3) !important;
+        }
+
+        .ring-amber-500, .ring-amber-400, .focus\\:ring-amber-500:focus {
+          --tw-ring-color: var(--primary-color-dynamic) !important;
+        }
+
+        ::selection {
+          background-color: var(--primary-color-dynamic) !important;
+          color: #080a0f !important;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* SECONDARY COLOR DYNAMIC OVERRIDES (Emerald / Secondary)       */
+        /* ------------------------------------------------------------- */
+
+        .text-emerald-500, .text-emerald-400, .text-emerald-300, .text-emerald-200, .text-emerald-100, .text-emerald-600,
+        .hover\\:text-emerald-300:hover, .hover\\:text-emerald-400:hover, .hover\\:text-emerald-500:hover,
+        .group-hover\\:text-emerald-300:group-hover, .group-hover\\:text-emerald-400:group-hover, .group-hover\\:text-emerald-500:group-hover,
+        .focus\\:text-emerald-400:focus {
+          color: var(--secondary-color-dynamic) !important;
+        }
+
+        .bg-emerald-500, .bg-emerald-400, .bg-emerald-300, .bg-emerald-600,
+        .hover\\:bg-emerald-400:hover, .hover\\:bg-emerald-500:hover, .hover\\:bg-emerald-600:hover,
+        .group-hover\\:bg-emerald-400:group-hover, .group-hover\\:bg-emerald-500:group-hover,
+        .active\\:bg-emerald-600:active {
+          background-color: var(--secondary-color-dynamic) !important;
+        }
+
+        .bg-emerald-500\\/5, .bg-emerald-400\\/5 {
+          background-color: rgba(var(--secondary-rgb), 0.05) !important;
+        }
+        .bg-emerald-500\\/10, .bg-emerald-400\\/10, .bg-emerald-300\\/10 {
+          background-color: rgba(var(--secondary-rgb), 0.10) !important;
+        }
+        .bg-emerald-500\\/15, .bg-emerald-400\\/15 {
+          background-color: rgba(var(--secondary-rgb), 0.15) !important;
+        }
+        .bg-emerald-500\\/20, .bg-emerald-400\\/20, .bg-emerald-300\\/20 {
+          background-color: rgba(var(--secondary-rgb), 0.20) !important;
+        }
+        .bg-emerald-500\\/30, .bg-emerald-400\\/30 {
+          background-color: rgba(var(--secondary-rgb), 0.30) !important;
+        }
+        .bg-emerald-500\\/40, .bg-emerald-400\\/40 {
+          background-color: rgba(var(--secondary-rgb), 0.40) !important;
+        }
+
+        .border-emerald-500, .border-emerald-400, .border-emerald-300,
+        .hover\\:border-emerald-500:hover, .hover\\:border-emerald-400:hover, .focus\\:border-emerald-500:focus {
+          border-color: var(--secondary-color-dynamic) !important;
+        }
+
+        .border-emerald-500\\/10, .border-emerald-400\\/10 {
+          border-color: rgba(var(--secondary-rgb), 0.10) !important;
+        }
+        .border-emerald-500\\/20, .border-emerald-400\\/20 {
+          border-color: rgba(var(--secondary-rgb), 0.20) !important;
+        }
+        .border-emerald-500\\/30, .border-emerald-400\\/30 {
+          border-color: rgba(var(--secondary-rgb), 0.30) !important;
+        }
+        .border-emerald-500\\/40, .border-emerald-400\\/40 {
+          border-color: rgba(var(--secondary-rgb), 0.40) !important;
+        }
+
+        .from-emerald-300, .from-emerald-400, .from-emerald-500, .from-emerald-600 {
+          --tw-gradient-from: var(--secondary-color-dynamic) !important;
+          --tw-gradient-to: rgba(var(--secondary-rgb), 0) !important;
+          --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)) !important;
+        }
+
+        .to-emerald-300, .to-emerald-400, .to-emerald-500, .to-emerald-600 {
+          --tw-gradient-to: var(--secondary-color-dynamic) !important;
+        }
+
+        .via-emerald-300, .via-emerald-400, .via-emerald-500 {
+          --tw-gradient-to: var(--secondary-color-dynamic) !important;
+        }
+
+        .ring-emerald-500, .ring-emerald-400, .focus\\:ring-emerald-500:focus {
+          --tw-ring-color: var(--secondary-color-dynamic) !important;
+        }
+
+        /* Custom Ring/Focus styles */
+        .focus\\:border-amber-500:focus, .focus-within\\:border-amber-500:focus-within {
+          border-color: var(--primary-color-dynamic) !important;
+        }
+        .focus\\:border-emerald-500:focus {
+          border-color: var(--secondary-color-dynamic) !important;
+        }
+      `}
+    </style>
+  );
+
   if (activeTab === 'admin') {
     return (
       <div 
-        className="min-h-screen bg-[#06080F] text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950"
+        className="min-h-screen text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950"
         style={{
-          fontFamily: 'Inter, sans-serif'
+          backgroundColor: bgColor,
+          fontFamily: `${bodyFont}, sans-serif`
         }}
       >
+        {dynamicStyleBlock}
         <AnimatePresence mode="wait">
           {showSplash && (
             <SplashScreen 
               key="splash"
-              primaryColor={siteConfig.branding.primaryColor || '#F59E0B'}
+              primaryColor={primaryColor}
               onComplete={() => setShowSplash(false)} 
             />
           )}
@@ -234,146 +571,34 @@ export default function App() {
     );
   }
 
-  const primaryColor = siteConfig.branding.primaryColor || '#F59E0B';
-  const headingFont = siteConfig.branding.headingFont || 'Poppins';
-  const bodyFont = siteConfig.branding.bodyFont || 'Inter';
-  const bgTone = siteConfig.branding.bgTone || 'dark-onyx';
-
-  // Parse background tones
-  let bgColor = '#080A0F'; // default dark-onyx
-  let cardColor = '#0D1118';
-  let borderColor = 'rgba(255, 255, 255, 0.08)';
-  
-  if (bgTone === 'deep-midnight') {
-    bgColor = '#02040A';
-    cardColor = '#070913';
-    borderColor = 'rgba(255, 255, 255, 0.06)';
-  } else if (bgTone === 'luxury-charcoal') {
-    bgColor = '#121214';
-    cardColor = '#1A1A1E';
-    borderColor = 'rgba(255, 255, 255, 0.05)';
-  } else if (bgTone === 'caribbean-night') {
-    bgColor = '#010A0A';
-    cardColor = '#031414';
-    borderColor = 'rgba(255, 255, 255, 0.07)';
-  }
-
-  // Construct safe URL-friendly family names for Google Fonts import
-  const headingFontUrl = headingFont.replace(/ /g, '+');
-  const bodyFontUrl = bodyFont.replace(/ /g, '+');
-
   return (
     <div 
-      className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950"
+      className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950 relative overflow-x-hidden"
       style={{
         fontFamily: `${bodyFont}, sans-serif`
       }}
     >
-      {/* Dynamic Branding Stylesheet */}
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=${headingFontUrl}:wght@400;500;600;700;800;900&family=${bodyFontUrl}:wght@300;400;500;600;700;800&display=swap');
-          
-          :root {
-            --primary-color-dynamic: ${primaryColor};
-            --bg-color-dynamic: ${bgColor};
-            --card-color-dynamic: ${cardColor};
-            --border-color-dynamic: ${borderColor};
-          }
-          
-          body, p, span, a, button, input, select, textarea, div {
-            font-family: '${bodyFont}', sans-serif !important;
-          }
-          
-          h1, h2, h3, h4, h5, h6, .font-serif, .font-sans-display, .font-heading, .font-serif-luxury {
-            font-family: '${headingFont}', sans-serif !important;
-          }
+      {dynamicStyleBlock}
 
-          body, .bg-neutral-950, .bg-[#05070C], .bg-[#05070A], .bg-[#080A0F], .bg-[#05070c] {
-            background-color: var(--bg-color-dynamic) !important;
-          }
-          
-          .bg-neutral-900, .bg-[#0C0F1E], .bg-[#121822], .glass-card {
-            background-color: var(--card-color-dynamic) !important;
-          }
-          
-          .border-neutral-800, .border-neutral-800\\/60, .border-neutral-800\\/80, .border-white\\/10, .border-amber-500\\/20, .border-amber-500\\/30, .border-amber-500\\/40, .border-white\\/5 {
-            border-color: var(--border-color-dynamic) !important;
-          }
-
-          /* Text color overrides */
-          .text-amber-500, .text-amber-400, .text-amber-300, .text-amber-200, .text-amber-600, .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover {
-            color: var(--primary-color-dynamic) !important;
-          }
-          
-          /* Background overrides */
-          .bg-amber-500, .bg-amber-600, .bg-amber-400, .hover\\:bg-amber-400:hover, .hover\\:bg-amber-500:hover {
-            background-color: var(--primary-color-dynamic) !important;
-          }
-          
-          /* Background with opacity overrides */
-          .bg-amber-500\\/10 {
-            background-color: ${primaryColor}1a !important;
-          }
-          .bg-amber-500\\/15 {
-            background-color: ${primaryColor}26 !important;
-          }
-          .bg-amber-500\\/20 {
-            background-color: ${primaryColor}33 !important;
-          }
-          .bg-amber-500\\/25 {
-            background-color: ${primaryColor}40 !important;
-          }
-          .bg-amber-500\\/30 {
-            background-color: ${primaryColor}4d !important;
-          }
-          
-          /* Border overrides to neutralize colorful lines */
-          .border-amber-500, .border-amber-600, .border-amber-400, .border-amber-500\\/20, .border-amber-500\\/30, .border-amber-500\\/40, .border-amber-400\\/40, .border-emerald-500, .border-emerald-500\\/20, .border-emerald-500\\/30, .border-rose-500\\/20, .border-amber-500\\/10, .glass-card-amber, .glass-card-interactive:hover, .glass-nav {
-            border-color: var(--border-color-dynamic) !important;
-          }
-          
-          /* Custom focus ring */
-          .focus\\:border-amber-500:focus {
-            border-color: var(--primary-color-dynamic) !important;
-          }
-          
-          /* Dynamic gradient button adjustments */
-          .from-amber-400 {
-            --tw-gradient-from: ${primaryColor}d9 !important;
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, ${primaryColor}00) !important;
-          }
-          .via-amber-500 {
-            --tw-gradient-stops: var(--tw-gradient-from), ${primaryColor} !important;
-          }
-          .to-amber-600 {
-            --tw-gradient-to: ${primaryColor}f2 !important;
-          }
-          
-          /* Shadow effects */
-          .shadow-amber-500\\/20, .shadow-amber-500\\/10 {
-            --tw-shadow-color: ${primaryColor}33 !important;
-          }
-          .shadow-amber-500\\/30 {
-            --tw-shadow-color: ${primaryColor}4d !important;
-          }
-          .shadow-amber-500\\/50 {
-            --tw-shadow-color: ${primaryColor}80 !important;
-          }
-        `}
-      </style>
+      {/* Ambient Main Body Shimmer Background Effect */}
+      <div className="body-shimmer-container" aria-hidden="true">
+        <div className="body-shimmer-layer" />
+        <div className="body-shimmer-orb-1" />
+        <div className="body-shimmer-orb-2" />
+        <div className="body-shimmer-beam" />
+      </div>
 
       <AnimatePresence mode="wait">
         {showSplash && (
           <SplashScreen 
             key="splash"
-            primaryColor={siteConfig.branding.primaryColor || '#F59E0B'}
+            primaryColor={primaryColor}
             onComplete={() => setShowSplash(false)} 
           />
         )}
       </AnimatePresence>
 
-      <div className={`flex-1 flex flex-col transition-opacity duration-1000 ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`flex-1 flex flex-col relative z-10 transition-opacity duration-1000 ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         {/* Top Announcement Banner */}
         {siteConfig.banner?.enabled && siteConfig.banner.text && (
         <div 

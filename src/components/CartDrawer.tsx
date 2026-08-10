@@ -4,6 +4,7 @@ import { X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, Shield, Plane
 import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { PassSummaryModal } from './PassSummaryModal';
 import { AnimatePresence, motion } from 'motion/react';
+import { addSubmission } from '../services/submissionService';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -61,6 +62,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
+
+    const orderRef = `GCF-2027-${Math.floor(10000 + Math.random() * 90000)}`;
+    const passItemsSummary = cart.map(i => `${i.quantity}x ${i.pass.title}`).join(', ');
+    const passDetailsText = `Pass order reserved in ${currency}. Total: ${getCurrencySymbol()}${totalConverted} (£${totalGBP} GBP). Purchased: ${cart.map(i => `${i.quantity}x ${i.pass.title} @ £${i.pass.priceGBP}`).join('; ')}`;
+
+    // Save Pass Order in Admin Submissions store
+    addSubmission({
+      type: 'pass-order',
+      name: buyerName,
+      email: buyerEmail,
+      phone: buyerPhone,
+      topicOrPass: passItemsSummary,
+      messageOrDetails: passDetailsText,
+      amountGBP: totalGBP,
+      extraDetails: {
+        OrderRef: orderRef,
+        Currency: currency,
+        TotalPaid: `${getCurrencySymbol()}${totalConverted}`,
+        PurchasedItems: passItemsSummary,
+        PaymentStatus: 'CONFIRMED'
+      }
+    });
+
     setTimeout(() => {
       setIsProcessing(false);
       setCheckoutStep('confirmed');

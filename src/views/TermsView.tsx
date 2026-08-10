@@ -1,17 +1,36 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { FileText, ShieldCheck, AlertTriangle, PhoneCall } from 'lucide-react';
+import { FileText, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface TermsViewProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
+
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
 
 export const TermsView: React.FC<TermsViewProps> = ({ setActiveTab }) => {
   return (
     <div className="space-y-10 pb-12 max-w-4xl mx-auto">
       
       {/* Title */}
-      <div className="text-center space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center space-y-3"
+      >
         <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400">OFFICIAL POLICY & RULES</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold font-serif text-white">
           Terms & Conditions
@@ -19,9 +38,15 @@ export const TermsView: React.FC<TermsViewProps> = ({ setActiveTab }) => {
         <p className="text-neutral-300 text-sm">
           Please read these official rules regarding event passes, wristband entry, lost passes, and airline liabilities.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-6 shadow-xl text-neutral-300 text-xs sm:text-sm leading-relaxed">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-6 shadow-xl text-neutral-300 text-xs sm:text-sm leading-relaxed"
+      >
         
         <div className="space-y-3 border-b border-neutral-800 pb-4">
           <h2 className="text-lg font-bold font-serif text-white flex items-center gap-2">
@@ -76,7 +101,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ setActiveTab }) => {
           </button>
         </div>
 
-      </div>
+      </motion.div>
 
     </div>
   );

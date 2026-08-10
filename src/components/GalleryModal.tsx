@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { 
   X, 
   ChevronLeft, 
@@ -167,6 +168,10 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
             <img
               src={item.imageUrl}
               alt={item.title}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+              }}
               className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 ease-out border border-amber-500/20"
               style={{ transform: `scale(${zoomLevel})` }}
             />

@@ -208,11 +208,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                 <div>
                   <span className="block font-medium text-white">UK / Grenada Helpline:</span>
                   <a 
-                    href="tel:+447900123456" 
+                    href={`tel:${(siteConfig?.contactPhone || '+44 (0)7900 123 456').replace(/\s+/g, '')}`} 
                     className="text-slate-400 hover:text-amber-400 transition-colors underline decoration-amber-500/20 hover:decoration-amber-400 font-mono"
                     title="Call Festival Helpline"
                   >
-                    +44 (0)7900 123 456
+                    {siteConfig?.contactPhone || '+44 (0)7900 123 456'}
                   </a>
                 </div>
               </div>
@@ -221,11 +221,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                 <div>
                   <span className="block font-medium text-white">Direct Email:</span>
                   <a 
-                    href="mailto:info@grenadacaricomfestival.com" 
+                    href={`mailto:${siteConfig?.contactEmail || 'info@grenadacaricomfestival.com'}`} 
                     className="text-slate-400 hover:text-amber-400 transition-colors underline decoration-amber-500/20 hover:decoration-amber-400"
                     title="Email Concierge Desk"
                   >
-                    info@grenadacaricomfestival.com
+                    {siteConfig?.contactEmail || 'info@grenadacaricomfestival.com'}
                   </a>
                 </div>
               </div>

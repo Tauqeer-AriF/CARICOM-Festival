@@ -1,17 +1,45 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { ShieldCheck, Plane, AlertTriangle, CheckCircle2, Clock, HelpCircle, PhoneCall, Mail } from 'lucide-react';
+import { ShieldCheck, Plane, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface TravelInsuranceViewProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
+
+// Custom animation presets for a premium aesthetic
+const fadeInUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.15
+    }
+  }
+};
 
 export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setActiveTab }) => {
   return (
     <div className="space-y-12 pb-12">
       
       {/* Title */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+        className="text-center max-w-3xl mx-auto space-y-3"
+      >
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">ESSENTIAL REVELER GUIDANCE</span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
           Why We Highly Recommend Travel Insurance ✈️🛡️
@@ -19,13 +47,22 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
         <p className="text-slate-300 text-sm font-light leading-relaxed">
           When you're prepping for the ultimate link-up between London and Grenada, securing comprehensive travel insurance is the smartest move before you touch down in the Spice Isle.
         </p>
-      </div>
+      </motion.div>
 
       {/* 3 Core Pillars */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={staggerContainer}
+        className="grid grid-cols-1 md:grid-cols-3 gap-8"
+      >
         
         {/* Pillar 1 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl"
+        >
           <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center font-extrabold text-lg">
             1
           </div>
@@ -44,10 +81,13 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
               If your carnival wear or camera gear is stuck in a layover, baggage coverage lets you buy replacements without paying out of pocket.
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Pillar 2 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl"
+        >
           <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center font-extrabold text-lg">
             2
           </div>
@@ -66,10 +106,13 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
               If you plan on doing water excursions like river tubing at Mellowland, ensure your policy covers water sports!
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Pillar 3 */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl">
+        <motion.div 
+          variants={fadeInUp}
+          className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-4 shadow-xl"
+        >
           <div className="w-12 h-12 bg-teal-500/20 text-teal-400 rounded-2xl flex items-center justify-center font-extrabold text-lg">
             3
           </div>
@@ -88,21 +131,33 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
               Covers food, drinks, and comfort items during prolonged airport delays.
             </div>
           </div>
-        </div>
+        </motion.div>
 
-      </div>
+      </motion.div>
 
       {/* Pro-Tip Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 p-6 rounded-2xl text-xs sm:text-sm text-amber-200 flex items-start gap-3">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-amber-500/10 border border-amber-500/30 p-6 rounded-2xl text-xs sm:text-sm text-amber-200 flex items-start gap-3"
+      >
         <SparklesIcon className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
         <div>
           <strong className="text-amber-400 font-bold block mb-1">Pro-Tip for Travelers:</strong>
           Don't wait until the week before you fly to buy your policy. Purchase your travel insurance as soon as you book your flights or accommodation so you are covered for pre-departure cancellations starting from day one.
         </div>
-      </div>
+      </motion.div>
 
       {/* Cancellation Policy Section */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 md:p-12 space-y-8 shadow-2xl">
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 md:p-12 space-y-8 shadow-2xl"
+      >
         <div className="space-y-3">
           <span className="text-xs font-bold uppercase tracking-widest text-amber-400">THE CANCELLATION POLICY</span>
           <h2 className="text-2xl sm:text-4xl font-extrabold font-serif text-white">
@@ -189,7 +244,7 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
           </button>
         </div>
 
-      </div>
+      </motion.div>
 
     </div>
   );

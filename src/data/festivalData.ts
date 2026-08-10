@@ -3,14 +3,46 @@ import { EventItem, HotelItem, PassItem, TestimonialItem } from '../types';
 export const FESTIVAL_DATE_STRING = '2027-05-13T18:00:00';
 
 export const FESTIVAL_IMAGES = {
-  hero: '/src/assets/images/grenada_festival_hero_1786296835535.jpg',
-  riverTubing: '/src/assets/images/mellowland_river_tubing_1786296968756.jpg',
-  whiteGala: '/src/assets/images/white_gala_party_1786296989406.jpg',
+  hero: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80', // Beach DJ Showcase
+  festivalHero: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80', // Spice Isle Festival Crowd
+  riverTubing: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=1200&q=80', // Rainforest rapids adventure
+  whiteGala: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80', // Premium VIP White Gala
+  ecoParadise: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80', // Beautiful Grenada coast
+  gemini1: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1200&q=80', // Vibrant beach fete
+  gemini2: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80', // Midnight concert fete
+  gemini3: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80', // Sunset cruise fete
+  gemini4: 'https://images.unsplash.com/photo-1501183007986-d0d080b147f9?auto=format&fit=crop&w=1200&q=80', // Rainforest island rave
   royaltonResort: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80',
   underwaterPark: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80',
   waterfall: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
   spiceMarket: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=1200&q=80',
-  mellowlandGarden: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80'
+  mellowlandGarden: 'https://images.unsplash.com/photo-1541976844346-f18aeac57b06?auto=format&fit=crop&w=1200&q=80', // Lush organic tropical garden path
+  
+  // Day-specific, 100% unique premium high-quality image mappings
+  day1_welcome: 'https://images.unsplash.com/photo-1511018556340-d16986a1c194?auto=format&fit=crop&w=1200&q=80', // Unique Beach resort sunset welcome lime
+  day2_beach_fete: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1200&q=80', // Beach Fete Vibrance
+  day3_river_tubing: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=1200&q=80', // River Tubing Adventure
+  day4_karaoke: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80', // Concert Stage / Karaoke fete
+  day5_white_gala: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80', // White Gala Sunset Pavilion
+  day6_culture: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80', // Cultural masquerade/street fete
+  day7_underwater: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80', // Underwater sculpture park
+  day8_rainforest: 'https://images.unsplash.com/photo-1501183007986-d0d080b147f9?auto=format&fit=crop&w=1200&q=80', // Rainforest Island Rave
+  day9_road_parade: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80', // Carnival road march
+  day10_brunch: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80', // Luxurious tropical brunch
+  
+  // Gallery-specific, 100% unique premium high-quality image mappings
+  gallery1: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80', // Resort pool deck under beautiful sky
+  gallery2: 'https://images.unsplash.com/photo-1530731141654-5961b695817a?auto=format&fit=crop&w=1200&q=80', // Forest river rapids group kayaking
+  gallery3: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80', // Elegant sunset soirée lighting
+  gallery4: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80', // Vibrant beachfront dance party
+  gallery5: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80', // Massive laser-lit DJ party
+  gallery6: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1200&q=80', // Deep sea diving/snorkeling sunbeams
+  gallery7: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80', // Luxury beach resort pool area
+  gallery8: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80', // Waterfall cascading in rainforest
+  gallery9: 'https://images.unsplash.com/photo-1509356843151-3e7d96241e11?auto=format&fit=crop&w=1200&q=80', // Tropical fruit & spice market stall
+  gallery10: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80', // Botanical lush organic garden
+  gallery11: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80', // Sunset Cruise Horizon
+  gallery12: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80' // Neon jungle night lounge
 };
 
 export const FESTIVAL_EVENTS: EventItem[] = [
@@ -24,9 +56,9 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     time: '18:00 - 23:00',
     description: 'Arrive in Grenada and receive your official Mellows welcome! Meet your island representatives, collect your festival wristbands, and enjoy coconut welcome cocktails while London & Grenadian DJs set the mood.',
     djLineup: ['DJ Slick (London)', 'DJ Spice (Grenada)', 'Selecta Quad'],
-    dressCode: 'Resort Chic & Tropical Colors',
+    dressCode: 'Resort Chic & Tropical Colours',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.hero,
+    highlightImage: FESTIVAL_IMAGES.day1_welcome,
     genres: ['Soca', 'Afro', 'Reggae']
   },
   {
@@ -41,7 +73,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['DJ Likkle (UK)', 'Sound System International', 'DJ Ice (Grenada)'],
     dressCode: 'Swimwear & Beach Glam',
     wristbandRequired: true,
-    highlightImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+    highlightImage: FESTIVAL_IMAGES.day2_beach_fete,
     genres: ['Soca', 'Jungle', 'R&B']
   },
   {
@@ -56,7 +88,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['DJ Roots UK', 'Mellows Resident DJs'],
     dressCode: 'Water Gear / Swimwear & Water Shoes',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.riverTubing,
+    highlightImage: FESTIVAL_IMAGES.day3_river_tubing,
     genres: ['Reggae', 'Soul', 'Soca']
   },
   {
@@ -71,7 +103,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['MC Hammer (London)', 'DJ Jab Grenada', 'Guest Host UK'],
     dressCode: 'Casual & Retro UK / Island Merch',
     wristbandRequired: true,
-    highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80',
+    highlightImage: FESTIVAL_IMAGES.day4_karaoke,
     genres: ['Soul', 'R&B', 'Reggae', 'Soca']
   },
   {
@@ -86,7 +118,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['London All-Star DJ Crew', 'Grenada Carnival Kings', 'Live Saxophone & Percussion'],
     dressCode: 'STRICTLY ALL-WHITE ELEGANT ATTIRE',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.whiteGala,
+    highlightImage: FESTIVAL_IMAGES.day5_white_gala,
     genres: ['Soca', 'Afro', 'Soul', 'R&B']
   },
   {
@@ -101,7 +133,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['Cultural Drum Ensemble', 'CARICOM Heritage Sound'],
     dressCode: 'Cultural Print / Tropical Vibrant',
     wristbandRequired: false,
-    highlightImage: FESTIVAL_IMAGES.spiceMarket,
+    highlightImage: FESTIVAL_IMAGES.day6_culture,
     genres: ['Reggae', 'Soul', 'Cultural Drumming']
   },
   {
@@ -116,7 +148,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['DJ Oceanic', 'UK Boat Party Specialists'],
     dressCode: 'Swimwear & Sunglasses',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.underwaterPark,
+    highlightImage: FESTIVAL_IMAGES.day7_underwater,
     genres: ['Soca', 'Afro', 'Reggae']
   },
   {
@@ -131,7 +163,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['London Underground Jungle DJ Crew', 'Afrobeat Selectors', 'Drums of Grenada'],
     dressCode: 'Neon & Rave Tropical',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.waterfall,
+    highlightImage: FESTIVAL_IMAGES.day8_rainforest,
     genres: ['Jungle', 'Afro', 'Soca']
   },
   {
@@ -146,7 +178,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['All Festival DJs Combined', 'Live Soca Artists'],
     dressCode: 'Festival T-Shirt / Costume / Jouvert Wear',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.hero,
+    highlightImage: FESTIVAL_IMAGES.day9_road_parade,
     genres: ['Soca', 'Afro', 'Reggae']
   },
   {
@@ -161,7 +193,7 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     djLineup: ['Chill Acoustic Trio', 'DJ Slow Wine'],
     dressCode: 'Casual Island Chic',
     wristbandRequired: true,
-    highlightImage: FESTIVAL_IMAGES.mellowlandGarden,
+    highlightImage: FESTIVAL_IMAGES.day10_brunch,
     genres: ['Soul', 'Reggae', 'R&B']
   }
 ];
@@ -232,7 +264,7 @@ export const FESTIVAL_HOTELS: HotelItem[] = [
       'Private Butler Service Option',
       'Fine Dining Restaurants'
     ],
-    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80'
+    image: 'https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=800&q=80'
   }
 ];
 
