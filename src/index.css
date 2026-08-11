@@ -312,9 +312,7 @@ html.light-mode .no-invert,
 html.light-mode [data-no-invert],
 html.light-mode .bg-gold-primary,
 html.light-mode #nav-btn-register,
-html.light-mode #hero-btn-passes,
-html.light-mode [style*="background-image"],
-html.light-mode [style*="backgroundImage"] {
+html.light-mode #hero-btn-passes {
   filter: invert(1.08) hue-rotate(180deg) !important;
 }
 

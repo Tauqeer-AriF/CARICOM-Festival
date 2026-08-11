@@ -14,19 +14,32 @@ interface AboutMellowlandViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onAddToCart: (pass: PassItem) => void;
   passes: PassItem[];
+  currency: 'GBP' | 'USD' | 'XCD';
 }
 
-export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart, passes }) => {
+export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart, passes, currency }) => {
   const heroImg = getPageImage('aboutMellowlandHero', 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=1200&q=80');
   const riverImg = getPageImage('aboutMellowlandRiver', 'https://images.unsplash.com/photo-1530731141654-5961b695817a?auto=format&fit=crop&w=1200&q=80');
   const gardenImg = getPageImage('aboutMellowlandGarden', 'https://images.unsplash.com/photo-1541976844346-f18aeac57b06?auto=format&fit=crop&w=1200&q=80');
+
+  const getCurrencyRate = (amountGBP: number) => {
+    if (currency === 'USD') return Math.round(amountGBP * 1.28);
+    if (currency === 'XCD') return Math.round(amountGBP * 3.45);
+    return amountGBP;
+  };
+
+  const getCurrencySymbol = () => {
+    if (currency === 'USD') return '$';
+    if (currency === 'XCD') return 'EC$';
+    return '£';
+  };
 
   const tubingPass = passes.find(p => p.id.includes('tubing')) || passes[0];
 
   return (
     <div className="space-y-12 animate-fadeIn pb-16">
       {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
+      <div data-no-invert className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${heroImg})` }}
@@ -86,7 +99,7 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
                 className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Book River Tubing Add-On (£{tubingPass.priceGBP})</span>
+                <span>Book River Tubing Add-On ({getCurrencySymbol()}{getCurrencyRate(tubingPass.priceGBP)})</span>
               </button>
             )}
           </div>

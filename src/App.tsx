@@ -257,6 +257,10 @@ export default function App() {
   const headingFont = siteConfig.branding.headingFont || 'Poppins';
   const bodyFont = siteConfig.branding.bodyFont || 'Inter';
   const bgTone = siteConfig.branding.bgTone || 'dark-onyx';
+  const buttonStyle = siteConfig.branding.buttonStyle || 'rounded';
+  const cardStyle = siteConfig.branding.cardStyle || 'glassy';
+  const glowIntensity = siteConfig.branding.glowIntensity || 'medium';
+  const glassOpacity = siteConfig.branding.glassOpacity !== undefined ? siteConfig.branding.glassOpacity : 30;
 
   const primaryRgb = hexToRgb(primaryColor, '245, 158, 11');
   const secondaryRgb = hexToRgb(secondaryColor, '16, 185, 129');
@@ -304,45 +308,90 @@ export default function App() {
           --border-color-dynamic: ${borderColor};
           --heading-font-dynamic: '${headingFont}', sans-serif;
           --body-font-dynamic: '${bodyFont}', sans-serif;
+          --button-radius-dynamic: ${buttonStyle === 'sharp' ? '0px' : buttonStyle === 'pill' ? '9999px' : '12px'};
+          --card-radius-dynamic: ${buttonStyle === 'sharp' ? '0px' : '24px'};
         }
         
+        /* Apply dynamic border rounding globally */
+        button, 
+        input, 
+        select, 
+        textarea, 
+        .rounded-xl, 
+        .rounded-lg, 
+        .rounded-md {
+          border-radius: var(--button-radius-dynamic) !important;
+        }
+        .rounded-full {
+          border-radius: ${buttonStyle === 'sharp' ? '0px' : '9999px'} !important;
+        }
+        
+        .rounded-3xl, .rounded-2xl, .rounded-[32px], .rounded-[24px] {
+          border-radius: var(--card-radius-dynamic) !important;
+        }
+
+        /* Dynamic Card overrides */
+        .glass-card {
+          border-radius: var(--card-radius-dynamic) !important;
+          background-color: ${
+            cardStyle === 'flat' 
+              ? 'var(--card-color-dynamic)' 
+              : `rgba(var(--bg-color-dynamic-rgb), ${glassOpacity / 100})`
+          } !important;
+          backdrop-filter: ${cardStyle === 'flat' ? 'none' : 'blur(16px)'} !important;
+          -webkit-backdrop-filter: ${cardStyle === 'flat' ? 'none' : 'blur(16px)'} !important;
+          border: ${
+            cardStyle === 'bordered'
+              ? '1.5px solid var(--primary-color-dynamic)'
+              : '1px solid var(--border-color-dynamic)'
+          } !important;
+          box-shadow: ${
+            cardStyle === 'glow'
+              ? `0 0 ${glowIntensity === 'high' ? '30px' : glowIntensity === 'low' ? '10px' : '20px'} rgba(var(--primary-rgb), ${glowIntensity === 'high' ? '0.25' : glowIntensity === 'low' ? '0.08' : '0.15'})`
+              : '0 20px 40px -15px rgba(0, 0, 0, 0.4)'
+          } !important;
+        }
+
         body, html, #root {
           font-family: var(--body-font-dynamic) !important;
         }
 
-        p, span, a, button, input, select, textarea, label, li, td, th, div {
-          font-family: var(--body-font-dynamic);
-        }
-        
-        h1, h2, h3, h4, h5, h6, 
-        .font-serif, 
-        .font-sans-display, 
-        .font-heading, 
-        .font-display, 
-        .font-headline, 
-        .font-serif-luxury,
-        .heading-font {
-          font-family: var(--heading-font-dynamic) !important;
-        }
-
-        h1 *, h2 *, h3 *, h4 *, h5 *, h6 *,
-        .font-serif *,
-        .font-sans-display *,
-        .font-heading *,
-        .font-display *,
-        .font-headline *,
-        .font-serif-luxury *,
-        .heading-font * {
-          font-family: inherit !important;
-        }
-
-        .font-body-text, .font-body-text * {
+        p, span, a, button, input, select, textarea, label, li, td, th, div, section, article, header, footer, nav, main, aside, option, dialog, text, tspan {
           font-family: var(--body-font-dynamic) !important;
         }
 
-        /* Monospace font preservation */
-        .font-mono, .font-mono *, code, pre {
+        .font-sans, .font-sans *, .font-body-text, .font-body-text *, .font-body-premium, .font-body-premium * {
+          font-family: var(--body-font-dynamic) !important;
+        }
+        
+        h1, h2, h3, h4, h5, h6, 
+        h1 *, h2 *, h3 *, h4 *, h5 *, h6 *,
+        .font-serif, 
+        .font-serif *,
+        .font-sans-display, 
+        .font-sans-display *,
+        .font-heading, 
+        .font-heading *,
+        .font-display, 
+        .font-display *,
+        .font-headline, 
+        .font-headline *,
+        .font-serif-luxury,
+        .font-serif-luxury *,
+        .heading-font,
+        .heading-font * {
+          font-family: var(--heading-font-dynamic) !important;
+        }
+
+        /* Monospace font preservation only for raw code logs/previews */
+        code, pre, .font-code-raw, .font-code-raw * {
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+        }
+
+        /* Let standard font-mono classes respect the dynamic body font by default with tabular lining numbers */
+        .font-mono, .font-mono * {
+          font-family: var(--body-font-dynamic) !important;
+          font-feature-settings: "tnum" 1, "lnum" 1 !important; /* Align figures beautifully */
         }
 
         /* Surfaces & Backgrounds */

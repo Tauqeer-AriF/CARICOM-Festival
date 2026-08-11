@@ -120,6 +120,10 @@ export interface SiteConfig {
     bgTone: 'dark-onyx' | 'deep-midnight' | 'luxury-charcoal' | 'caribbean-night';
     headingFont: 'Poppins' | 'Playfair Display' | 'Montserrat' | 'Plus Jakarta Sans' | 'Syne' | 'Cinzel' | 'Outfit' | 'Cormorant Garamond' | 'Space Grotesk' | 'Bricolage Grotesque';
     bodyFont: 'Inter' | 'Poppins' | 'Plus Jakarta Sans' | 'Outfit' | 'Roboto' | 'Space Grotesk' | 'DM Sans' | 'Work Sans';
+    buttonStyle?: 'sharp' | 'rounded' | 'pill';
+    cardStyle?: 'flat' | 'bordered' | 'glassy' | 'glow';
+    glowIntensity?: 'low' | 'medium' | 'high';
+    glassOpacity?: number;
   };
   banner: {
     enabled: boolean;

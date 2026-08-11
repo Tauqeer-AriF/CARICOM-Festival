@@ -32,6 +32,10 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     bgTone: 'dark-onyx',
     headingFont: 'Poppins',
     bodyFont: 'Inter',
+    buttonStyle: 'rounded',
+    cardStyle: 'glassy',
+    glowIntensity: 'medium',
+    glassOpacity: 30,
   },
   banner: {
     enabled: true,

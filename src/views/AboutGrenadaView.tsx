@@ -52,7 +52,7 @@ export const AboutGrenadaView: React.FC<AboutGrenadaViewProps> = ({ setActiveTab
   return (
     <div className="space-y-12 animate-fadeIn pb-16">
       {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
+      <div data-no-invert className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${heroImg})` }}

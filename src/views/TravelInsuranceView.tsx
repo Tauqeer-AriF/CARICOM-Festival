@@ -15,7 +15,7 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
   return (
     <div className="space-y-12 animate-fadeIn pb-16 max-w-4xl mx-auto">
       {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[260px] flex items-center p-6 sm:p-10">
+      <div data-no-invert className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[260px] flex items-center p-6 sm:p-10">
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${bannerImg})` }}
