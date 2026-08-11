@@ -50,6 +50,87 @@ async function startServer() {
   // Helper to get database connection
   const db = await getDb();
 
+  // Seeding routine: runs ONCE on first bootstrap to populate default demo data safely.
+  // Never re-seeds on GET calls if data is deleted by user.
+  async function ensureDatabaseSeeded() {
+    try {
+      const row = await db.get("SELECT value FROM system_meta WHERE key = 'seeded'");
+      if (!row) {
+        console.log('[DATABASE SEED] Initializing database seed for the first time...');
+
+        // Seed site_config if missing
+        const configRow = await db.get('SELECT id FROM site_config WHERE id = ?', 'main');
+        if (!configRow) {
+          const seedConfig = { ...DEFAULT_SITE_CONFIG, updatedAt: new Date().toISOString() };
+          await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedConfig));
+        }
+
+        // Seed submissions
+        const subCount = await db.get('SELECT COUNT(*) as count FROM submissions');
+        if (!subCount || subCount.count === 0) {
+          for (const sub of INITIAL_DEMO_SUBMISSIONS) {
+            await db.run('INSERT OR REPLACE INTO submissions (id, data_json) VALUES (?, ?)', sub.id, JSON.stringify(sub));
+          }
+        }
+
+        // Seed events
+        const eventCount = await db.get('SELECT COUNT(*) as count FROM events');
+        if (!eventCount || eventCount.count === 0) {
+          for (const item of FESTIVAL_EVENTS) {
+            await db.run('INSERT OR REPLACE INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        // Seed gallery
+        const galleryCount = await db.get('SELECT COUNT(*) as count FROM gallery');
+        if (!galleryCount || galleryCount.count === 0) {
+          for (const item of GALLERY_ITEMS) {
+            await db.run('INSERT OR REPLACE INTO gallery (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        // Seed hotels
+        const hotelCount = await db.get('SELECT COUNT(*) as count FROM hotels');
+        if (!hotelCount || hotelCount.count === 0) {
+          for (const item of FESTIVAL_HOTELS) {
+            await db.run('INSERT OR REPLACE INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        // Seed passes
+        const passCount = await db.get('SELECT COUNT(*) as count FROM passes');
+        if (!passCount || passCount.count === 0) {
+          for (const item of FESTIVAL_PASSES) {
+            await db.run('INSERT OR REPLACE INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        // Seed testimonials
+        const testimonialCount = await db.get('SELECT COUNT(*) as count FROM testimonials');
+        if (!testimonialCount || testimonialCount.count === 0) {
+          for (const item of FESTIVAL_TESTIMONIALS) {
+            await db.run('INSERT OR REPLACE INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        // Seed media
+        const mediaCount = await db.get('SELECT COUNT(*) as count FROM media');
+        if (!mediaCount || mediaCount.count === 0) {
+          for (const item of INITIAL_DEMO_MEDIA) {
+            await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('seeded', 'true')");
+        console.log('[DATABASE SEED] Initial seed complete and locked.');
+      }
+    } catch (err) {
+      console.error('[DATABASE SEED ERROR]', err);
+    }
+  }
+
+  await ensureDatabaseSeeded();
+
   // Binary File Upload API Endpoint (Automated Sharp WebP Conversion & Compression)
   app.post('/api/upload', uploadMemory.single('file'), async (req, res) => {
     try {
@@ -262,10 +343,7 @@ async function startServer() {
     try {
       const row = await db.get('SELECT data_json FROM site_config WHERE id = ?', 'main');
       if (!row) {
-        // Seed DEFAULT_SITE_CONFIG
-        const seedConfig = { ...DEFAULT_SITE_CONFIG, updatedAt: new Date().toISOString() };
-        await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedConfig));
-        return res.json(seedConfig);
+        return res.json(DEFAULT_SITE_CONFIG);
       }
       res.json(JSON.parse(row.data_json));
     } catch (e: any) {
@@ -289,13 +367,6 @@ async function startServer() {
   app.get('/api/submissions', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM submissions');
-      if (rows.length === 0) {
-        // Seed default submissions
-        for (const sub of INITIAL_DEMO_SUBMISSIONS) {
-          await db.run('INSERT INTO submissions (id, data_json) VALUES (?, ?)', sub.id, JSON.stringify(sub));
-        }
-        return res.json(INITIAL_DEMO_SUBMISSIONS);
-      }
       const subs = rows.map(r => JSON.parse(r.data_json));
       // Sort descending by submittedAt
       subs.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -398,13 +469,6 @@ async function startServer() {
   app.get('/api/events', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM events');
-      if (rows.length === 0) {
-        // Seed
-        for (const item of FESTIVAL_EVENTS) {
-          await db.run('INSERT INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        return res.json(FESTIVAL_EVENTS);
-      }
       const events = rows.map(r => JSON.parse(r.data_json));
       res.json(events);
     } catch (e: any) {
@@ -431,12 +495,6 @@ async function startServer() {
   app.get('/api/gallery', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM gallery');
-      if (rows.length === 0) {
-        for (const item of GALLERY_ITEMS) {
-          await db.run('INSERT INTO gallery (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        return res.json(GALLERY_ITEMS);
-      }
       const items = rows.map(r => JSON.parse(r.data_json));
       res.json(items);
     } catch (e: any) {
@@ -463,12 +521,6 @@ async function startServer() {
   app.get('/api/hotels', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM hotels');
-      if (rows.length === 0) {
-        for (const item of FESTIVAL_HOTELS) {
-          await db.run('INSERT INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        return res.json(FESTIVAL_HOTELS);
-      }
       res.json(rows.map(r => JSON.parse(r.data_json)));
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -494,12 +546,6 @@ async function startServer() {
   app.get('/api/passes', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM passes');
-      if (rows.length === 0) {
-        for (const item of FESTIVAL_PASSES) {
-          await db.run('INSERT INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        return res.json(FESTIVAL_PASSES);
-      }
       res.json(rows.map(r => JSON.parse(r.data_json)));
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -525,12 +571,6 @@ async function startServer() {
   app.get('/api/testimonials', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM testimonials');
-      if (rows.length === 0) {
-        for (const item of FESTIVAL_TESTIMONIALS) {
-          await db.run('INSERT INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        return res.json(FESTIVAL_TESTIMONIALS);
-      }
       res.json(rows.map(r => JSON.parse(r.data_json)));
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -556,13 +596,6 @@ async function startServer() {
   app.get('/api/media', async (req, res) => {
     try {
       const rows = await db.all('SELECT data_json FROM media');
-      if (rows.length === 0) {
-        for (const item of INITIAL_DEMO_MEDIA) {
-          await db.run('INSERT INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
-        }
-        const sortedSeed = [...INITIAL_DEMO_MEDIA].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
-        return res.json(sortedSeed);
-      }
       const items = rows.map(r => JSON.parse(r.data_json));
       items.sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
       res.json(items);
