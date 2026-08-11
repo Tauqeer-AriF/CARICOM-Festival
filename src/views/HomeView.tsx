@@ -137,7 +137,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         initial="hidden"
         animate="visible"
         variants={fadeInUp}
-        className="relative rounded-3xl overflow-hidden min-h-[620px] sm:min-h-[680px] flex items-center justify-center border border-amber-500/20 shadow-2xl group"
+        className="relative rounded-3xl overflow-hidden min-h-[580px] sm:min-h-[660px] flex flex-col justify-between items-center border border-amber-500/20 shadow-2xl group pt-8 sm:pt-12 pb-8 sm:pb-20"
       >
         {/* Background Slideshow - Hardware Accelerated Layer Crossfade */}
         <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-950">
@@ -178,23 +178,23 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         </div>
 
         {/* Content Box */}
-        <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 text-center space-y-8">
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12 pb-4 text-center space-y-6 sm:space-y-8 my-auto">
           
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <div className="inline-flex items-center gap-2 bg-[#121822]/90 backdrop-blur-md text-amber-300 text-xs font-semibold px-4 py-1.5 rounded-full border border-amber-500/30 uppercase tracking-[0.2em] shadow-xl">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" /> MAY 13 - 17, 2027 • SPICE ISLE, GRENADA
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+            <div className="inline-flex items-center gap-2 bg-[#121822]/90 backdrop-blur-md text-amber-300 text-[11px] sm:text-xs font-semibold px-3.5 sm:px-4 py-1.5 rounded-full border border-amber-500/30 uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl">
+              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" /> MAY 13 - 17, 2027 • SPICE ISLE, GRENADA
             </div>
             <GrenadaWeatherWidget variant="badge" />
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.12]">
+          <h1 className="text-3xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.14]">
             Experience the Magic: <br />
             <span className="text-gold-gradient font-extrabold">
               Grenada CARICOM Festival 2027
             </span>
           </h1>
 
-          <p className="text-base sm:text-xl font-light text-slate-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-xl font-light text-slate-300 max-w-2xl mx-auto leading-relaxed px-2">
             Where London's top DJs & revelers unite with Grenada's tropical warmth. A 10-day luxury festival of Caribbean culture, music, beach fetes, and river tubing.
           </p>
 
@@ -204,11 +204,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 pt-2 sm:pt-4">
             <button
               onClick={() => setActiveTab('shop')}
               id="hero-btn-passes"
-              className="px-8 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-full shadow-xl shadow-amber-500/20 transition-all transform hover:scale-[1.03] active:scale-95 cursor-pointer flex items-center gap-2"
+              className="w-full sm:w-auto px-7 sm:px-8 py-3.5 sm:py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-full shadow-xl shadow-amber-500/20 transition-all transform hover:scale-[1.03] active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
               <Ticket className="w-4 h-4" />
               Lock In Your Festival Pass
@@ -217,7 +217,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
             <button
               onClick={() => setActiveTab('register')}
               id="hero-btn-flight"
-              className="px-8 py-4 glass-card hover:bg-white/10 text-white rounded-full font-semibold text-xs tracking-wider transition-all hover:scale-[1.03] cursor-pointer flex items-center gap-2 border border-white/15"
+              className="w-full sm:w-auto px-7 sm:px-8 py-3.5 sm:py-4 glass-card hover:bg-white/10 text-white rounded-full font-semibold text-xs tracking-wider transition-all hover:scale-[1.03] cursor-pointer flex items-center justify-center gap-2 border border-white/15"
             >
               Submit Flight Arrival
               <ArrowRight className="w-4 h-4 text-amber-400" />
@@ -229,58 +229,78 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         {/* Carousel Navigation Controls */}
         {activeHeroImages.length > 1 && (
           <>
-            {/* Left Chevron */}
+            {/* Desktop Left Chevron */}
             <button
               onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden sm:flex items-center justify-center"
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden lg:flex items-center justify-center"
               title="Previous Background Slide"
               aria-label="Previous Slide"
             >
               <ChevronLeft className="w-5 h-5 text-amber-400" />
             </button>
 
-            {/* Right Chevron */}
+            {/* Desktop Right Chevron */}
             <button
               onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden sm:flex items-center justify-center"
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden lg:flex items-center justify-center"
               title="Next Background Slide"
               aria-label="Next Slide"
             >
               <ChevronRight className="w-5 h-5 text-amber-400" />
             </button>
 
-            {/* Bottom Controls Pill Bar */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-[#07090D]/70 backdrop-blur-md px-4 py-2 rounded-full border border-amber-500/30 shadow-2xl">
-              {/* Slide Counter */}
-              <span className="text-[10px] font-mono font-extrabold text-amber-400 uppercase tracking-widest border-r border-white/15 pr-3">
-                {String(currentImageIndex + 1).padStart(2, '0')} / {String(activeHeroImages.length).padStart(2, '0')}
-              </span>
+            {/* Bottom Controls Pill Bar (Mobile Friendly Flow + Desktop Absolute) */}
+            <div className="relative z-20 mt-6 sm:mt-0 sm:absolute sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 bg-[#07090D]/85 backdrop-blur-md px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-amber-500/40 shadow-2xl">
+                {/* Mobile Left Arrow */}
+                <button
+                  onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
+                  className="p-1 rounded-full hover:bg-white/10 text-amber-400 transition-all cursor-pointer flex items-center justify-center lg:hidden"
+                  title="Previous Slide"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-              {/* Dots */}
-              <div className="flex items-center gap-1.5">
-                {activeHeroImages.map((imgItem, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      currentImageIndex === idx 
-                        ? 'w-6 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]' 
-                        : 'w-2 bg-white/30 hover:bg-white/60'
-                    }`}
-                    title={imgItem.alt || `Slide ${idx + 1}`}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  />
-                ))}
+                {/* Slide Counter */}
+                <span className="text-[10px] sm:text-xs font-mono font-extrabold text-amber-400 uppercase tracking-widest border-r border-white/15 pr-2.5 sm:pr-3">
+                  {String(currentImageIndex + 1).padStart(2, '0')} / {String(activeHeroImages.length).padStart(2, '0')}
+                </span>
+
+                {/* Dots */}
+                <div className="flex items-center gap-1.5">
+                  {activeHeroImages.map((imgItem, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                        currentImageIndex === idx 
+                          ? 'w-5 sm:w-6 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]' 
+                          : 'w-2 bg-white/30 hover:bg-white/60'
+                      }`}
+                      title={imgItem.alt || `Slide ${idx + 1}`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Pause/Play Toggle */}
+                <button
+                  onClick={() => setIsPaused((prev) => !prev)}
+                  className="text-white/70 hover:text-amber-300 transition-colors cursor-pointer border-l border-white/15 pl-2 sm:pl-2.5 flex items-center"
+                  title={isPaused ? "Resume Autoplay" : "Pause Autoplay"}
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
+                </button>
+
+                {/* Mobile Right Arrow */}
+                <button
+                  onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
+                  className="p-1 rounded-full hover:bg-white/10 text-amber-400 transition-all cursor-pointer flex items-center justify-center lg:hidden"
+                  title="Next Slide"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Pause/Play Toggle */}
-              <button
-                onClick={() => setIsPaused((prev) => !prev)}
-                className="ml-1 text-white/70 hover:text-amber-300 transition-colors cursor-pointer border-l border-white/15 pl-2.5 flex items-center"
-                title={isPaused ? "Resume Autoplay" : "Pause Autoplay"}
-              >
-                {isPaused ? <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
-              </button>
             </div>
           </>
         )}
