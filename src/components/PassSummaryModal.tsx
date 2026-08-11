@@ -282,7 +282,8 @@ WhatsApp Concierge: +44 7900 123456
                       <tr className="bg-[#17213B] text-amber-300 font-bold text-[10px] uppercase tracking-wider font-mono border-b border-amber-500/30">
                         <th className="py-2.5 px-3.5">ITEM / PASS DESCRIPTION</th>
                         <th className="py-2.5 px-3.5 text-center">QTY</th>
-                        <th className="py-2.5 px-3.5 text-right">PRICE ({currency || 'GBP'})</th>
+                        <th className="py-2.5 px-3.5 text-right">UNIT PRICE</th>
+                        <th className="py-2.5 px-3.5 text-right">TOTAL ({currency || 'GBP'})</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800 text-white font-medium">
@@ -291,7 +292,8 @@ WhatsApp Concierge: +44 7900 123456
                           ? item.pass.priceGBP
                           : parseFloat(String(item.pass?.priceGBP || '169').replace(/[^0-9.]/g, '')) || 169;
                         const convertedUnitPrice = getCurrencyRate(p);
-                        const linePrice = `${symbol}${(convertedUnitPrice * (item.quantity || 1)).toLocaleString('en-GB')}`;
+                        const qty = item.quantity || 1;
+                        const linePrice = `${symbol}${(convertedUnitPrice * qty).toLocaleString('en-GB')}`;
 
                         return (
                           <tr key={item.pass?.id || idx}>
@@ -301,11 +303,14 @@ WhatsApp Concierge: +44 7900 123456
                                 <strong className="text-white font-bold text-xs">{item.pass?.title || 'VIP Festival Pass'}</strong>
                               </div>
                               <span className="text-[10px] text-slate-300 block pl-5.5 mt-0.5 font-sans">
-                                {item.pass?.tier || 'VIP'} Tier • {symbol}{convertedUnitPrice.toLocaleString('en-GB')} each • Full Access
+                                {item.pass?.tier || 'VIP'} Tier • {symbol}{convertedUnitPrice.toLocaleString('en-GB')} per pass
                               </span>
                             </td>
-                            <td className="py-3 px-3.5 text-center font-mono font-bold text-slate-200">
-                              {item.quantity || 1}
+                            <td className="py-3 px-3.5 text-center font-mono font-bold text-slate-200 text-sm">
+                              {qty}
+                            </td>
+                            <td className="py-3 px-3.5 text-right font-mono font-bold text-slate-300 text-xs">
+                              {symbol}{convertedUnitPrice.toLocaleString('en-GB')}
                             </td>
                             <td className="py-3 px-3.5 text-right font-black font-mono text-amber-400 text-sm">
                               {linePrice}

@@ -97,7 +97,7 @@ import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
 import { CustomConfirmModal } from '../components/CustomConfirmModal';
 import { MediaSelectorModal } from '../components/MediaSelectorModal';
 import { MediaLibraryTab } from '../components/MediaLibraryTab';
-import { PassBadgePdfModal } from '../components/PassBadgePdfModal';
+import { PassBadgePdfModal, parseSubmissionItems } from '../components/PassBadgePdfModal';
 
 interface AdminDashboardViewProps {
   setActiveTab: (tab: any) => void;
@@ -8156,10 +8156,41 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </h4>
                   <div className="bg-neutral-950/40 border border-white/5 rounded-xl p-4.5 space-y-3">
                     <div className="space-y-1">
-                      <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold block">Selected Festival Package</span>
-                      <p className="font-extrabold text-white text-base">
-                        {selectedPassOrder.topicOrPass}
-                      </p>
+                      <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold block">Reserved Festival Package Breakdown</span>
+                    </div>
+
+                    <div className="border border-white/10 rounded-lg overflow-hidden bg-neutral-900/40 text-xs">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-neutral-900/90 text-amber-400 font-mono text-[10px] uppercase tracking-wider border-b border-white/10">
+                            <th className="py-2 px-3">Item / Pass</th>
+                            <th className="py-2 px-3 text-center">Qty</th>
+                            <th className="py-2 px-3 text-right">Unit Price</th>
+                            <th className="py-2 px-3 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-neutral-200 font-medium">
+                          {parseSubmissionItems(selectedPassOrder).map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="py-2.5 px-3">
+                                <strong className="text-white font-bold block">{item.title}</strong>
+                                <span className="text-[10px] text-neutral-400 font-mono">
+                                  £{item.unitPriceGBP.toLocaleString('en-GB')} per pass
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-amber-300">
+                                {item.quantity}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
+                                £{item.unitPriceGBP.toLocaleString('en-GB')}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                                £{item.totalPriceGBP.toLocaleString('en-GB')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
 
                     {selectedPassOrder.messageOrDetails && (
@@ -8170,7 +8201,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                     <div className="pt-2 flex items-center justify-between border-t border-white/5">
                       <div>
-                        <span className="text-[9px] text-neutral-500 uppercase font-bold tracking-widest block">Financial Amount</span>
+                        <span className="text-[9px] text-neutral-500 uppercase font-bold tracking-widest block">Total Financial Amount</span>
                         <span className="text-lg font-black text-emerald-400 font-mono block">
                           {selectedPassOrder.extraDetails?.TotalPaid || `£${selectedPassOrder.amountGBP || 0}`}
                         </span>

@@ -10,6 +10,76 @@ interface PassBadgePdfModalProps {
   onAttachToReply?: (submission: FormSubmissionItem, pdfTitle: string) => void;
 }
 
+export interface ParsedOrderItem {
+  title: string;
+  quantity: number;
+  unitPriceGBP: number;
+  totalPriceGBP: number;
+}
+
+export function parseSubmissionItems(submission: FormSubmissionItem): ParsedOrderItem[] {
+  if (!submission) return [];
+  const itemsText = submission.extraDetails?.PurchasedItems || submission.topicOrPass || '1x VIP Festival Pass';
+  const message = submission.messageOrDetails || '';
+  const totalAmount = submission.amountGBP || parseFloat(String(submission.extraDetails?.TotalPaid || '').replace(/[^0-9.]/g, '')) || 0;
+
+  const rawParts = itemsText.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  const parsedItems: ParsedOrderItem[] = [];
+
+  for (const part of rawParts) {
+    let qty = 1;
+    let title = part;
+
+    const match = part.match(/^(\d+)\s*x\s*(.+)$/i);
+    if (match) {
+      qty = parseInt(match[1], 10) || 1;
+      title = match[2].trim();
+    } else {
+      const msgQtyMatch = message.match(new RegExp(`(\\d+)\\s*x\\s*${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
+      if (msgQtyMatch) {
+        qty = parseInt(msgQtyMatch[1], 10) || 1;
+      }
+    }
+
+    let unitPrice = 0;
+    if (message) {
+      const priceMatch = message.match(new RegExp(`${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*@\\s*£?\\$?([0-9.]+)`, 'i'));
+      if (priceMatch) {
+        unitPrice = parseFloat(priceMatch[1]) || 0;
+      }
+    }
+
+    parsedItems.push({
+      title,
+      quantity: qty,
+      unitPriceGBP: unitPrice,
+      totalPriceGBP: 0
+    });
+  }
+
+  if (parsedItems.length === 0) {
+    parsedItems.push({
+      title: submission.topicOrPass || 'VIP Festival Pass',
+      quantity: 1,
+      unitPriceGBP: totalAmount || 169,
+      totalPriceGBP: totalAmount || 169
+    });
+  }
+
+  for (const item of parsedItems) {
+    if (item.unitPriceGBP === 0) {
+      if (parsedItems.length === 1 && totalAmount > 0 && item.quantity > 0) {
+        item.unitPriceGBP = Math.round((totalAmount / item.quantity) * 100) / 100;
+      } else {
+        item.unitPriceGBP = 169;
+      }
+    }
+    item.totalPriceGBP = Math.round(item.unitPriceGBP * item.quantity * 100) / 100;
+  }
+
+  return parsedItems;
+}
+
 export const PassBadgePdfModal: React.FC<PassBadgePdfModalProps> = ({
   isOpen,
   onClose,
@@ -22,14 +92,14 @@ export const PassBadgePdfModal: React.FC<PassBadgePdfModalProps> = ({
   if (!isOpen || !submission) return null;
 
   const orderRef = submission.extraDetails?.OrderRef || submission.extraDetails?.Reference || `GCF-2027-${submission.id.replace('sub-', '')}`;
-  const passTitle = submission.topicOrPass || 'VIP 10-DAY ALL-ACCESS FESTIVAL PASS';
+  const parsedItems = parseSubmissionItems(submission);
+  const calculatedTotalGBP = parsedItems.reduce((acc, item) => acc + item.totalPriceGBP, 0);
   
-  // Clean price calculation avoiding £NaN
-  const rawAmount = submission.amountGBP || submission.extraDetails?.Amount || submission.extraDetails?.TotalPaid;
-  const numericAmount = rawAmount ? parseFloat(String(rawAmount).replace(/[^0-9.]/g, '')) : NaN;
-  const totalPaid = !isNaN(numericAmount) && numericAmount > 0 
-    ? `£${numericAmount.toLocaleString('en-GB', { minimumFractionDigits: 0 })} GBP`
+  const totalPaid = calculatedTotalGBP > 0 
+    ? `£${calculatedTotalGBP.toLocaleString('en-GB')} GBP`
     : (submission.extraDetails?.TotalPaid || 'CONFIRMED VIP ACCESS');
+
+  const passTitle = parsedItems.map(i => `${i.quantity}x ${i.title}`).join(', ') || submission.topicOrPass || 'VIP 10-DAY ALL-ACCESS FESTIVAL PASS';
 
   const buyerName = submission.name || 'Valued VIP Guest';
   const buyerEmail = submission.email || 'guest@mellows-grenada.com';
@@ -339,24 +409,30 @@ export const PassBadgePdfModal: React.FC<PassBadgePdfModalProps> = ({
                           <tr className="bg-[#17213B] text-amber-300 font-bold text-[10px] uppercase tracking-wider font-mono border-b border-amber-500/30">
                             <th className="py-3 px-4">ITEM / PASS DESCRIPTION</th>
                             <th className="py-3 px-4 text-center">QTY</th>
-                            <th className="py-3 px-4 text-right">PRICE (GBP)</th>
+                            <th className="py-3 px-4 text-right">UNIT PRICE</th>
+                            <th className="py-3 px-4 text-right">TOTAL (GBP)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-white font-medium">
-                          <tr>
-                            <td className="py-4 px-4">
-                              <strong className="text-sm font-black text-white block">{passTitle}</strong>
-                              <span className="text-[11px] text-slate-300 block mt-1 font-sans leading-relaxed">
-                                {submission.messageOrDetails || 'Includes full access to 10-day cultural performances, river tubing, VIP beach fetes, and luxury shuttle transports.'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-center font-mono font-bold text-slate-200">
-                              1
-                            </td>
-                            <td className="py-4 px-4 text-right font-black font-mono text-base text-amber-400">
-                              {totalPaid}
-                            </td>
-                          </tr>
+                          {parsedItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="py-4 px-4">
+                                <strong className="text-sm font-black text-white block">{item.title}</strong>
+                                <span className="text-[11px] text-slate-300 block mt-1 font-sans leading-relaxed">
+                                  Price: £{item.unitPriceGBP.toLocaleString('en-GB')} per pass • Includes full access to festival events & VIP perks.
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 text-center font-mono font-bold text-slate-200 text-sm">
+                                {item.quantity}
+                              </td>
+                              <td className="py-4 px-4 text-right font-mono font-bold text-slate-300 text-xs">
+                                £{item.unitPriceGBP.toLocaleString('en-GB')}
+                              </td>
+                              <td className="py-4 px-4 text-right font-black font-mono text-base text-amber-400">
+                                £{item.totalPriceGBP.toLocaleString('en-GB')}
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
