@@ -13,7 +13,10 @@
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@types/adm-zip": "^0.5.8",
+    "@types/sharp": "^0.32.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "adm-zip": "^0.6.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "html-to-image": "^1.11.13",
@@ -23,6 +26,7 @@
     "multer": "^1.4.5-lts.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "sharp": "^0.35.3",
     "sql.js": "^1.14.1",
     "vite": "^6.2.3"
   },

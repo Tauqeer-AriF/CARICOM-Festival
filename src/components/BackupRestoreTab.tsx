@@ -7,6 +7,8 @@ import {
   ShieldCheck, 
   AlertTriangle, 
   FileJson, 
+  FileArchive,
+  Archive,
   Server, 
   Cpu, 
   Clock, 
@@ -33,10 +35,12 @@ interface BackupRestoreTabProps {
 
 interface ServerSnapshot {
   filename: string;
+  isZip?: boolean;
   sizeBytes: number;
   sizeFormatted: string;
   createdTime: string;
   recordCount: number;
+  mediaFilesCount?: number;
   systemTag: string;
 }
 
@@ -107,27 +111,28 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // 1. Export Backup Action
-  const handleExportBackup = async () => {
+  // 1. Export Backup Action (ZIP Archive with Media or JSON database)
+  const handleExportBackup = async (format: 'zip' | 'json' = 'zip') => {
     setIsExporting(true);
     try {
-      const res = await fetch('/api/admin/backup/export');
+      const res = await fetch(`/api/admin/backup/export?format=${format}`);
       if (!res.ok) throw new Error('Export API failed');
-      
-      const backupData = await res.json();
-      const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `caricom-festival-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      const fileExt = format === 'zip' ? 'zip' : 'json';
+      a.download = `caricom-festival-${format === 'zip' ? 'full-backup' : 'database'}-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExt}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast('System database backup exported successfully!');
+      showToast(format === 'zip' 
+        ? 'Full system backup (.zip archive with database & uploaded media) exported!' 
+        : 'System database backup (.json) exported successfully!');
       fetchSnapshots();
     } catch (e: any) {
       showToast(e.message || 'Failed to generate export package', 'error');
@@ -138,8 +143,11 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
 
   // 2. File Selection & Validation
   const handleFileSelect = (file: File) => {
-    if (!file.name.endsWith('.json')) {
-      setParseError('Please upload a valid JSON backup snapshot file (.json).');
+    const isZip = file.name.endsWith('.zip');
+    const isJson = file.name.endsWith('.json');
+
+    if (!isZip && !isJson) {
+      setParseError('Please upload a valid backup archive (.zip) or JSON database file (.json).');
       setSelectedFile(null);
       setParsedBackup(null);
       return;
@@ -148,48 +156,79 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     setSelectedFile(file);
     setParseError(null);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = JSON.parse(e.target?.result as string);
-        if (!content.tables) {
-          setParseError('Invalid backup file structure: missing required database tables object.');
+    if (isJson) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = JSON.parse(e.target?.result as string);
+          if (!content.tables) {
+            setParseError('Invalid backup file structure: missing required database tables object.');
+            setParsedBackup(null);
+            return;
+          }
+          setParsedBackup(content);
+        } catch (err: any) {
+          setParseError('Invalid JSON format: unable to parse backup payload.');
           setParsedBackup(null);
-          return;
         }
-        setParsedBackup(content);
-      } catch (err: any) {
-        setParseError('Invalid JSON format: unable to parse backup payload.');
-        setParsedBackup(null);
-      }
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsText(file);
+    } else {
+      // .zip Archive
+      setParsedBackup({
+        isZip: true,
+        system: 'Full System Archive (Database + Media Binaries)',
+        version: '2027.1.0',
+        exportedAt: new Date().toISOString(),
+        tables: {
+          submissions: [],
+          media: [],
+          events: [],
+          passes: []
+        }
+      });
+    }
   };
 
   // 3. Perform Restore with Automated State Synchronization
-  const executeRestore = async (backupPayload: any) => {
+  const executeRestore = async (backupPayload?: any) => {
+    const payload = backupPayload || parsedBackup;
+    if (!selectedFile && !payload) return;
+
     setIsRestoring(true);
     setIsRebooting(true);
-    setRebootMessage('Verifying schema integrity & restoring records...');
+    setRebootMessage('Verifying schema integrity & unpacking restore archive...');
 
     try {
-      const res = await fetch('/api/admin/backup/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backupData: backupPayload })
-      });
+      let res: Response;
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        res = await fetch('/api/admin/backup/import', {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        res = await fetch('/api/admin/backup/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backupData: parsedBackup })
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || 'Restore failed');
       }
 
-      await runStateSyncAnimation('Database snapshot restored & synchronized successfully!');
+      const resData = await res.json();
+      const successMsg = resData.message || 'Backup & media assets restored successfully!';
+      await runStateSyncAnimation(successMsg);
 
     } catch (e: any) {
       setIsRestoring(false);
       setIsRebooting(false);
-      showToast(e.message || 'Failed to apply restore image', 'error');
+      showToast(e.message || 'Failed to apply restore backup', 'error');
     }
   };
 
@@ -428,13 +467,22 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
-              onClick={handleExportBackup}
+              onClick={() => handleExportBackup('zip')}
               disabled={isExporting}
               className="px-5 py-3 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-xl transition-all cursor-pointer hover:brightness-110 active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
               style={{ backgroundColor: primaryColor }}
             >
-              <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
-              <span>{isExporting ? 'Exporting Package...' : 'Download Full Backup (.json)'}</span>
+              <Archive className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
+              <span>{isExporting ? 'Exporting Package...' : 'Download Full Backup (.zip)'}</span>
+            </button>
+
+            <button
+              onClick={() => handleExportBackup('json')}
+              disabled={isExporting}
+              className="px-4 py-3 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold text-xs uppercase tracking-wider border border-neutral-800 rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+            >
+              <FileJson className="w-4 h-4 text-sky-400" />
+              <span>JSON Only</span>
             </button>
           </div>
         </div>
@@ -475,7 +523,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             <Cpu className="w-3.5 h-3.5 text-purple-400" />
           </div>
           <div className="text-xl font-extrabold font-mono text-purple-400">2027.1.0</div>
-          <p className="text-[10px] text-neutral-500">JSON Schema Validated</p>
+          <p className="text-[10px] text-neutral-500">JSON & Media Zip Archives</p>
         </div>
       </div>
 
@@ -495,7 +543,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white font-serif">Restore System Backup</h3>
-              <p className="text-xs text-neutral-400">Upload a `.json` backup file to restore database tables and restart the server.</p>
+              <p className="text-xs text-neutral-400">Upload a `.zip` archive (database + media) or `.json` file to restore database tables and restart the server.</p>
             </div>
           </div>
         </div>
@@ -522,7 +570,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             type="file"
             ref={fileInputRef}
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            accept=".json"
+            accept=".zip,.json"
             className="hidden"
           />
 
@@ -534,15 +582,15 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
               color: primaryColor 
             }}
           >
-            <FileJson className="w-6 h-6" />
+            <Archive className="w-6 h-6" />
           </div>
 
           <div>
             <p className="text-sm font-bold text-white">
-              {selectedFile ? selectedFile.name : 'Drag & drop backup JSON file here'}
+              {selectedFile ? selectedFile.name : 'Drag & drop .zip archive or .json backup file here'}
             </p>
             <p className="text-xs text-neutral-500 mt-1">
-              or click to browse from local computer (.json backup snapshot)
+              or click to browse from local computer (.zip full backup or .json database)
             </p>
           </div>
         </div>
@@ -690,7 +738,11 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                 {snapshots.map((snap) => (
                   <tr key={snap.filename} className="hover:bg-neutral-900/40 transition-colors">
                     <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
-                      <FileJson className="w-4 h-4 text-sky-400 shrink-0" />
+                      {snap.isZip || snap.filename.endsWith('.zip') ? (
+                        <Archive className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <FileJson className="w-4 h-4 text-sky-400 shrink-0" />
+                      )}
                       <span className="truncate max-w-[200px]">{snap.filename}</span>
                     </td>
                     <td className="py-3 px-3 text-neutral-300">
@@ -699,7 +751,8 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-amber-400 font-bold">
-                      {snap.recordCount ? `${snap.recordCount} items` : 'N/A'}
+                      {snap.recordCount ? `${snap.recordCount} records` : 'N/A'}
+                      {snap.mediaFilesCount ? ` + ${snap.mediaFilesCount} media files` : ''}
                     </td>
                     <td className="py-3 px-3 text-neutral-400">{snap.sizeFormatted}</td>
                     <td className="py-3 px-3 text-neutral-400 font-sans text-[11px]">

@@ -61,6 +61,25 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploadStats, setUploadStats] = useState<{ original: number; compressed: number; name: string } | null>(null);
+  const [isBatchOptimizing, setIsBatchOptimizing] = useState(false);
+
+  const handleBatchOptimizeMedia = async () => {
+    setIsBatchOptimizing(true);
+    try {
+      const res = await fetch('/api/admin/optimize-existing-media', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.message || 'Media optimized to WebP format successfully!');
+        loadMedia();
+      } else {
+        showToast('Batch optimization failed.');
+      }
+    } catch (e: any) {
+      showToast('Error running batch media optimization');
+    } finally {
+      setIsBatchOptimizing(false);
+    }
+  };
 
   // Auto-Cleanup Modal State
   const [showCleanupModal, setShowCleanupModal] = useState(false);
@@ -127,7 +146,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const compressImage = (file: File, maxWidth = 1000, quality = 0.75): Promise<{ compressedUrl: string; compressedSize: number }> => {
+  const compressImage = (file: File, maxWidth = 2000, quality = 0.8): Promise<{ compressedUrl: string; compressedSize: number }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -153,15 +172,14 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
           ctx.drawImage(img, 0, 0, width, height);
           
-          // Convert heavy PNG files (which ignore the quality parameter in toDataURL) to highly compressed JPEG
-          // except if they are small logos/icons under 200KB where transparency needs to be preserved.
-          let mimeType = 'image/jpeg';
-          if (file.type === 'image/png' && file.size < 200 * 1024) {
-            mimeType = 'image/png';
-          }
-          const compressedUrl = canvas.toDataURL(mimeType, quality);
+          let mimeType = 'image/webp';
+          let compressedUrl = canvas.toDataURL(mimeType, quality);
           
-          // Calculate base64 size in bytes
+          if (!compressedUrl.startsWith('data:image/webp')) {
+            mimeType = 'image/jpeg';
+            compressedUrl = canvas.toDataURL(mimeType, quality);
+          }
+          
           const stringLength = compressedUrl.length - `data:${mimeType};base64,`.length;
           const sizeInBytes = Math.round(stringLength * 3 / 4);
 
@@ -470,12 +488,25 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       </AnimatePresence>
 
       {/* Tab Heading */}
-      <div>
-        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Dashboard Media Storage</span>
-        <h2 className="text-xl font-bold text-white font-serif mt-0.5">Asset & Media Library</h2>
-        <p className="text-xs text-neutral-400 font-light">
-          Upload, manage, and batch-process assets. High-resolution photos are automatically compressed on-the-fly to protect client memory limits.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Dashboard Media Storage</span>
+          <h2 className="text-xl font-bold text-white font-serif mt-0.5">Asset & Media Library</h2>
+          <p className="text-xs text-neutral-400 font-light">
+            Upload, manage, and batch-process assets. High-resolution photos are automatically converted to optimized <span className="text-amber-400 font-bold">WebP</span> format with 60-90% lossless/lossy compression.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleBatchOptimizeMedia}
+            disabled={isBatchOptimizing}
+            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+          >
+            <Sparkles className={`w-3.5 h-3.5 fill-neutral-950 ${isBatchOptimizing ? 'animate-spin' : ''}`} />
+            <span>{isBatchOptimizing ? 'Compressing...' : 'Batch Optimize to WebP'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

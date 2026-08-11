@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import AdmZip from 'adm-zip';
+import sharp from 'sharp';
 import { createServer as createViteServer } from 'vite';
 import { getDb } from './src/db/database';
 
@@ -36,20 +38,9 @@ async function startServer() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
 
-  const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, uploadsDir);
-    },
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      const sanitizedBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}${ext}`;
-      cb(null, uniqueName);
-    }
-  });
-
-  const upload = multer({
-    storage,
+  // Setup upload storage in memory for Sharp image processing
+  const uploadMemory = multer({
+    storage: multer.memoryStorage(),
     limits: { fileSize: 500 * 1024 * 1024 } // 500MB max limit
   });
 
@@ -59,23 +50,177 @@ async function startServer() {
   // Helper to get database connection
   const db = await getDb();
 
-  // Binary File Upload API Endpoint
-  app.post('/api/upload', upload.single('file'), (req, res) => {
+  // Binary File Upload API Endpoint (Automated Sharp WebP Conversion & Compression)
+  app.post('/api/upload', uploadMemory.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file provided' });
       }
-      const fileUrl = `/uploads/${req.file.filename}`;
-      res.json({
-        url: fileUrl,
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        size: req.file.size,
-        mimetype: req.file.mimetype
-      });
+
+      const mime = req.file.mimetype || '';
+      const originalExt = path.extname(req.file.originalname).toLowerCase();
+      const isRasterImage = mime.startsWith('image/') && !mime.includes('svg') && originalExt !== '.svg';
+      const originalSize = req.file.size || req.file.buffer.length;
+
+      if (isRasterImage) {
+        // Convert to optimized WebP format with sharp
+        const sanitizedBase = path.basename(req.file.originalname, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const webpFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}.webp`;
+        const targetPath = path.join(uploadsDir, webpFilename);
+
+        await sharp(req.file.buffer)
+          .rotate() // Auto-rotate according to EXIF orientation
+          .resize({
+            width: 2560,
+            height: 2560,
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .webp({
+            quality: 80,
+            effort: 4,
+            lossless: false
+          })
+          .toFile(targetPath);
+
+        const compressedStats = fs.statSync(targetPath);
+        const compressedSize = compressedStats.size;
+        const savingsPercent = originalSize > 0 
+          ? Math.max(0, ((originalSize - compressedSize) / originalSize) * 100).toFixed(1)
+          : '0.0';
+
+        console.log(`[IMAGE OPTIMIZER] Converted ${req.file.originalname} -> ${webpFilename} (${(originalSize / 1024).toFixed(1)} KB -> ${(compressedSize / 1024).toFixed(1)} KB, ${savingsPercent}% savings)`);
+
+        return res.json({
+          url: `/uploads/${webpFilename}`,
+          filename: webpFilename,
+          originalName: req.file.originalname,
+          size: compressedSize,
+          originalSize,
+          compressedSize,
+          savingsPercent: `${savingsPercent}%`,
+          mimetype: 'image/webp',
+          format: 'webp'
+        });
+      } else {
+        // Non-raster image (SVG) or Video/Audio/PDF: save directly to disk
+        const sanitizedBase = path.basename(req.file.originalname, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}${originalExt}`;
+        const targetPath = path.join(uploadsDir, uniqueName);
+
+        fs.writeFileSync(targetPath, req.file.buffer);
+
+        return res.json({
+          url: `/uploads/${uniqueName}`,
+          filename: uniqueName,
+          originalName: req.file.originalname,
+          size: originalSize,
+          originalSize,
+          compressedSize: originalSize,
+          savingsPercent: '0%',
+          mimetype: req.file.mimetype
+        });
+      }
     } catch (err: any) {
       console.error('[Upload Error]', err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Retroactive Batch Optimization for Existing Media in uploads/ directory
+  app.post('/api/admin/optimize-existing-media', async (req, res) => {
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        return res.json({ success: true, processedCount: 0, totalSavedBytes: 0, savedFormatted: '0 MB', message: 'Uploads directory is empty.' });
+      }
+
+      const files = fs.readdirSync(uploadsDir);
+      let processedCount = 0;
+      let totalSavedBytes = 0;
+      const urlReplacements: Record<string, string> = {};
+
+      for (const filename of files) {
+        const ext = path.extname(filename).toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.bmp', '.tiff'].includes(ext)) {
+          const filePath = path.join(uploadsDir, filename);
+          if (!fs.existsSync(filePath)) continue;
+
+          try {
+            const stats = fs.statSync(filePath);
+            const originalSize = stats.size;
+            const baseName = path.basename(filename, ext);
+            const newWebpFilename = `${baseName}.webp`;
+            const webpPath = path.join(uploadsDir, newWebpFilename);
+
+            await sharp(filePath)
+              .rotate()
+              .resize({ width: 2560, height: 2560, fit: 'inside', withoutEnlargement: true })
+              .webp({ quality: 80, effort: 4 })
+              .toFile(webpPath);
+
+            const webpStats = fs.statSync(webpPath);
+            const webpSize = webpStats.size;
+
+            if (webpSize < originalSize) {
+              fs.unlinkSync(filePath);
+              const saved = originalSize - webpSize;
+              totalSavedBytes += saved;
+              processedCount++;
+
+              const oldUrl = `/uploads/${filename}`;
+              const newUrl = `/uploads/${newWebpFilename}`;
+              urlReplacements[oldUrl] = newUrl;
+            } else {
+              fs.unlinkSync(webpPath);
+            }
+          } catch (fileErr) {
+            console.error(`[Batch Optimizer Error] ${filename}:`, fileErr);
+          }
+        }
+      }
+
+      if (Object.keys(urlReplacements).length > 0) {
+        const updateTableUrls = async (tableName: string) => {
+          const rows = await db.all(`SELECT id, data_json FROM ${tableName}`);
+          for (const row of rows) {
+            let jsonStr = row.data_json;
+            let modified = false;
+            for (const [oldUrl, newUrl] of Object.entries(urlReplacements)) {
+              if (jsonStr.includes(oldUrl)) {
+                jsonStr = jsonStr.replaceAll(oldUrl, newUrl);
+                modified = true;
+              }
+            }
+            if (modified) {
+              await db.run(`UPDATE ${tableName} SET data_json = ? WHERE id = ?`, jsonStr, row.id);
+            }
+          }
+        };
+
+        await updateTableUrls('media');
+        await updateTableUrls('site_config');
+        await updateTableUrls('events');
+        await updateTableUrls('gallery');
+        await updateTableUrls('hotels');
+        await updateTableUrls('testimonials');
+        await updateTableUrls('submissions');
+
+        broadcast('system_restored');
+      }
+
+      const savedMB = (totalSavedBytes / (1024 * 1024)).toFixed(2);
+      res.json({
+        success: true,
+        processedCount,
+        totalSavedBytes,
+        savedFormatted: `${savedMB} MB`,
+        message: processedCount > 0 
+          ? `Optimized ${processedCount} image(s) to WebP format, saving ${savedMB} MB of disk space & bandwidth!`
+          : 'All images are already fully compressed in WebP format.'
+      });
+    } catch (e: any) {
+      console.error('[Batch Optimization Failed]', e);
+      res.status(500).json({ error: e.message });
     }
   });
 
@@ -456,9 +601,11 @@ async function startServer() {
     fs.mkdirSync(backupsDir, { recursive: true });
   }
 
-  // Export full JSON database snapshot
+  // Export full backup (ZIP Archive with database + media binaries OR JSON database)
   app.get('/api/admin/backup/export', async (req, res) => {
     try {
+      const format = (req.query.format as string) || 'zip'; // Default to ZIP for complete media backup
+
       const siteConfigRows = await db.all('SELECT * FROM site_config');
       const submissionsRows = await db.all('SELECT * FROM submissions');
       const eventsRows = await db.all('SELECT * FROM events');
@@ -495,11 +642,26 @@ async function startServer() {
         dbSize = fs.statSync(dbPath).size;
       }
 
+      // Collect upload binary files
+      let mediaFilesCount = 0;
+      let uploadFilesList: string[] = [];
+      if (fs.existsSync(uploadsDir)) {
+        uploadFilesList = fs.readdirSync(uploadsDir).filter(f => {
+          try {
+            return fs.statSync(path.join(uploadsDir, f)).isFile();
+          } catch {
+            return false;
+          }
+        });
+        mediaFilesCount = uploadFilesList.length;
+      }
+
       const backupPackage = {
         version: '2027.1.0',
         system: 'CARICOM Festival Enterprise Database',
         exportedAt: new Date().toISOString(),
         dbSizeFormatted: (dbSize / 1024).toFixed(2) + ' KB',
+        mediaFilesCount,
         summary: {
           site_config: tables.site_config.length,
           submissions: tables.submissions.length,
@@ -514,28 +676,98 @@ async function startServer() {
         tables
       };
 
-      // Auto-save a copy to local server snapshot history
-      const snapshotFilename = `auto-export-${Date.now()}.json`;
-      fs.writeFileSync(path.join(backupsDir, snapshotFilename), JSON.stringify(backupPackage, null, 2));
+      if (format === 'json') {
+        const snapshotFilename = `auto-export-${Date.now()}.json`;
+        fs.writeFileSync(path.join(backupsDir, snapshotFilename), JSON.stringify(backupPackage, null, 2));
 
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="caricom-festival-backup-${Date.now()}.json"`);
-      res.json(backupPackage);
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="caricom-festival-backup-${Date.now()}.json"`);
+        return res.json(backupPackage);
+      }
+
+      // Default: Complete ZIP Archive (Database + Uploaded Media Binaries)
+      const zip = new AdmZip();
+      zip.addFile('database.json', Buffer.from(JSON.stringify(backupPackage, null, 2)));
+      zip.addFile('manifest.json', Buffer.from(JSON.stringify({
+        version: '2027.1.0',
+        exportedAt: new Date().toISOString(),
+        totalRecords,
+        mediaFilesCount,
+        summary: backupPackage.summary
+      }, null, 2)));
+
+      // Pack uploaded media binary files into uploads/ folder in the ZIP
+      if (fs.existsSync(uploadsDir)) {
+        for (const filename of uploadFilesList) {
+          const filePath = path.join(uploadsDir, filename);
+          zip.addLocalFile(filePath, 'uploads');
+        }
+      }
+
+      const zipBuffer = zip.toBuffer();
+      const zipFilename = `caricom-festival-full-backup-${Date.now()}.zip`;
+
+      // Auto-save snapshot copy
+      fs.writeFileSync(path.join(backupsDir, `auto-export-${Date.now()}.zip`), zipBuffer);
+
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+      return res.send(zipBuffer);
+
     } catch (e: any) {
       console.error('[Backup Export Error]', e);
       res.status(500).json({ error: e.message });
     }
   });
 
-  // Import JSON backup snapshot & restore system state
-  app.post('/api/admin/backup/import', async (req, res) => {
+  // Universal Backup Import Endpoint (Accepts .zip archive OR .json file/payload)
+  app.post('/api/admin/backup/import', uploadMemory.single('file'), async (req, res) => {
     try {
-      const backupData = req.body.backupData || req.body;
-      if (!backupData || !backupData.tables) {
-        return res.status(400).json({ error: 'Invalid backup snapshot file. Missing required tables schema.' });
+      let backupData: any = null;
+      let unpackedMediaCount = 0;
+
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+        const originalName = (req.file.originalname || '').toLowerCase();
+
+        if (originalName.endsWith('.zip') || req.file.mimetype === 'application/zip' || req.file.mimetype === 'application/x-zip-compressed') {
+          const zip = new AdmZip(fileBuffer);
+          const dbEntry = zip.getEntry('database.json') || zip.getEntry('backup.json');
+          if (!dbEntry) {
+            return res.status(400).json({ error: 'Invalid ZIP backup archive. Missing database.json file.' });
+          }
+
+          backupData = JSON.parse(zip.readAsText(dbEntry));
+
+          // Unpack media files into uploadsDir
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+
+          const entries = zip.getEntries();
+          for (const entry of entries) {
+            if (!entry.isDirectory && entry.entryName.startsWith('uploads/')) {
+              const fileBase = path.basename(entry.entryName);
+              if (fileBase) {
+                const targetPath = path.join(uploadsDir, fileBase);
+                fs.writeFileSync(targetPath, entry.getData());
+                unpackedMediaCount++;
+              }
+            }
+          }
+        } else {
+          // JSON File
+          backupData = JSON.parse(fileBuffer.toString('utf8'));
+        }
+      } else if (req.body.backupData || req.body.tables) {
+        backupData = req.body.backupData || req.body;
       }
 
-      // Safety: Create pre-restore snapshot of current database
+      if (!backupData || !backupData.tables) {
+        return res.status(400).json({ error: 'Invalid backup file structure. Missing required database tables object.' });
+      }
+
+      // Safety: Create pre-restore snapshot
       try {
         const siteConfigRows = await db.all('SELECT * FROM site_config');
         const submissionsRows = await db.all('SELECT * FROM submissions');
@@ -568,7 +800,7 @@ async function startServer() {
 
       const { tables } = backupData;
 
-      // Atomic overwrite of database tables
+      // Overwrite database tables
       const restoreTable = async (tableName: string, items: any[]) => {
         await db.run(`DELETE FROM ${tableName}`);
         if (Array.isArray(items)) {
@@ -590,11 +822,13 @@ async function startServer() {
 
       broadcast('system_restored');
 
-      // Send response confirming successful restore and update
       res.json({
         success: true,
-        message: 'Backup restored successfully!',
+        message: unpackedMediaCount > 0 
+          ? `Full backup restored successfully! (${unpackedMediaCount} media files unpacked & synchronized)` 
+          : 'Database backup restored successfully!',
         restored: true,
+        unpackedMediaCount,
         restoredAt: new Date().toISOString()
       });
 
@@ -610,28 +844,46 @@ async function startServer() {
       if (!fs.existsSync(backupsDir)) {
         return res.json([]);
       }
-      const files = fs.readdirSync(backupsDir).filter(f => f.endsWith('.json'));
+      const files = fs.readdirSync(backupsDir).filter(f => f.endsWith('.json') || f.endsWith('.zip'));
       const snapshots = files.map(filename => {
         const filePath = path.join(backupsDir, filename);
         const stats = fs.statSync(filePath);
         let recordCount = 0;
-        let systemTag = 'System Snapshot';
+        let mediaFilesCount = 0;
+        let systemTag = filename.endsWith('.zip') ? 'Full System Archive (.zip)' : 'JSON Database (.json)';
+
         try {
-          const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          if (content.summary?.totalRecords) {
-            recordCount = content.summary.totalRecords;
-          }
-          if (content.system) {
-            systemTag = content.system;
+          if (filename.endsWith('.zip')) {
+            const zip = new AdmZip(filePath);
+            const manifestEntry = zip.getEntry('manifest.json');
+            const dbEntry = zip.getEntry('database.json');
+            if (manifestEntry) {
+              const manifest = JSON.parse(zip.readAsText(manifestEntry));
+              recordCount = manifest.totalRecords || 0;
+              mediaFilesCount = manifest.mediaFilesCount || 0;
+            } else if (dbEntry) {
+              const content = JSON.parse(zip.readAsText(dbEntry));
+              recordCount = content.summary?.totalRecords || 0;
+            }
+          } else {
+            const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            if (content.summary?.totalRecords) {
+              recordCount = content.summary.totalRecords;
+            }
+            if (content.system) {
+              systemTag = content.system;
+            }
           }
         } catch {}
 
         return {
           filename,
+          isZip: filename.endsWith('.zip'),
           sizeBytes: stats.size,
           sizeFormatted: (stats.size / 1024).toFixed(1) + ' KB',
           createdTime: stats.mtime.toISOString(),
           recordCount,
+          mediaFilesCount,
           systemTag
         };
       }).sort((a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
@@ -654,8 +906,36 @@ async function startServer() {
         return res.status(404).json({ error: 'Snapshot file not found' });
       }
 
-      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      const { tables } = content;
+      let backupData: any = null;
+      let unpackedMediaCount = 0;
+
+      if (filename.endsWith('.zip')) {
+        const zip = new AdmZip(filePath);
+        const dbEntry = zip.getEntry('database.json') || zip.getEntry('backup.json');
+        if (!dbEntry) {
+          return res.status(400).json({ error: 'Invalid ZIP snapshot file' });
+        }
+        backupData = JSON.parse(zip.readAsText(dbEntry));
+
+        // Extract media files
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const entries = zip.getEntries();
+        for (const entry of entries) {
+          if (!entry.isDirectory && entry.entryName.startsWith('uploads/')) {
+            const fileBase = path.basename(entry.entryName);
+            if (fileBase) {
+              fs.writeFileSync(path.join(uploadsDir, fileBase), entry.getData());
+              unpackedMediaCount++;
+            }
+          }
+        }
+      } else {
+        backupData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+
+      const { tables } = backupData;
       if (!tables) {
         return res.status(400).json({ error: 'Invalid snapshot format' });
       }
@@ -683,7 +963,7 @@ async function startServer() {
 
       res.json({
         success: true,
-        message: `Restored from snapshot ${filename} successfully.`,
+        message: `Restored snapshot ${filename} successfully. (${unpackedMediaCount} media files unpacked)`,
         restored: true
       });
 
@@ -734,19 +1014,48 @@ async function startServer() {
 
       const totalRecords = Object.values(tables).reduce((sum, arr) => sum + arr.length, 0);
 
+      let mediaFilesCount = 0;
+      let uploadFilesList: string[] = [];
+      if (fs.existsSync(uploadsDir)) {
+        uploadFilesList = fs.readdirSync(uploadsDir).filter(f => {
+          try {
+            return fs.statSync(path.join(uploadsDir, f)).isFile();
+          } catch {
+            return false;
+          }
+        });
+        mediaFilesCount = uploadFilesList.length;
+      }
+
       const snapshot = {
         version: '2027.1.0',
         system: label ? `Manual Snapshot: ${label}` : 'Manual Admin Snapshot',
         exportedAt: new Date().toISOString(),
-        summary: { totalRecords },
+        summary: { totalRecords, mediaFilesCount },
         tables
       };
 
       const sanitizedLabel = (label || 'manual').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-      const filename = `snapshot-${sanitizedLabel}-${Date.now()}.json`;
-      fs.writeFileSync(path.join(backupsDir, filename), JSON.stringify(snapshot, null, 2));
+      const zip = new AdmZip();
+      zip.addFile('database.json', Buffer.from(JSON.stringify(snapshot, null, 2)));
+      zip.addFile('manifest.json', Buffer.from(JSON.stringify({
+        version: '2027.1.0',
+        exportedAt: new Date().toISOString(),
+        totalRecords,
+        mediaFilesCount,
+        label
+      }, null, 2)));
 
-      res.json({ success: true, filename, snapshot });
+      if (fs.existsSync(uploadsDir)) {
+        for (const filename of uploadFilesList) {
+          zip.addLocalFile(path.join(uploadsDir, filename), 'uploads');
+        }
+      }
+
+      const filename = `snapshot-${sanitizedLabel}-${Date.now()}.zip`;
+      fs.writeFileSync(path.join(backupsDir, filename), zip.toBuffer());
+
+      res.json({ success: true, filename });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -821,4 +1130,6 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('[FATAL SERVER ERROR]', err);
+});
