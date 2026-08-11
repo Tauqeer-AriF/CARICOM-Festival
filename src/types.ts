@@ -100,6 +100,12 @@ export interface PageImagesConfig {
 }
 
 export interface SiteConfig {
+  appName?: string;
+  appSubtitle?: string;
+  appLogoUrl?: string;
+  appLogoIcon?: 'Palmtree' | 'Sparkles' | 'Crown' | 'Sun' | 'Flame' | 'Music' | 'Globe' | 'Shield' | 'Compass';
+  appTagline?: string;
+  appYearBadge?: string;
   socialLinks: {
     instagram: string;
     tiktok: string;
@@ -140,6 +146,8 @@ export interface GalleryItem {
   location: string;
   year: string;
   imageUrl: string;
+  videoUrl?: string;
+  mediaType?: 'image' | 'video';
   aspectRatio: 'aspect-square' | 'aspect-[3/4]' | 'aspect-[4/3]' | 'aspect-[9/16]' | 'aspect-[16/9]';
   caption: string;
   likesCount: number;

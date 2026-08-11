@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Download, Sparkles, ShieldCheck, Ticket, MapPin, PhoneCall, Copy, Check, Star } from 'lucide-react';
+import { X, Printer, Download, ShieldCheck, Ticket, MapPin, PhoneCall, Copy, Check, Star } from 'lucide-react';
 import { CartItem } from '../types';
 
 interface PassSummaryModalProps {

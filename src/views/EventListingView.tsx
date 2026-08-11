@@ -1,244 +1,311 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ActiveTab, EventItem } from '../types';
-import { MapPin, Clock, Filter, ShieldCheck, Ticket, Users } from 'lucide-react';
-import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
+import { getSiteConfig, getPageImage } from '../services/submissionService';
 import { motion, AnimatePresence } from 'motion/react';
-import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { 
+  Calendar, 
+  MapPin, 
+  Clock, 
+  Music, 
+  Tag, 
+  Sparkles, 
+  ChevronRight, 
+  Filter, 
+  Search,
+  Shirt,
+  ShieldCheck,
+  X
+} from 'lucide-react';
 
 interface EventListingViewProps {
   setActiveTab: (tab: ActiveTab) => void;
-  events?: EventItem[];
+  events: EventItem[];
 }
 
-// Custom animation presets for a premium aesthetic
-const fadeInUp = {
-  hidden: { opacity: 0, y: 35 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1]
-    }
-  }
-};
+export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab, events }) => {
+  const siteConfig = getSiteConfig();
+  const bannerImage = getPageImage('eventsBanner', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80');
+  
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeEventModal, setActiveEventModal] = useState<EventItem | null>(null);
 
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.12
-    }
-  }
-};
+  const categories = ['All', 'Party', 'Music', 'Adventure', 'Cultural', 'Gala'];
 
-export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab, events = [] }) => {
-  const [selectedGenre, setSelectedGenre] = useState<string>('All');
-  const [selectedDay, setSelectedDay] = useState<number | 'All'>('All');
-  const [isFiltering, setIsFiltering] = useState(false);
-
-  const genresList = ['All', 'Soca', 'Afro', 'Reggae', 'Soul', 'R&B', 'Jungle'];
-
-  const handleGenreChange = (genre: string) => {
-    if (genre === selectedGenre) return;
-    setIsFiltering(true);
-    setSelectedGenre(genre);
-    setTimeout(() => setIsFiltering(false), 260);
-  };
-
-  const handleDayChange = (val: string) => {
-    setIsFiltering(true);
-    setSelectedDay(val === 'All' ? 'All' : Number(val));
-    setTimeout(() => setIsFiltering(false), 260);
-  };
-
-  const activeEvents = events;
-
-  const filteredEvents = activeEvents.filter((ev) => {
-    const matchesGenre = selectedGenre === 'All' || ev.genres.includes(selectedGenre);
-    const matchesDay = selectedDay === 'All' || ev.dayNumber === selectedDay;
-    return matchesGenre && matchesDay;
+  const filteredEvents = events.filter(evt => {
+    const matchesCategory = selectedCategory === 'All' || evt.category.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesSearch = evt.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          evt.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          evt.djLineup.some(dj => dj.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
   });
 
   return (
-    <div className="space-y-10 pb-16">
-      
-      {/* Title */}
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={fadeInUp}
-        className="text-center max-w-3xl mx-auto space-y-3"
-      >
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">MAY 13 - MAY 22, 2027</span>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          10-Day Official Event Schedule
-        </h1>
-        <p className="text-slate-300 text-sm font-light leading-relaxed">
-          Explore the full 10-day schedule of music fetes, White Gala parties, river tubing limes, and cultural showcases across Grenada.
-        </p>
-      </motion.div>
-
-      {/* Filter Bar */}
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={fadeInUp}
-        className="glass-card p-4 rounded-3xl flex flex-wrap items-center justify-between gap-4 border border-white/10"
-      >
-        
-        {/* Genre Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-          <span className="text-xs font-semibold text-slate-400 flex items-center gap-1 shrink-0 font-sans-display">
-            <Filter className="w-3.5 h-3.5 text-amber-400" /> Genre:
+    <div className="space-y-12 animate-fadeIn pb-16">
+      {/* Hero Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[280px] sm:min-h-[340px] flex items-center p-6 sm:p-12">
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 transform scale-105"
+          style={{ backgroundImage: `url(${bannerImage})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
+        <div className="relative z-10 max-w-2xl space-y-4">
+          <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" /> 10-Day Festival Itinerary
           </span>
-          {genresList.map((genre) => (
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
+            Festival <span className="text-gold-gradient">Event Schedule</span>
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
+            Explore the full 10-day itinerary featuring London & Grenada’s top DJs, beach fetes, river tubing, cultural street parades, and the grand White Gala.
+          </p>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Category Pills */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {categories.map((cat) => (
             <button
-              key={genre}
-              onClick={() => handleGenreChange(genre)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedGenre === genre
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedCategory === cat 
+                  ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' 
+                  : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
               }`}
             >
-              {genre}
+              {cat}
             </button>
           ))}
         </div>
 
-        {/* Day Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-400 font-sans-display">Day:</span>
-          <select
-            value={selectedDay}
-            onChange={(e) => handleDayChange(e.target.value)}
-            className="bg-[#0D121A] border border-white/15 text-xs font-semibold text-white p-2 px-3 rounded-full focus:outline-none focus:border-amber-400 cursor-pointer"
-          >
-            <option value="All">All 10 Days</option>
-            {Array.from(new Set(activeEvents.map(ev => ev.dayNumber))).map((dayNum) => {
-              const ev = activeEvents.find(e => e.dayNumber === dayNum);
-              return (
-                <option key={dayNum} value={dayNum}>
-                  Day {dayNum} - {ev?.date || ''}
-                </option>
-              );
-            })}
-          </select>
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search events, DJs, venues..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50"
+          />
         </div>
+      </div>
 
-      </motion.div>
-
-      {/* Events Grid or Luxury Skeleton Overlay */}
-      {isFiltering ? (
-        <LuxurySkeletonOverlay type="cards" count={4} />
-      ) : filteredEvents.length === 0 ? (
-        <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800">
-          <Filter className="w-12 h-12 text-slate-500 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No Events Found</h3>
-          <p className="text-sm text-slate-400 font-light max-w-sm mx-auto">There are no events matching your criteria or currently listed in our database.</p>
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
+      {/* Event Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredEvents.map((event) => (
           <motion.div
-            key={`${selectedGenre}-${selectedDay}`}
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+            key={event.id}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="group bg-neutral-900/90 border border-neutral-800/80 hover:border-amber-500/40 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 flex flex-col"
           >
-            {filteredEvents.map((ev) => (
-              <motion.div
-                key={ev.id}
-                variants={fadeInUp}
-                className="glass-card glass-card-interactive rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between group shadow-xl"
+            {/* Thumbnail Image */}
+            <div className="relative h-48 overflow-hidden">
+              <img
+                src={event.highlightImage}
+                alt={event.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent" />
+              
+              {/* Day Badge */}
+              <div className="absolute top-3 left-3 bg-neutral-950/80 backdrop-blur-md border border-amber-500/40 text-amber-400 text-xs font-black font-mono px-3 py-1 rounded-lg">
+                DAY {event.dayNumber}
+              </div>
+
+              {/* Category Badge */}
+              <div className="absolute top-3 right-3 bg-amber-500 text-neutral-950 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md tracking-wider">
+                {event.category}
+              </div>
+            </div>
+
+            {/* Event Details Content */}
+            <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-amber-400/90 text-xs font-semibold">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{event.date}</span>
+                  <span className="text-neutral-600">•</span>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{event.time}</span>
+                </div>
+
+                <h3 className="text-lg font-bold text-white font-serif group-hover:text-amber-300 transition-colors leading-snug">
+                  {event.title}
+                </h3>
+
+                <p className="text-neutral-400 text-xs leading-relaxed line-clamp-2">
+                  {event.description}
+                </p>
+              </div>
+
+              {/* Location & DJ Lineup */}
+              <div className="pt-3 border-t border-neutral-800/80 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-neutral-300">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">{event.location}</span>
+                </div>
+
+                {event.djLineup && event.djLineup.length > 0 && (
+                  <div className="flex items-center gap-2 text-neutral-400">
+                    <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate text-[11px]">
+                      DJs: {event.djLineup.join(', ')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setActiveEventModal(event)}
+                className="w-full mt-2 py-2.5 px-4 bg-neutral-800 hover:bg-amber-500 hover:text-neutral-950 text-amber-400 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 group/btn"
               >
-                {/* Image Header */}
-                <div className="relative h-60 overflow-hidden">
-                  <img
-                    src={ev.highlightImage}
-                    alt={ev.title}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-90"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/40 to-transparent" />
-
-                  <div className="absolute top-3 left-3 bg-[#0B0E14]/90 backdrop-blur-md text-amber-300 text-[11px] font-mono font-bold px-3 py-1 rounded-full border border-amber-500/30">
-                    DAY {ev.dayNumber} • {ev.date}
-                  </div>
-
-                  {ev.wristbandRequired && (
-                    <div className="absolute top-3 right-3 bg-emerald-500/20 backdrop-blur-md text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-emerald-500/30">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" /> Wristband Required
-                    </div>
-                  )}
-                </div>
-
-                {/* Content Body */}
-                <div className="p-6 sm:p-8 space-y-5 flex-1 flex flex-col justify-between">
-                  
-                  <div className="space-y-3.5">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-300">
-                      <span className="flex items-center gap-1.5 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 text-amber-300 font-light">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400" /> {ev.location}
-                      </span>
-                      <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10 text-slate-300 font-light">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" /> {ev.time}
-                      </span>
-                    </div>
-
-                    <h3 className="text-2xl font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {ev.title}
-                    </h3>
-
-                    <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-light">
-                      {ev.description}
-                    </p>
-
-                    {/* DJ Lineup & Dress code */}
-                    <div className="pt-3 border-t border-white/10 space-y-1.5 text-xs font-light">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <strong className="text-white font-semibold">DJs / Artists:</strong> {ev.djLineup.join(', ')}
-                      </div>
-                      {ev.dressCode && (
-                        <div className="text-amber-200/90 font-medium">
-                          ✨ <strong className="text-amber-300">Dress Code:</strong> {ev.dressCode}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action */}
-                  <div className="pt-4 flex items-center justify-between border-t border-white/10">
-                    <div className="flex flex-wrap gap-1">
-                      {ev.genres.map((g) => (
-                        <span key={g} className="text-[10px] bg-white/5 text-slate-400 px-2.5 py-0.5 rounded-full border border-white/5">
-                          #{g}
-                        </span>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => setActiveTab('shop')}
-                      className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-full border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
-                    >
-                      <Ticket className="w-3.5 h-3.5" /> Get Pass
-                    </button>
-                  </div>
-
-                </div>
-              </motion.div>
-            ))}
+                <span>View Full Details</span>
+                <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </motion.div>
-        </AnimatePresence>
+        ))}
+      </div>
+
+      {filteredEvents.length === 0 && (
+        <div className="text-center py-16 bg-neutral-900/50 border border-neutral-800 rounded-2xl space-y-3">
+          <Calendar className="w-10 h-10 text-neutral-600 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No Events Found</h3>
+          <p className="text-xs text-neutral-400">Try adjusting your search query or category filter.</p>
+        </div>
       )}
 
+      {/* Event Details Modal */}
+      {createPortal(
+        <AnimatePresence>
+          {activeEventModal && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-neutral-950/85 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-neutral-900 border border-amber-500/30 rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col z-[10000]"
+              >
+                {/* Modal Header Image */}
+                <div className="relative h-60 sm:h-72 shrink-0">
+                  <img
+                    src={activeEventModal.highlightImage}
+                    alt={activeEventModal.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
+                  
+                  <button
+                    onClick={() => setActiveEventModal(null)}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-neutral-950/80 text-white hover:bg-amber-500 hover:text-neutral-950 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="absolute bottom-4 left-6 right-6 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-amber-500 text-neutral-950 text-[10px] font-black px-2.5 py-0.5 rounded font-mono uppercase">
+                        DAY {activeEventModal.dayNumber}
+                      </span>
+                      <span className="text-amber-400 text-xs font-bold">
+                        {activeEventModal.date}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-serif">
+                      {activeEventModal.title}
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs sm:text-sm">
+                  <p className="text-neutral-300 leading-relaxed font-light">
+                    {activeEventModal.description}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-neutral-950/60 p-4 rounded-2xl border border-neutral-800">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-mono text-neutral-500 block font-bold">Venue & Location</span>
+                      <div className="flex items-center gap-1.5 text-white font-semibold">
+                        <MapPin className="w-4 h-4 text-amber-400" />
+                        <span>{activeEventModal.location}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-mono text-neutral-500 block font-bold">Time & Schedule</span>
+                      <div className="flex items-center gap-1.5 text-white font-semibold">
+                        <Clock className="w-4 h-4 text-amber-400" />
+                        <span>{activeEventModal.time}</span>
+                      </div>
+                    </div>
+
+                    {activeEventModal.dressCode && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-mono text-neutral-500 block font-bold">Dress Code</span>
+                        <div className="flex items-center gap-1.5 text-white font-semibold">
+                          <Shirt className="w-4 h-4 text-amber-400" />
+                          <span>{activeEventModal.dressCode}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-mono text-neutral-500 block font-bold">Access Policy</span>
+                      <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>{activeEventModal.wristbandRequired ? 'Wristband Required' : 'Open Entry'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeEventModal.djLineup && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <Music className="w-4 h-4" /> DJ Lineup & Entertainers
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {activeEventModal.djLineup.map((dj, i) => (
+                          <span key={i} className="px-3 py-1 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-xs font-medium">
+                            🎧 {dj}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex gap-3">
+                    <button
+                      onClick={() => {
+                        setActiveEventModal(null);
+                        setActiveTab('shop');
+                      }}
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer text-center"
+                    >
+                      Get Festival Pass
+                    </button>
+                    <button
+                      onClick={() => setActiveEventModal(null)}
+                      className="px-5 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
-
-

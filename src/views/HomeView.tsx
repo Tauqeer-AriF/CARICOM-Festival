@@ -188,7 +188,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           </div>
 
           <h1 className="text-3xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.14]">
-            Experience the Magic: <br />
+            Experience the Magic <br />
             <span className="text-gold-gradient font-extrabold">
               Grenada CARICOM Festival 2027
             </span>

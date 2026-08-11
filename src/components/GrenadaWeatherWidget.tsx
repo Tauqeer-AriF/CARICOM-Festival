@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, CloudSun, CloudRain, CloudLightning, Wind, Droplets, MapPin, RefreshCw, Thermometer } from 'lucide-react';
+import { Sun, CloudSun, CloudRain, CloudLightning, Wind, Droplets, MapPin, RefreshCw } from 'lucide-react';
 
 interface WeatherData {
   tempC: number;
@@ -85,7 +85,7 @@ export const GrenadaWeatherWidget: React.FC<GrenadaWeatherWidgetProps> = ({
   }, []);
 
   const getWeatherIcon = (code: number, isDay: boolean) => {
-    if (code === 0) return <Sun className="w-5 h-5 text-amber-400 animate-spin-slow" />;
+    if (code === 0) return isDay ? <Sun className="w-5 h-5 text-amber-400 animate-spin-slow" /> : <CloudSun className="w-5 h-5 text-indigo-300" />;
     if (code <= 3) return <CloudSun className="w-5 h-5 text-amber-300" />;
     if (code <= 82) return <CloudRain className="w-5 h-5 text-sky-400" />;
     if (code >= 95) return <CloudLightning className="w-5 h-5 text-purple-400" />;

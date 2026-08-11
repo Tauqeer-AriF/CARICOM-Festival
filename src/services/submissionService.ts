@@ -12,6 +12,12 @@ const TESTIMONIALS_KEY = 'grenada_caricom_testimonials_v2';
 const MEDIA_KEY = 'grenada_caricom_media_v2';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
+  appName: 'Grenada CARICOM Festival 2027',
+  appSubtitle: 'CARICOM FESTIVAL',
+  appLogoUrl: '',
+  appLogoIcon: 'Palmtree',
+  appTagline: "Where London's top DJs & revelers unite with Grenada's tropical warmth.",
+  appYearBadge: '2027',
   socialLinks: {
     instagram: 'https://instagram.com',
     tiktok: 'https://tiktok.com',
@@ -747,8 +753,6 @@ export const updatePageImage = (key: string, newUrl: string): void => {
   saveSiteConfig(config);
 };
 
-let siteConfigSyncTimeout: any = null;
-
 export const saveSiteConfig = (config: SiteConfig): void => {
   try {
     // Add/update timestamp for Last-Write-Wins conflict resolution
@@ -1040,6 +1044,159 @@ export const deleteMediaItem = (id: string): void => {
   safeApiCall(`/api/media/${id}`, {
     method: 'DELETE'
   });
+};
+
+export const deleteMultipleMediaItems = (ids: string[]): void => {
+  if (!ids.length) return;
+  const current = getMediaItems();
+  const idSet = new Set(ids);
+  const updated = current.filter(item => !idSet.has(item.id));
+  saveMediaItems(updated);
+
+  // Sync each to backend SQLite
+  ids.forEach(id => {
+    safeApiCall(`/api/media/${id}`, {
+      method: 'DELETE'
+    });
+  });
+};
+
+// --- UNUSED MEDIA & AUTO-CLEANUP SERVICES ---
+export const getAllUsedMediaUrls = (): Set<string> => {
+  const used = new Set<string>();
+
+  try {
+    // 1. Site Config (hero slideshow, page images & app logo)
+    const config = getSiteConfig();
+    if (config?.appLogoUrl) {
+      used.add(config.appLogoUrl);
+    }
+    if (config?.hero?.images) {
+      config.hero.images.forEach((img: any) => {
+        if (img?.url) used.add(img.url);
+      });
+    }
+    if (config?.pageImages) {
+      Object.values(config.pageImages).forEach((url: any) => {
+        if (typeof url === 'string' && url) used.add(url);
+      });
+    }
+
+    // 2. Events
+    const events = getEvents();
+    events.forEach((e: any) => {
+      if (e?.imageUrl) used.add(e.imageUrl);
+    });
+
+    // 3. Gallery Items
+    const gallery = getGalleryItems();
+    gallery.forEach((g: any) => {
+      if (g?.imageUrl) used.add(g.imageUrl);
+      if (g?.url) used.add(g.url);
+    });
+
+    // 4. Hotels
+    const hotels = getHotels();
+    hotels.forEach((h: any) => {
+      if (h?.imageUrl) used.add(h.imageUrl);
+    });
+
+    // 5. Testimonials
+    const testimonials = getTestimonials();
+    testimonials.forEach((t: any) => {
+      if (t?.avatarUrl) used.add(t.avatarUrl);
+      if (t?.imageUrl) used.add(t.imageUrl);
+    });
+
+    // 6. Passes
+    const passes = getPasses();
+    passes.forEach((p: any) => {
+      if ((p as any)?.imageUrl) used.add((p as any).imageUrl);
+    });
+  } catch (err) {
+    console.error('Error computing used media URLs:', err);
+  }
+
+  return used;
+};
+
+export const getUnusedMediaItems = (olderThanDays?: number): MediaItem[] => {
+  const usedUrls = getAllUsedMediaUrls();
+  const allMedia = getMediaItems();
+
+  return allMedia.filter(item => {
+    const isUsed = usedUrls.has(item.url);
+    if (isUsed) return false;
+
+    if (olderThanDays !== undefined && olderThanDays > 0) {
+      const uploadTime = new Date(item.uploadedAt).getTime();
+      const ageMs = Date.now() - uploadTime;
+      const thresholdMs = olderThanDays * 86400000;
+      return ageMs >= thresholdMs;
+    }
+
+    return true;
+  });
+};
+
+export interface AutoCleanupConfig {
+  enabled: boolean;
+  ageInDays: number; // 0 = immediate/any age, 1 = 1 day, 7 = 7 days, 30 = 30 days, or custom N
+  lastRunTimestamp?: string;
+}
+
+const AUTO_CLEANUP_KEY = 'grenada_caricom_auto_cleanup_config_v1';
+
+export const getAutoCleanupConfig = (): AutoCleanupConfig => {
+  try {
+    const raw = safeGetItem(AUTO_CLEANUP_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Error loading auto cleanup config:', e);
+  }
+  return { enabled: false, ageInDays: 7 };
+};
+
+export const saveAutoCleanupConfig = (config: AutoCleanupConfig): void => {
+  try {
+    safeSetItem(AUTO_CLEANUP_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.error('Error saving auto cleanup config:', e);
+  }
+};
+
+export const performUnusedMediaCleanup = (olderThanDays: number = 0): { deletedCount: number; freedBytes: number } => {
+  const unusedItems = getUnusedMediaItems(olderThanDays);
+  if (!unusedItems.length) {
+    return { deletedCount: 0, freedBytes: 0 };
+  }
+
+  const idsToDelete = unusedItems.map(item => item.id);
+  const freedBytes = unusedItems.reduce((acc, item) => acc + (item.compressedSize || item.originalSize || 0), 0);
+
+  deleteMultipleMediaItems(idsToDelete);
+
+  return { deletedCount: idsToDelete.length, freedBytes };
+};
+
+export const checkAndRunAutoCleanup = (): { executed: boolean; deletedCount: number; freedBytes: number } => {
+  const config = getAutoCleanupConfig();
+  if (!config.enabled) {
+    return { executed: false, deletedCount: 0, freedBytes: 0 };
+  }
+
+  const now = Date.now();
+  const lastRun = config.lastRunTimestamp ? new Date(config.lastRunTimestamp).getTime() : 0;
+  const TWELVE_HOURS = 12 * 3600 * 1000;
+
+  if (now - lastRun >= TWELVE_HOURS) {
+    const result = performUnusedMediaCleanup(config.ageInDays);
+    config.lastRunTimestamp = new Date().toISOString();
+    saveAutoCleanupConfig(config);
+    return { executed: true, ...result };
+  }
+
+  return { executed: false, deletedCount: 0, freedBytes: 0 };
 };
 
 

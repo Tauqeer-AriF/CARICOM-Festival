@@ -8,12 +8,36 @@ import {
   Sparkles, 
   Percent, 
   ImageIcon, 
-  Calendar, 
   Loader2,
-  Check
+  Check,
+  Video,
+  Film,
+  CheckSquare,
+  Square,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Download,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { MediaItem } from '../types';
-import { getMediaItems, addMediaItem, deleteMediaItem } from '../services/submissionService';
+import { 
+  getMediaItems, 
+  addMediaItem, 
+  deleteMediaItem, 
+  deleteMultipleMediaItems,
+  getAllUsedMediaUrls,
+  getUnusedMediaItems,
+  getAutoCleanupConfig,
+  saveAutoCleanupConfig,
+  performUnusedMediaCleanup,
+  checkAndRunAutoCleanup,
+  AutoCleanupConfig
+} from '../services/submissionService';
 
 interface MediaLibraryTabProps {
   primaryColor?: string;
@@ -23,20 +47,42 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   primaryColor = '#F59E0B'
 }) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [usedUrls, setUsedUrls] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'unused'>('all');
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploadStats, setUploadStats] = useState<{ original: number; compressed: number; name: string } | null>(null);
+
+  // Auto-Cleanup Modal State
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [autoCleanupConfig, setAutoCleanupConfig] = useState<AutoCleanupConfig>({ enabled: false, ageInDays: 7 });
+  const [selectedCleanupDays, setSelectedCleanupDays] = useState<number>(7);
+  const [customDaysInput, setCustomDaysInput] = useState<string>('14');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, typeFilter]);
 
   useEffect(() => {
-    setMedia(getMediaItems());
+    loadMedia();
+    const config = getAutoCleanupConfig();
+    setAutoCleanupConfig(config);
+    setSelectedCleanupDays(config.ageInDays);
+
+    // Run background auto-cleanup if due
+    const cleanupResult = checkAndRunAutoCleanup();
+    if (cleanupResult.executed && cleanupResult.deletedCount > 0) {
+      showToast(`Auto-cleanup removed ${cleanupResult.deletedCount} unused media item(s) (${formatBytes(cleanupResult.freedBytes)} freed)`);
+      loadMedia();
+    }
 
     const handleUpdate = () => loadMedia();
     window.addEventListener('media_updated', handleUpdate);
@@ -47,6 +93,12 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
   const loadMedia = () => {
     setMedia(getMediaItems());
+    setUsedUrls(getAllUsedMediaUrls());
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const formatBytes = (bytes: number): string => {
@@ -102,60 +154,98 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     if (!files || files.length === 0) return;
     setUploading(true);
     setUploadStats(null);
+    const totalFiles = files.length;
 
-    const file = files[0];
-    try {
-      let url = '';
-      let compressedSize = file.size;
+    let totalOriginal = 0;
+    let totalCompressed = 0;
 
-      if (file.type.startsWith('image/')) {
-        const result = await compressImage(file, 1024, 0.75);
-        url = result.compressedUrl;
-        compressedSize = result.compressedSize;
+    for (let i = 0; i < totalFiles; i++) {
+      setUploadProgress({ current: i + 1, total: totalFiles });
+      const file = files[i];
 
-        setUploadStats({
-          original: file.size,
-          compressed: compressedSize,
-          name: file.name
-        });
-      } else {
-        url = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+      try {
+        let url = '';
+        let compressedSize = file.size;
+
+        if (file.type.startsWith('image/')) {
+          const result = await compressImage(file, 1024, 0.75);
+          url = result.compressedUrl;
+          compressedSize = result.compressedSize;
+
+          totalOriginal += file.size;
+          totalCompressed += compressedSize;
+        } else {
+          url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          totalOriginal += file.size;
+          totalCompressed += file.size;
+        }
+
+        const newItem: MediaItem = {
+          id: 'media-' + Date.now() + '-' + i,
+          name: file.name,
+          url: url,
+          originalSize: file.size,
+          compressedSize: compressedSize,
+          type: file.type || (file.name.match(/\.(mp4|mov|avi)$/i) ? 'video/mp4' : 'image/jpeg'),
+          uploadedAt: new Date().toISOString()
+        };
+
+        addMediaItem(newItem);
+      } catch (err) {
+        console.error('File upload/compression failed:', err);
       }
-
-      const newItem: MediaItem = {
-        id: 'media-' + Date.now(),
-        name: file.name,
-        url: url,
-        originalSize: file.size,
-        compressedSize: compressedSize,
-        type: file.type,
-        uploadedAt: new Date().toISOString()
-      };
-
-      addMediaItem(newItem);
-      loadMedia();
-
-      setTimeout(() => {
-        setUploadStats(null);
-      }, 5000);
-
-    } catch (err) {
-      console.error('File upload/compression failed:', err);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+
+    loadMedia();
+    if (totalFiles === 1 && totalOriginal > 0) {
+      setUploadStats({
+        original: totalOriginal,
+        compressed: totalCompressed,
+        name: files[0].name
+      });
+      setTimeout(() => setUploadStats(null), 5000);
+    } else {
+      showToast(`Successfully uploaded ${totalFiles} media item${totalFiles > 1 ? 's' : ''}!`);
+    }
+
+    setUploading(false);
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this media asset?')) {
       deleteMediaItem(id);
+      setSelectedIds(prev => prev.filter(item => item !== id));
       loadMedia();
+      showToast('Asset deleted!');
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (!selectedIds.length) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected asset${selectedIds.length > 1 ? 's' : ''}?`)) {
+      deleteMultipleMediaItems(selectedIds);
+      showToast(`Successfully deleted ${selectedIds.length} asset${selectedIds.length > 1 ? 's' : ''}!`);
+      setSelectedIds([]);
+      loadMedia();
+    }
+  };
+
+  const handleBulkCopyUrls = async () => {
+    if (!selectedIds.length) return;
+    const selectedMedia = media.filter(item => selectedIds.includes(item.id));
+    const urlsText = selectedMedia.map(item => item.url).join('\n');
+    try {
+      await navigator.clipboard.writeText(urlsText);
+      showToast(`Copied ${selectedIds.length} URL${selectedIds.length > 1 ? 's' : ''} to clipboard!`);
+    } catch (err) {
+      console.error('Copy to clipboard failed:', err);
     }
   };
 
@@ -163,9 +253,26 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     try {
       await navigator.clipboard.writeText(item.url);
       setCopiedId(item.id);
+      showToast('URL copied to clipboard!');
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('Copy to clipboard failed:', err);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllFiltered = () => {
+    const allFilteredIds = filteredMedia.map(item => item.id);
+    const isAllSelected = allFilteredIds.every(id => selectedIds.includes(id));
+    if (isAllSelected) {
+      setSelectedIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
     }
   };
 
@@ -183,27 +290,118 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileUpload(e.dataTransfer.files);
     }
   };
 
-  const filteredMedia = media.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const unusedMediaList = media.filter(item => !usedUrls.has(item.url));
+  const unusedCount = unusedMediaList.length;
+
+  const filteredMedia = media.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4');
+    const isUsed = usedUrls.has(item.url);
+
+    if (typeFilter === 'video' && !isVideo) return false;
+    if (typeFilter === 'image' && isVideo) return false;
+    if (typeFilter === 'unused' && isUsed) return false;
+    return matchesSearch;
+  });
+
+  const handleInstantCleanup = (daysThreshold: number) => {
+    const matchingUnused = getUnusedMediaItems(daysThreshold);
+    if (!matchingUnused.length) {
+      showToast('No unused media items match the selected timeframe.');
+      return;
+    }
+
+    const totalFreed = matchingUnused.reduce((acc, i) => acc + (i.compressedSize || i.originalSize || 0), 0);
+    const dayLabel = daysThreshold === 0 ? 'any age' : `older than ${daysThreshold} day${daysThreshold > 1 ? 's' : ''}`;
+
+    if (window.confirm(`Are you sure you want to permanently delete ${matchingUnused.length} unused media asset(s) (${dayLabel})? This will free up ${formatBytes(totalFreed)}.`)) {
+      const result = performUnusedMediaCleanup(daysThreshold);
+      showToast(`Deleted ${result.deletedCount} unused asset(s) (${formatBytes(result.freedBytes)} freed)!`);
+      setSelectedIds([]);
+      loadMedia();
+    }
+  };
+
+  const handleSaveAutoCleanup = (enabled: boolean, ageInDays: number) => {
+    const newConfig: AutoCleanupConfig = {
+      enabled,
+      ageInDays,
+      lastRunTimestamp: new Date().toISOString()
+    };
+    saveAutoCleanupConfig(newConfig);
+    setAutoCleanupConfig(newConfig);
+    showToast(enabled ? `Auto-cleanup enabled for unused media older than ${ageInDays === 0 ? 'immediate' : ageInDays + ' days'}!` : 'Auto-cleanup disabled.');
+  };
 
   const ITEMS_PER_PAGE = 9;
   const totalPages = Math.ceil(filteredMedia.length / ITEMS_PER_PAGE) || 1;
   const paginatedMedia = filteredMedia.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
+  const openLightbox = (item: MediaItem) => {
+    const idx = filteredMedia.findIndex(m => m.id === item.id);
+    if (idx !== -1) {
+      setLightboxIndex(idx);
+    }
+  };
+
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+  };
+
+  const nextLightbox = () => {
+    if (lightboxIndex === null || filteredMedia.length === 0) return;
+    setLightboxIndex((lightboxIndex + 1) % filteredMedia.length);
+  };
+
+  const prevLightbox = () => {
+    if (lightboxIndex === null || filteredMedia.length === 0) return;
+    setLightboxIndex((lightboxIndex - 1 + filteredMedia.length) % filteredMedia.length);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (lightboxIndex === null) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowRight') nextLightbox();
+      if (e.key === 'ArrowLeft') prevLightbox();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, filteredMedia]);
+
   return (
     <div className="space-y-6">
+      {/* Toast Alert Banner */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3 bg-amber-500/90 text-neutral-950 font-bold text-xs rounded-xl shadow-lg flex items-center justify-between border border-amber-400"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 fill-neutral-950" />
+              <span>{toastMessage}</span>
+            </div>
+            <button onClick={() => setToastMessage(null)} className="cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Tab Heading */}
       <div>
         <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Dashboard Media Storage</span>
         <h2 className="text-xl font-bold text-white font-serif mt-0.5">Asset & Media Library</h2>
         <p className="text-xs text-neutral-400 font-light">
-          Upload and organise assets. High-resolution photos are automatically compressed on-the-fly to protect client memory limits.
+          Upload, manage, and batch-process assets. High-resolution photos are automatically compressed on-the-fly to protect client memory limits.
         </p>
       </div>
 
@@ -211,9 +409,12 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
         {/* Left column: Upload panel */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-sm">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-sans">Upload Asset</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-sans flex items-center justify-between">
+              <span>Upload Assets</span>
+              <span className="text-[10px] text-amber-400 font-mono font-bold">Multi-File Ready</span>
+            </h3>
             <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-              Drag and drop files. High-efficiency client-side compression reduces up to 90% of image size while preserving rich contrast and vibrant tropical colours.
+              Drag and drop single or multiple files. Client-side compression automatically shrinks image size while preserving vibrant contrast.
             </p>
 
             <div
@@ -229,7 +430,8 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                multiple
+                accept="image/*,video/*"
                 className="hidden"
                 onChange={(e) => handleFileUpload(e.target.files)}
               />
@@ -237,20 +439,49 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               {uploading ? (
                 <>
                   <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-                  <span className="text-[11px] text-amber-400 font-semibold uppercase tracking-wider">Compressing & Saving...</span>
+                  <span className="text-[11px] text-amber-400 font-semibold uppercase tracking-wider">
+                    {uploadProgress ? `Processing ${uploadProgress.current} of ${uploadProgress.total}...` : 'Compressing & Saving...'}
+                  </span>
                 </>
               ) : (
                 <>
                   <div className="p-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-400">
-                    <Upload className="w-5 h-5" />
+                    <Upload className="w-5 h-5 text-amber-400" />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-white">Click to Browse</p>
-                    <p className="text-[10px] text-neutral-500 font-light">or drag and drop images</p>
+                    <p className="text-xs font-bold text-white">Click to Browse Files</p>
+                    <p className="text-[10px] text-neutral-500 font-light">Select multiple photos or videos</p>
                   </div>
                 </>
               )}
             </div>
+          </div>
+
+          {/* Auto Cleanup Button Card */}
+          <div className="bg-[#0C0F1E] border border-amber-500/20 rounded-2xl p-4 space-y-2.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>Auto Storage Manager</span>
+              </span>
+              {autoCleanupConfig.enabled && (
+                <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold rounded-full font-mono flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>ACTIVE</span>
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-light leading-snug">
+              Automatically detect and clean up media files that are not referenced in events, gallery, site settings, or pages.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCleanupModal(true)}
+              className="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Clean Up / Auto-Delete Unused</span>
+            </button>
           </div>
 
           {/* Compression Stats Panel */}
@@ -285,22 +516,127 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           )}
         </div>
 
-        {/* Right column: Media grid & search */}
+        {/* Right column: Media grid & search & bulk bar */}
         <div className="flex-1 space-y-4">
+          {/* Search and Media Type Filter */}
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full sm:w-72">
               <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
-                placeholder="Search media files by name..."
+                placeholder="Search assets by name..."
               />
             </div>
-            <div className="text-[10px] font-mono text-neutral-500">
-              Database contains: <span className="text-neutral-300 font-bold">{media.length} files</span>
+
+            {/* Media Type Filter Pills */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end flex-wrap">
+              <button
+                onClick={() => setTypeFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
+                  typeFilter === 'all'
+                    ? 'bg-amber-500 text-neutral-950 shadow'
+                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
+                }`}
+              >
+                <Film className="w-3 h-3" />
+                <span>All ({media.length})</span>
+              </button>
+              <button
+                onClick={() => setTypeFilter('image')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
+                  typeFilter === 'image'
+                    ? 'bg-amber-500 text-neutral-950 shadow'
+                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
+                }`}
+              >
+                <ImageIcon className="w-3 h-3" />
+                <span>Photos</span>
+              </button>
+              <button
+                onClick={() => setTypeFilter('video')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
+                  typeFilter === 'video'
+                    ? 'bg-rose-500 text-white shadow'
+                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
+                }`}
+              >
+                <Video className="w-3 h-3" />
+                <span>Videos</span>
+              </button>
+              <button
+                onClick={() => setTypeFilter('unused')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-all ${
+                  typeFilter === 'unused'
+                    ? 'bg-amber-500 text-neutral-950 shadow'
+                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                <span>Unused ({unusedCount})</span>
+              </button>
             </div>
+          </div>
+
+          {/* BULK ACTIONS TOOLBAR */}
+          <div className="bg-[#12162E] border border-amber-500/30 p-3 px-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-white cursor-pointer bg-neutral-900 px-2.5 py-1.5 rounded-lg border border-neutral-800"
+              >
+                {filteredMedia.length > 0 && filteredMedia.every(item => selectedIds.includes(item.id)) ? (
+                  <CheckSquare className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Square className="w-4 h-4 text-neutral-500" />
+                )}
+                <span>Select All ({filteredMedia.length})</span>
+              </button>
+
+              {selectedIds.length > 0 && (
+                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
+                  {selectedIds.length} selected
+                </span>
+              )}
+            </div>
+
+            {selectedIds.length > 0 ? (
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleBulkCopyUrls}
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-bold text-xs rounded-lg border border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Selected URLs</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs rounded-lg border border-rose-500/40 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Delete ({selectedIds.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds([])}
+                  className="p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+                  title="Deselect All"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <span className="text-[11px] text-neutral-500 font-light hidden sm:inline">
+                Check items to unlock bulk operations (copy URLs, batch deletion)
+              </span>
+            )}
           </div>
 
           {filteredMedia.length === 0 ? (
@@ -311,7 +647,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-white">No Assets Found</h4>
                 <p className="text-xs text-neutral-500 font-light max-w-sm mx-auto leading-relaxed">
-                  No images match your search query. Drag and drop a new image to save it.
+                  No media items match your search query or filter. Upload new files to populate your media library.
                 </p>
               </div>
             </div>
@@ -319,41 +655,93 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {paginatedMedia.map((item) => {
-                  const compressionSavings = item.originalSize - item.compressedSize;
                   const pctSavings = Math.round((1 - item.compressedSize / item.originalSize) * 100);
+                  const isSelected = selectedIds.includes(item.id);
+                  const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4');
+
                   return (
                     <div
                       key={item.id}
-                      className="group border border-neutral-800/80 bg-[#0C0F1E] rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-neutral-700 transition-all duration-250"
+                      className={`group border rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all duration-250 ${
+                        isSelected 
+                          ? 'border-amber-500 bg-amber-500/5 ring-1 ring-amber-500' 
+                          : 'border-neutral-800/80 bg-[#0C0F1E] hover:border-neutral-700'
+                      }`}
                     >
-                      {/* Image Preview Window */}
-                      <div className="relative aspect-video bg-neutral-950 overflow-hidden border-b border-neutral-900">
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                          }}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors duration-300" />
+                      {/* Media Preview Window */}
+                      <div 
+                        onClick={() => openLightbox(item)}
+                        className="relative aspect-video bg-neutral-950 overflow-hidden border-b border-neutral-900 cursor-pointer group/preview"
+                      >
+                        {isVideo ? (
+                          <video
+                            src={item.url}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={item.name}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-neutral-950/40 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
+                          <span className="px-3 py-1.5 bg-neutral-950/90 text-amber-400 border border-neutral-700/80 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xl">
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>Expand View</span>
+                          </span>
+                        </div>
                         
                         {/* Technical Meta badge */}
-                        <span className="absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md border border-neutral-800 text-[8px] font-extrabold text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
-                          {item.type.split('/')[1] || 'IMAGE'}
+                        <span className="absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md border border-neutral-800 text-[8px] font-extrabold text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono z-10 flex items-center gap-1">
+                          {isVideo && <Video className="w-2.5 h-2.5 text-rose-400" />}
+                          <span>{item.type?.split('/')[1]?.toUpperCase() || 'MEDIA'}</span>
                         </span>
+
+                        {/* Multi-Select Checkbox Top-Right */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelect(item.id);
+                          }}
+                          className="absolute top-3 right-3 z-20 p-1 bg-neutral-950/90 rounded-lg border border-neutral-700 hover:border-amber-400 cursor-pointer transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                          ) : (
+                            <Square className="w-4 h-4 text-neutral-400" />
+                          )}
+                        </button>
                       </div>
 
                       {/* Metadata & Actions */}
                       <div className="p-4 space-y-3.5">
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
-                            {item.name}
-                          </h4>
-                          <span className="text-[9px] text-neutral-500 font-mono block">
-                            Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 min-w-0 flex-1">
+                            <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
+                              {item.name}
+                            </h4>
+                            <span className="text-[9px] text-neutral-500 font-mono block">
+                              Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+                          {usedUrls.has(item.url) ? (
+                            <span className="shrink-0 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>IN USE</span>
+                            </span>
+                          ) : (
+                            <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              <span>UNUSED</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Storage Analytics Ribbon */}
@@ -435,6 +823,353 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* FULL-SCREEN LIGHTBOX MODAL */}
+      <AnimatePresence>
+        {lightboxIndex !== null && filteredMedia[lightboxIndex] && (() => {
+          const currentItem = filteredMedia[lightboxIndex];
+          const isVideo = currentItem.type?.startsWith('video/') || currentItem.url?.includes('data:video') || currentItem.url?.endsWith('.mp4');
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex flex-col justify-between p-4 sm:p-6 select-none overflow-hidden"
+              onClick={closeLightbox}
+            >
+              {/* Top Control Header Bar */}
+              <div 
+                className="flex items-center justify-between text-white border-b border-neutral-800/80 pb-4 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold rounded-lg shadow">
+                    {lightboxIndex + 1} / {filteredMedia.length}
+                  </span>
+                  <div className="space-y-0.5 max-w-xs sm:max-w-md">
+                    <h3 className="text-sm font-bold text-white truncate" title={currentItem.name}>
+                      {currentItem.name}
+                    </h3>
+                    <span className="text-[10px] text-neutral-400 font-mono block">
+                      {currentItem.type?.toUpperCase() || 'MEDIA'} • Original: {formatBytes(currentItem.originalSize)} → Saved: {formatBytes(currentItem.compressedSize)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyLink(currentItem)}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-bold text-xs rounded-xl border border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    {copiedId === currentItem.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Copy Link</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={currentItem.url}
+                    download={currentItem.name}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 font-bold text-xs rounded-xl border border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"
+                    title="Download Asset"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Download</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDelete(currentItem.id);
+                      closeLightbox();
+                    }}
+                    className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 cursor-pointer transition-colors"
+                    title="Delete Asset"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeLightbox}
+                    className="p-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl border border-neutral-700 cursor-pointer transition-colors ml-2"
+                    title="Close (ESC)"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Media Container with Nav Arrows */}
+              <div 
+                className="relative flex-1 flex items-center justify-center my-4 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {filteredMedia.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={prevLightbox}
+                    className="absolute left-2 sm:left-6 z-20 p-3.5 rounded-full bg-neutral-900/90 border border-neutral-700 text-white hover:bg-amber-500 hover:text-neutral-950 transition-all cursor-pointer shadow-2xl hover:scale-110"
+                    title="Previous (Left Arrow)"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                )}
+
+                <motion.div
+                  key={currentItem.id}
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="max-w-full max-h-full flex items-center justify-center p-2"
+                >
+                  {isVideo ? (
+                    <video
+                      src={currentItem.url}
+                      controls
+                      autoPlay
+                      className="max-h-[75vh] max-w-full rounded-2xl border border-neutral-800 shadow-2xl object-contain bg-black"
+                    />
+                  ) : (
+                    <img
+                      src={currentItem.url}
+                      alt={currentItem.name}
+                      referrerPolicy="no-referrer"
+                      className="max-h-[75vh] max-w-full object-contain rounded-2xl border border-neutral-800 shadow-2xl bg-neutral-950"
+                    />
+                  )}
+                </motion.div>
+
+                {filteredMedia.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={nextLightbox}
+                    className="absolute right-2 sm:right-6 z-20 p-3.5 rounded-full bg-neutral-900/90 border border-neutral-700 text-white hover:bg-amber-500 hover:text-neutral-950 transition-all cursor-pointer shadow-2xl hover:scale-110"
+                    title="Next (Right Arrow)"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                )}
+              </div>
+
+              {/* Bottom Footer Info */}
+              <div 
+                className="flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 border-t border-neutral-800/80 pt-3 gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 font-mono text-[11px]">
+                  <span className="text-neutral-500">Uploaded:</span>
+                  <span className="text-neutral-300 font-bold">
+                    {new Date(currentItem.uploadedAt).toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-neutral-500 font-mono text-[10px]">
+                  <span className="bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-lg">← → Navigate</span>
+                  <span className="bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-lg">ESC Close</span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* AUTO-CLEANUP & UNUSED MEDIA MODAL */}
+      <AnimatePresence>
+        {showCleanupModal && (
+          <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#0C0F1E] border border-amber-500/30 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 my-8"
+            >
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-neutral-800/80 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-2xl">
+                    <Clock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white font-serif">Auto-Delete Unused Media</h3>
+                    <p className="text-xs text-neutral-400">Clean up unreferenced media or configure automatic background cleanup.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCleanupModal(false)}
+                  className="p-1.5 text-neutral-400 hover:text-white bg-neutral-900 border border-neutral-800 rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Status Summary Banner */}
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-neutral-400 block font-light">Unused Assets Found</span>
+                  <span className="text-amber-400 font-bold font-mono text-sm">{unusedCount} item{unusedCount !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-neutral-400 block font-light">Total Unused Size</span>
+                  <span className="text-amber-400 font-bold font-mono text-sm">
+                    {formatBytes(unusedMediaList.reduce((acc, i) => acc + (i.compressedSize || i.originalSize || 0), 0))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Section 1: Manual / Immediate Cleanup */}
+              <div className="space-y-3 bg-neutral-950/60 p-4 rounded-2xl border border-neutral-800/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>1. Instant Clean Up Now</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-500 font-mono">Select Timeframe</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: 'All / Immediate', days: 0 },
+                    { label: '> 1 Day', days: 1 },
+                    { label: '> 7 Days', days: 7 },
+                    { label: '> 30 Days', days: 30 },
+                  ].map((option) => {
+                    const matchCount = getUnusedMediaItems(option.days).length;
+                    return (
+                      <button
+                        key={option.days}
+                        type="button"
+                        onClick={() => setSelectedCleanupDays(option.days)}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          selectedCleanupDays === option.days
+                            ? 'bg-amber-500 text-neutral-950 font-bold border-amber-400 shadow-md'
+                            : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                        }`}
+                      >
+                        <span className="block text-[11px] font-bold">{option.label}</span>
+                        <span className={`text-[9px] font-mono block mt-0.5 ${selectedCleanupDays === option.days ? 'text-neutral-900 font-bold' : 'text-neutral-500'}`}>
+                          {matchCount} match{matchCount !== 1 ? 'es' : ''}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Days Input Option */}
+                <div className="pt-2 flex items-center gap-2">
+                  <label className="text-[11px] text-neutral-400 whitespace-nowrap">Or custom older than:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={customDaysInput}
+                    onChange={(e) => {
+                      setCustomDaysInput(e.target.value);
+                      const num = parseInt(e.target.value) || 1;
+                      setSelectedCleanupDays(num);
+                    }}
+                    className="w-20 bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-[11px] text-neutral-400">days</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleInstantCleanup(selectedCleanupDays)}
+                  className="w-full py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer mt-2"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Delete Matching Unused Media ({getUnusedMediaItems(selectedCleanupDays).length})</span>
+                </button>
+              </div>
+
+              {/* Section 2: Scheduled Background Auto-Cleanup */}
+              <div className="space-y-3 bg-neutral-950/60 p-4 rounded-2xl border border-neutral-800/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>2. Automatic Scheduled Cleanup</span>
+                  </span>
+                  
+                  {/* Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextState = !autoCleanupConfig.enabled;
+                      handleSaveAutoCleanup(nextState, autoCleanupConfig.ageInDays);
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors p-1 cursor-pointer flex items-center ${
+                      autoCleanupConfig.enabled ? 'bg-emerald-500 justify-end' : 'bg-neutral-800 justify-start'
+                    }`}
+                  >
+                    <motion.div
+                      layout
+                      className="w-4 h-4 rounded-full bg-white shadow-md"
+                    />
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                  When enabled, the application will automatically purge unused media items older than your configured threshold in the background.
+                </p>
+
+                {autoCleanupConfig.enabled && (
+                  <div className="space-y-3 pt-2 border-t border-neutral-800">
+                    <label className="text-[11px] font-bold text-neutral-300 block">Auto-Purge Threshold:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Immediate', days: 0 },
+                        { label: '> 7 Days', days: 7 },
+                        { label: '> 30 Days', days: 30 },
+                      ].map((opt) => (
+                        <button
+                          key={opt.days}
+                          type="button"
+                          onClick={() => handleSaveAutoCleanup(true, opt.days)}
+                          className={`py-2 px-3 rounded-xl border text-center text-xs font-bold cursor-pointer transition-all ${
+                            autoCleanupConfig.ageInDays === opt.days
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                              : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {autoCleanupConfig.lastRunTimestamp && (
+                      <p className="text-[10px] text-neutral-500 font-mono text-center pt-1">
+                        Last automated run: {new Date(autoCleanupConfig.lastRunTimestamp).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowCleanupModal(false)}
+                className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold text-xs rounded-xl border border-neutral-800 transition-colors cursor-pointer"
+              >
+                Close Manager
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+

@@ -11,9 +11,9 @@ import {
   MapPin, 
   Sparkles, 
   Ticket, 
-  Download,
-  Share2,
-  Camera
+  Share2, 
+  Camera,
+  Video
 } from 'lucide-react';
 import { GalleryItem } from '../types';
 
@@ -61,7 +61,10 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
 
   if (!isOpen || !item) return null;
 
+  const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
+
   const toggleZoom = () => {
+    if (isVideo) return;
     setZoomLevel((prev) => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1));
   };
 
@@ -83,6 +86,65 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     }
   };
 
+  const renderMedia = () => {
+    if (isVideo && item.videoUrl) {
+      const url = item.videoUrl.trim();
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        let embedId = '';
+        if (url.includes('youtu.be/')) {
+          embedId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+        } else if (url.includes('v=')) {
+          embedId = url.split('v=')[1]?.split('&')[0] || '';
+        }
+        return (
+          <iframe
+            src={`https://www.youtube.com/embed/${embedId}?autoplay=1&rel=0`}
+            title={item.title}
+            className="w-full max-w-4xl h-[55vh] sm:h-[65vh] rounded-2xl shadow-2xl border border-amber-500/20"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        );
+      } else if (url.includes('vimeo.com')) {
+        const parts = url.split('vimeo.com/');
+        const vimeoId = parts[1]?.split('?')[0] || '';
+        return (
+          <iframe
+            src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+            title={item.title}
+            className="w-full max-w-4xl h-[55vh] sm:h-[65vh] rounded-2xl shadow-2xl border border-amber-500/20"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        );
+      } else {
+        return (
+          <video
+            src={item.videoUrl}
+            controls
+            autoPlay
+            loop
+            poster={item.imageUrl}
+            className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl border border-amber-500/20"
+          />
+        );
+      }
+    }
+
+    return (
+      <img
+        src={item.imageUrl}
+        alt={item.title}
+        referrerPolicy="no-referrer"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+        }}
+        className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 ease-out border border-amber-500/20"
+        style={{ transform: `scale(${zoomLevel})` }}
+      />
+    );
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-2xl animate-fadeIn">
       
@@ -94,24 +156,37 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
         
         {/* Top Header Controls */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-amber-500/20 bg-neutral-900/80 backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-300 font-extrabold text-[10px] uppercase tracking-wider rounded-full flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
+          <div className="flex items-center gap-2 flex-wrap">
+            {isVideo ? (
+              <span className="px-3 py-1 bg-rose-500/20 border border-rose-500/40 text-rose-300 font-extrabold text-[10px] uppercase tracking-wider rounded-full flex items-center gap-1 shadow-md">
+                <Video className="w-3 h-3 text-rose-400" />
+                <span>Video Highlight</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-300 font-extrabold text-[10px] uppercase tracking-wider rounded-full flex items-center gap-1">
+                <Camera className="w-3 h-3 text-amber-400" />
+                <span>Photo</span>
+              </span>
+            )}
+            <span className="px-3 py-1 bg-neutral-800 border border-neutral-700 text-neutral-300 font-extrabold text-[10px] uppercase tracking-wider rounded-full flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-400" />
               {item.category}
             </span>
             <span className="text-neutral-400 text-xs hidden sm:inline">• {item.year}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Zoom Button */}
-            <button
-              onClick={toggleZoom}
-              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-amber-500/20"
-              title="Toggle Zoom Level"
-            >
-              {zoomLevel > 1 ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline font-mono">{Math.round(zoomLevel * 100)}%</span>
-            </button>
+            {/* Zoom Button (Photos only) */}
+            {!isVideo && (
+              <button
+                onClick={toggleZoom}
+                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-amber-500/20"
+                title="Toggle Zoom Level"
+              >
+                {zoomLevel > 1 ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline font-mono">{Math.round(zoomLevel * 100)}%</span>
+              </button>
+            )}
 
             {/* Share Button */}
             <button
@@ -146,7 +221,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
           <button
             onClick={onPrev}
             className="absolute left-3 sm:left-5 z-20 p-3 bg-neutral-950/80 hover:bg-amber-500 hover:text-neutral-950 text-amber-400 border border-amber-500/40 rounded-full shadow-2xl transition-all cursor-pointer backdrop-blur-md group"
-            title="Previous Photo (Left Arrow)"
+            title="Previous Item (Left Arrow)"
           >
             <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
           </button>
@@ -155,26 +230,17 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
           <button
             onClick={onNext}
             className="absolute right-3 sm:right-5 z-20 p-3 bg-neutral-950/80 hover:bg-amber-500 hover:text-neutral-950 text-amber-400 border border-amber-500/40 rounded-full shadow-2xl transition-all cursor-pointer backdrop-blur-md group"
-            title="Next Photo (Right Arrow)"
+            title="Next Item (Right Arrow)"
           >
             <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
-          {/* Image Display */}
+          {/* Media Display */}
           <div 
-            className="w-full h-full flex items-center justify-center p-2 sm:p-6 cursor-zoom-in overflow-auto max-h-[70vh]"
-            onClick={toggleZoom}
+            className={`w-full h-full flex items-center justify-center p-2 sm:p-6 ${!isVideo ? 'cursor-zoom-in' : ''} overflow-auto max-h-[70vh]`}
+            onClick={!isVideo ? toggleZoom : undefined}
           >
-            <img
-              src={item.imageUrl}
-              alt={item.title}
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-              }}
-              className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 ease-out border border-amber-500/20"
-              style={{ transform: `scale(${zoomLevel})` }}
-            />
+            {renderMedia()}
           </div>
         </div>
 

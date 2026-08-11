@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FlightRegistration } from '../types';
-import { Plane, CheckCircle2, ShieldCheck, User, Hotel, Phone, Calendar, Clock, Ticket, Download, Sparkles } from 'lucide-react';
+import { Plane, CheckCircle2, ShieldCheck, User, Ticket, Download, Sparkles } from 'lucide-react';
 import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { addSubmission } from '../services/submissionService';
 

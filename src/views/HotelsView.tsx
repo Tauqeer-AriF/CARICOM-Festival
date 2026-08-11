@@ -1,228 +1,212 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ActiveTab, HotelItem } from '../types';
-import { Hotel, Star, CheckCircle2, ShieldCheck, MapPin, ExternalLink, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
-import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { getSiteConfig, getPageImage } from '../services/submissionService';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Building, 
+  Star, 
+  MapPin, 
+  ExternalLink, 
+  Sparkles, 
+  Check, 
+  X,
+  PhoneCall
+} from 'lucide-react';
 
 interface HotelsViewProps {
   setActiveTab: (tab: ActiveTab) => void;
-  hotels?: HotelItem[];
+  hotels: HotelItem[];
 }
 
-// Custom animation presets for a premium aesthetic
-const fadeInUp = {
-  hidden: { opacity: 0, y: 35 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1]
-    }
-  }
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.15
-    }
-  }
-};
-
-export const HotelsView: React.FC<HotelsViewProps> = ({ setActiveTab, hotels = [] }) => {
-  const activeHotels = hotels;
+export const HotelsView: React.FC<HotelsViewProps> = ({ setActiveTab, hotels }) => {
+  const siteConfig = getSiteConfig();
+  const bannerImg = getPageImage('hotelsBanner', 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80');
+  const [activeHotelModal, setActiveHotelModal] = useState<HotelItem | null>(null);
 
   return (
-    <div className="space-y-12 pb-12">
-      
-      {/* Title */}
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={fadeInUp}
-        className="text-center max-w-3xl mx-auto space-y-3"
-      >
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">LUXURY & CONVENIENCE IN GRENADA</span>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          List of Recommended Hotels
-        </h1>
-        <p className="text-slate-300 text-sm font-light leading-relaxed">
-          Select from Grenada's top beachfront resorts. All listed partner hotels feature dedicated Mellows Entertainment pickup points and reception listings.
-        </p>
-      </motion.div>
-
-      {activeHotels.length === 0 ? (
-        <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800">
-          <Hotel className="w-12 h-12 text-slate-500 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No Partner Hotels Listed</h3>
-          <p className="text-sm text-slate-400 font-light max-w-sm mx-auto">There are no partner hotels currently registered in our database.</p>
+    <div className="space-y-12 animate-fadeIn pb-16">
+      {/* Hero Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${bannerImg})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
+        <div className="relative z-10 max-w-2xl space-y-4">
+          <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
+            <Building className="w-3.5 h-3.5" /> Island Accommodation Partners
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
+            Official <span className="text-gold-gradient">Hotel & Resort Partners</span>
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
+            Stay in luxury during Grenada CARICOM Festival 2027. Enjoy discounted festival rates at beachfront resorts, boutique stays, and private villas with shuttle service to events.
+          </p>
         </div>
-      ) : (
-        <>
-          {/* Featured Spotlight - Royalton */}
-          {activeHotels.filter((h) => h.isRecommended).map((hotel) => (
-            <motion.div
-              key={hotel.id}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={fadeInUp}
-              className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/60 border-2 border-amber-500 rounded-3xl p-8 md:p-12 shadow-2xl space-y-8 relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 bg-amber-500 text-neutral-950 text-xs font-extrabold px-6 py-2 rounded-bl-3xl uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
-                <Sparkles className="w-4 h-4 fill-neutral-950" /> HIGHLY RECOMMENDED RESORT
+      </div>
+
+      {/* Hotel Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {hotels.map((hotel) => (
+          <motion.div
+            key={hotel.id}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="group bg-neutral-900/90 border border-neutral-800/80 hover:border-amber-500/40 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between"
+          >
+            <div>
+              <div className="relative h-52 overflow-hidden">
+                <img
+                  src={hotel.image}
+                  alt={hotel.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
+
+                {hotel.isRecommended && (
+                  <span className="absolute top-3 left-3 bg-amber-500 text-neutral-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Recommended
+                  </span>
+                )}
+
+                <div className="absolute bottom-3 right-3 bg-neutral-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/30 flex items-center gap-1 text-amber-400 text-xs font-bold">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+                  <span>{hotel.stars} Stars</span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center pt-2">
-                
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 text-amber-400">
-                    {Array.from({ length: hotel.stars }).map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-amber-400" />
-                    ))}
-                  </div>
-
-                  <h2 className="text-3xl sm:text-4xl font-extrabold font-serif text-white">
+              <div className="p-5 space-y-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
+                    {hotel.location}
+                  </span>
+                  <h3 className="text-xl font-bold text-white font-serif group-hover:text-amber-300 transition-colors">
                     {hotel.name}
-                  </h2>
-
-                  <p className="text-amber-300 font-semibold text-sm">
+                  </h3>
+                  <p className="text-xs text-amber-400/90 italic font-light">
                     "{hotel.tagline}"
                   </p>
+                </div>
 
-                  <p className="text-neutral-300 text-sm sm:text-base leading-relaxed">
-                    {hotel.description}
-                  </p>
+                <p className="text-neutral-400 text-xs leading-relaxed line-clamp-3">
+                  {hotel.description}
+                </p>
 
-                  <div className="p-4 bg-neutral-950/90 rounded-2xl border border-amber-500/30 text-xs space-y-2">
-                    <div className="flex items-center gap-2 text-amber-400 font-bold">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      Official Mellows Event Desk On-Site:
+                <div className="flex items-center gap-1.5 text-[11px] text-neutral-300 pt-2 border-t border-neutral-800">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{hotel.distanceToMellowland} to Mellowland</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {hotel.features.slice(0, 3).map((feat, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-300 text-[10px]">
+                      {feat}
+                    </span>
+                  ))}
+                  {hotel.features.length > 3 && (
+                    <span className="px-2 py-0.5 rounded-md bg-neutral-800/60 text-neutral-500 text-[10px]">
+                      +{hotel.features.length - 3} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 pt-0">
+              <button
+                onClick={() => setActiveHotelModal(hotel)}
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>View Hotel & Booking Info</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Hotel Details Modal */}
+      {createPortal(
+        <AnimatePresence>
+          {activeHotelModal && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-neutral-900 border border-amber-500/30 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col z-[10000]"
+              >
+                <div className="relative h-56 shrink-0">
+                  <img src={activeHotelModal.image} alt={activeHotelModal.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
+                  <button
+                    onClick={() => setActiveHotelModal(null)}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-neutral-950/80 text-white hover:bg-amber-500 hover:text-neutral-950 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <div className="absolute bottom-4 left-6 right-6">
+                    <div className="flex items-center gap-1 text-amber-400 text-xs font-bold mb-1">
+                      <Star className="w-4 h-4 fill-amber-400" />
+                      <span>{activeHotelModal.stars}-Star Resort</span>
                     </div>
-                    <p className="text-neutral-300">
-                      Daily event listings and wristband support will be placed in the hotel reception area or handled directly by your dedicated Mellows representative. <strong className="text-amber-300">No stress!</strong>
-                    </p>
+                    <h2 className="text-2xl font-bold text-white font-serif">{activeHotelModal.name}</h2>
                   </div>
+                </div>
 
-                  <div className="space-y-2 pt-2">
-                    <span className="text-xs font-bold uppercase text-neutral-400 tracking-wider block">Key Features:</span>
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-neutral-200">
-                      {hotel.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                          {feat}
-                        </li>
+                <div className="p-6 overflow-y-auto space-y-4 text-xs text-neutral-300">
+                  <p className="leading-relaxed font-light">{activeHotelModal.description}</p>
+                  
+                  <div className="space-y-2 pt-2 border-t border-neutral-800">
+                    <h4 className="font-bold text-white uppercase text-[11px] tracking-wider text-amber-400">Amenities & Features</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {activeHotelModal.features.map((feat, i) => (
+                        <div key={i} className="flex items-center gap-2 text-neutral-300">
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{feat}</span>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
 
-                  <div className="pt-4 flex flex-wrap items-center gap-4">
-                    {hotel.bookingUrl && (
+                  <div className="pt-4 flex gap-3">
+                    {activeHotelModal.bookingUrl ? (
                       <a
-                        href={hotel.bookingUrl}
+                        href={activeHotelModal.bookingUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer flex items-center gap-2"
+                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2"
                       >
-                        Visit Royalton Website
+                        <span>Book Direct at Hotel Website</span>
                         <ExternalLink className="w-4 h-4" />
                       </a>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setActiveHotelModal(null);
+                          setActiveTab('contact');
+                        }}
+                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+                      >
+                        Contact Concierge for Booking
+                      </button>
                     )}
                     <button
-                      onClick={() => setActiveTab('register')}
-                      className="px-6 py-3.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                      onClick={() => setActiveHotelModal(null)}
+                      className="px-5 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
                     >
-                      Register Hotel Selection
+                      Close
                     </button>
                   </div>
-
                 </div>
-
-                <div className="relative rounded-2xl overflow-hidden h-[380px] border border-neutral-700 shadow-2xl">
-                  <img
-                    src={hotel.image}
-                    alt={hotel.name}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.royaltonResort;
-                    }}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4 bg-neutral-950/90 p-4 rounded-xl border border-amber-500/30 text-xs">
-                    <span className="font-bold text-amber-300 block">{hotel.location}</span>
-                    <span className="text-neutral-400">{hotel.distanceToMellowland} to Mellowland Fete Complex</span>
-                  </div>
-                </div>
-
-              </div>
-
-            </motion.div>
-          ))}
-
-          {/* Other Partner Hotels Grid */}
-          <div className="space-y-6 pt-4">
-            <h3 className="text-2xl font-bold font-serif text-white border-l-4 border-amber-500 pl-3">
-              Other Partner Accommodations
-            </h3>
-
-            <motion.div 
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={staggerContainer}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6"
-            >
-              {activeHotels.filter((h) => !h.isRecommended).map((hotel) => (
-                <motion.div
-                  key={hotel.id}
-                  variants={fadeInUp}
-                  className="glass-card glass-card-interactive rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between"
-                >
-                  <div className="relative h-48">
-                    <img
-                      src={hotel.image}
-                      alt={hotel.name}
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.royaltonResort;
-                      }}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 left-3 bg-neutral-950/90 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-lg">
-                      {hotel.stars} ★
-                    </div>
-                  </div>
-
-                  <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
-                    <div className="space-y-2">
-                      <h4 className="font-bold font-serif text-lg text-white">{hotel.name}</h4>
-                      <p className="text-xs text-amber-300 font-medium">{hotel.tagline}</p>
-                      <p className="text-xs text-neutral-300 leading-relaxed">{hotel.description}</p>
-                    </div>
-
-                    <div className="pt-3 border-t border-neutral-800 space-y-2 text-xs">
-                      <div className="text-neutral-400 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400" /> {hotel.location}
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('register')}
-                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition-colors text-xs"
-                      >
-                        Register Staying Here
-                      </button>
-                    </div>
-                  </div>
-
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
-
     </div>
   );
 };

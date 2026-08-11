@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActiveTab } from '../types';
+import { ActiveTab, SiteConfig } from '../types';
 import { 
   Palmtree, 
   Menu, 
@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Sparkles,
   ShieldCheck,
-  Calendar,
   HelpCircle,
   FileText,
   Star,
@@ -17,7 +16,13 @@ import {
   Building,
   Car,
   Sun,
-  Moon
+  Moon,
+  Crown,
+  Flame,
+  Music,
+  Globe,
+  Shield,
+  Compass
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -29,6 +34,7 @@ interface NavbarProps {
   onOpenCart: () => void;
   theme: 'dark' | 'light';
   setTheme: (theme: 'dark' | 'light') => void;
+  siteConfig?: SiteConfig;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -39,7 +45,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartCount,
   onOpenCart,
   theme,
-  setTheme
+  setTheme,
+  siteConfig
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHoverDropdown, setActiveHoverDropdown] = useState<string | null>(null);
@@ -57,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       items: [
         { id: 'about-grenada' as ActiveTab, label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'about-mellowland' as ActiveTab, label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
-        { id: 'gallery' as ActiveTab, label: 'Photo Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'gallery' as ActiveTab, label: 'Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'testimonials' as ActiveTab, label: 'Reveler Reviews', icon: <Star className="w-3.5 h-3.5 text-amber-400" /> },
       ]
     },
@@ -154,25 +161,58 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 gap-3">
             
-            {/* Left Section: Logo */}
+            {/* Left Section: Logo & Brand Name */}
             <div 
               onClick={() => handleTabClick('home')}
               className="flex items-center gap-3 cursor-pointer group shrink-0"
               id="nav-logo"
             >
-              <div className="relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-300 via-amber-500 to-amber-600 rounded-xl blur-[3px] opacity-40 group-hover:opacity-80 transition duration-300" />
-                <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-xl group-hover:scale-105 transition-transform">
-                  <Palmtree className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:rotate-6 transition-transform" />
-                </div>
-              </div>
+              {(() => {
+                if (siteConfig?.appLogoUrl) {
+                  return (
+                    <div className="relative">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-300 via-amber-500 to-amber-600 rounded-xl blur-[3px] opacity-40 group-hover:opacity-80 transition duration-300" />
+                      <img 
+                        src={siteConfig.appLogoUrl} 
+                        alt={siteConfig.appName || "Logo"} 
+                        className="relative w-9 h-9 sm:w-10 sm:h-10 object-cover rounded-xl border border-amber-500/40 shadow-xl group-hover:scale-105 transition-transform bg-neutral-950"
+                      />
+                    </div>
+                  );
+                }
+                const iconName = siteConfig?.appLogoIcon || 'Palmtree';
+                const iconClass = "w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:rotate-6 transition-transform";
+                let iconComponent = <Palmtree className={iconClass} />;
+                if (iconName === 'Sparkles') iconComponent = <Sparkles className={iconClass} />;
+                else if (iconName === 'Crown') iconComponent = <Crown className={iconClass} />;
+                else if (iconName === 'Sun') iconComponent = <Sun className={iconClass} />;
+                else if (iconName === 'Flame') iconComponent = <Flame className={iconClass} />;
+                else if (iconName === 'Music') iconComponent = <Music className={iconClass} />;
+                else if (iconName === 'Globe') iconComponent = <Globe className={iconClass} />;
+                else if (iconName === 'Shield') iconComponent = <Shield className={iconClass} />;
+                else if (iconName === 'Compass') iconComponent = <Compass className={iconClass} />;
+
+                return (
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-300 via-amber-500 to-amber-600 rounded-xl blur-[3px] opacity-40 group-hover:opacity-80 transition duration-300" />
+                    <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-xl group-hover:scale-105 transition-transform">
+                      {iconComponent}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex flex-col justify-center leading-tight">
                 <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-amber-400/90 font-sans-display flex items-center gap-1 whitespace-nowrap">
-                  CARICOM FESTIVAL
+                  {siteConfig?.appSubtitle || 'CARICOM FESTIVAL'}
                 </span>
                 <span className="text-base sm:text-lg font-bold font-serif tracking-tight text-white group-hover:text-amber-300 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                  Grenada <span className="font-sans font-extrabold text-amber-400 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">2027</span>
+                  {siteConfig?.appName || 'Grenada CARICOM Festival 2027'}
+                  {siteConfig?.appYearBadge && !siteConfig?.appName?.includes(siteConfig.appYearBadge) && (
+                    <span className="font-sans font-extrabold text-amber-400 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">
+                      {siteConfig.appYearBadge}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -215,7 +255,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {renderDropdown('experience', 'Experience', [
                 { id: 'about-grenada', label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'about-mellowland', label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
-                { id: 'gallery', label: 'Photo Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
+                { id: 'gallery', label: 'Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'testimonials', label: 'Reveler Reviews', icon: <Star className="w-3.5 h-3.5 text-amber-400" /> },
               ])}
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, ShieldCheck, Ticket, Sparkles, Check, MapPin, QrCode, Lock, Palmtree, Award, Star, Info } from 'lucide-react';
+import { Download, ShieldCheck, Sparkles, Check, MapPin, QrCode, Award, Star } from 'lucide-react';
 import { FormSubmissionItem } from '../types';
 
 interface PassBadgePdfModalProps {

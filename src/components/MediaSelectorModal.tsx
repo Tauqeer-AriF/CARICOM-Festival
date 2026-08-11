@@ -5,11 +5,8 @@ import {
   X, 
   Upload, 
   Search, 
-  Grid, 
   Trash2, 
-  Check, 
   Image as ImageIcon, 
-  FileText, 
   Percent, 
   Sparkles,
   Loader2
@@ -108,57 +105,78 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
     if (!files || files.length === 0) return;
     setUploading(true);
     setUploadStats(null);
+    const totalFiles = files.length;
 
-    const file = files[0];
-    try {
-      let url = '';
-      let compressedSize = file.size;
+    let totalOriginal = 0;
+    let totalCompressed = 0;
+    let lastUploadedUrl = '';
 
-      if (file.type.startsWith('image/')) {
-        // Compress image using client-side HTML5 Canvas
-        const result = await compressImage(file, 1024, 0.75);
-        url = result.compressedUrl;
-        compressedSize = result.compressedSize;
+    for (let i = 0; i < totalFiles; i++) {
+      const file = files[i];
 
-        setUploadStats({
-          original: file.size,
-          compressed: compressedSize,
-          name: file.name
-        });
-      } else {
-        // Non-image fallback: Convert directly to base64
-        url = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+      try {
+        let url = '';
+        let compressedSize = file.size;
+
+        if (file.type.startsWith('image/')) {
+          // Compress image using client-side HTML5 Canvas
+          const result = await compressImage(file, 1024, 0.75);
+          url = result.compressedUrl;
+          compressedSize = result.compressedSize;
+
+          totalOriginal += file.size;
+          totalCompressed += compressedSize;
+        } else {
+          // Non-image fallback: Convert directly to base64
+          url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          totalOriginal += file.size;
+          totalCompressed += file.size;
+        }
+
+        lastUploadedUrl = url;
+
+        const newItem: MediaItem = {
+          id: 'media-' + Date.now() + '-' + i,
+          name: file.name,
+          url: url,
+          originalSize: file.size,
+          compressedSize: compressedSize,
+          type: file.type || (file.name.match(/\.(mp4|mov|avi)$/i) ? 'video/mp4' : 'image/jpeg'),
+          uploadedAt: new Date().toISOString()
+        };
+
+        addMediaItem(newItem);
+      } catch (err) {
+        console.error('File upload/compression failed:', err);
       }
+    }
 
-      const newItem: MediaItem = {
-        id: 'media-' + Date.now(),
-        name: file.name,
-        url: url,
-        originalSize: file.size,
-        compressedSize: compressedSize,
-        type: file.type,
-        uploadedAt: new Date().toISOString()
-      };
+    loadMedia();
 
-      addMediaItem(newItem);
-      loadMedia();
-
-      // Clear the stats banner after 4 seconds
+    if (totalFiles === 1 && totalOriginal > 0) {
+      setUploadStats({
+        original: totalOriginal,
+        compressed: totalCompressed,
+        name: files[0].name
+      });
       setTimeout(() => {
         setUploadStats(null);
       }, 4000);
-
-    } catch (err) {
-      console.error('File upload/compression failed:', err);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+
+    // Auto select the newly uploaded item if onSelect is defined
+    if (lastUploadedUrl && onSelect) {
+      onSelect(lastUploadedUrl);
+      onClose();
+    }
+
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -244,7 +262,8 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      multiple
+                      accept="image/*,video/*"
                       className="hidden"
                       onChange={(e) => handleFileUpload(e.target.files)}
                     />
@@ -341,15 +360,23 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                             }}
                             className="group relative border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950 aspect-video flex flex-col justify-end shadow-sm cursor-pointer hover:border-amber-500/60 transition-all hover:shadow-lg"
                           >
-                            <img
-                              src={item.url}
-                              alt={item.name}
-                              referrerPolicy="no-referrer"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                              }}
-                              className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
-                            />
+                            {item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4') ? (
+                              <video
+                                src={item.url}
+                                className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
+                                muted
+                              />
+                            ) : (
+                              <img
+                                src={item.url}
+                                alt={item.name}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                                }}
+                                className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
+                              />
+                            )}
                             
                             {/* Overlay Gradient */}
                             <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent pointer-events-none" />

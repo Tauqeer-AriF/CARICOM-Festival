@@ -237,7 +237,7 @@ export default function App() {
     switch (tab) {
       case 'home': return 'Festival Highlights & 10-Day Experience';
       case 'events': return 'Event Lineup & Schedule';
-      case 'gallery': return 'Festival Photo Gallery & Highlights';
+      case 'gallery': return 'Festival Gallery & Media Highlights';
       case 'about-grenada': return 'Grenada Spice Island Guide';
       case 'about-mellowland': return 'Mellowland Experience & Tubing';
       case 'transportation': return 'VIP Shuttles & Airport Pickup';
@@ -647,6 +647,7 @@ export default function App() {
         onOpenCart={() => setIsCartOpen(true)}
         theme={theme}
         setTheme={setTheme}
+        siteConfig={siteConfig}
       />
 
       {/* Main Container */}

@@ -10,7 +10,14 @@ import {
   Sparkles,
   ArrowRight,
   Twitter,
-  Youtube
+  Youtube,
+  Crown,
+  Flame,
+  Music,
+  Globe,
+  Shield,
+  Compass,
+  Sun
 } from 'lucide-react';
 import { GrenadaWeatherWidget } from './GrenadaWeatherWidget';
 
@@ -89,16 +96,45 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
           {/* Brand Info */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-emerald-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                <Palmtree className="w-5 h-5" />
-              </div>
+              {(() => {
+                if (siteConfig?.appLogoUrl) {
+                  return (
+                    <img 
+                      src={siteConfig.appLogoUrl} 
+                      alt={siteConfig.appName || "Logo"} 
+                      className="w-10 h-10 object-cover rounded-xl border border-amber-500/30 shadow-md bg-neutral-950"
+                    />
+                  );
+                }
+                const iconName = siteConfig?.appLogoIcon || 'Palmtree';
+                const iconClass = "w-5 h-5 text-amber-400";
+                let iconComponent = <Palmtree className={iconClass} />;
+                if (iconName === 'Sparkles') iconComponent = <Sparkles className={iconClass} />;
+                else if (iconName === 'Crown') iconComponent = <Crown className={iconClass} />;
+                else if (iconName === 'Sun') iconComponent = <Sun className={iconClass} />;
+                else if (iconName === 'Flame') iconComponent = <Flame className={iconClass} />;
+                else if (iconName === 'Music') iconComponent = <Music className={iconClass} />;
+                else if (iconName === 'Globe') iconComponent = <Globe className={iconClass} />;
+                else if (iconName === 'Shield') iconComponent = <Shield className={iconClass} />;
+                else if (iconName === 'Compass') iconComponent = <Compass className={iconClass} />;
+
+                return (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-emerald-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    {iconComponent}
+                  </div>
+                );
+              })()}
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-[0.2em] block font-sans-display">CARICOM UNITY</span>
-                <span className="text-lg font-bold text-white font-serif">Grenada CARICOM Festival 2027</span>
+                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-[0.2em] block font-sans-display">
+                  {siteConfig?.appSubtitle || 'CARICOM UNITY'}
+                </span>
+                <span className="text-lg font-bold text-white font-serif">
+                  {siteConfig?.appName || 'Grenada CARICOM Festival 2027'}
+                </span>
               </div>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed max-w-sm font-light">
-              An exclusive 10-day celebration blending UK & home-base DJs, beach parties, White Gala elegance, river tubing at Mellowland, and luxury island stay.
+              {siteConfig?.appTagline || "An exclusive 10-day celebration blending UK & home-base DJs, beach parties, White Gala elegance, river tubing at Mellowland, and luxury island stay."}
             </p>
 
             {/* Live Grenada Weather Widget */}
@@ -242,15 +278,33 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-4 font-light">
-          <p>© 2027 Grenada CARICOM Festival & Mellows Entertainment Complex. All rights reserved.</p>
-          <div className="flex items-center gap-4">
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-4 font-light border-t border-white/5">
+          <p className="text-center sm:text-left">© 2027 Grenada CARICOM Festival & Mellows Entertainment Complex. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <button onClick={() => handleTab('terms')} className="hover:text-slate-300 transition-colors">Terms & Rules</button>
             <span>•</span>
             <button onClick={() => handleTab('travel-insurance')} className="hover:text-slate-300 transition-colors">30-Day Cancellation Policy</button>
             <span>•</span>
             <button onClick={() => handleTab('contact')} className="hover:text-slate-300 transition-colors">Helpline Support</button>
           </div>
+        </div>
+
+        {/* Developer Attribution Row */}
+        <div 
+          className="pt-4 text-center text-[11px] text-slate-400 font-light border-t border-white/5 flex justify-center items-center mx-auto max-w-full"
+          style={{ width: '350px', height: '50.4688px', marginTop: '35px' }}
+        >
+          <p>
+            Developed by{' '}
+            <a 
+              href="https://creativeengagementservices.com/web-agency/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-amber-400/90 hover:text-amber-300 font-medium transition-colors underline decoration-amber-500/30 hover:decoration-amber-400"
+            >
+              creative engagement services
+            </a>
+          </p>
         </div>
 
       </div>

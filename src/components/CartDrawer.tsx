@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CartItem } from '../types';
-import { X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, Shield, Plane, Download, FileText, Printer, Mail } from 'lucide-react';
+import { X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, Shield, Plane, Download, FileText } from 'lucide-react';
 import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { PassSummaryModal } from './PassSummaryModal';
 import { AnimatePresence, motion } from 'motion/react';

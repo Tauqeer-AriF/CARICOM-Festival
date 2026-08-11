@@ -1,193 +1,183 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { getPageImage } from '../services/submissionService';
-import { Waves, Utensils, Mountain, Sun, ArrowRight } from 'lucide-react';
+import { GrenadaWeatherWidget } from '../components/GrenadaWeatherWidget';
 import { motion } from 'motion/react';
+import { 
+  Palmtree, 
+  Sparkles, 
+  Sun, 
+  Waves, 
+  Compass, 
+  ArrowRight
+} from 'lucide-react';
 
 interface AboutGrenadaViewProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
 
-// Custom animation presets for a premium aesthetic
-const fadeInUp = {
-  hidden: { opacity: 0, y: 35 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1]
-    }
-  }
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.15
-    }
-  }
-};
-
 export const AboutGrenadaView: React.FC<AboutGrenadaViewProps> = ({ setActiveTab }) => {
+  const heroImg = getPageImage('aboutGrenadaHero', 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80');
+  const ecoImg = getPageImage('aboutGrenadaEco', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80');
+  const underwaterImg = getPageImage('aboutGrenadaUnderwater', 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80');
+  const spiceImg = getPageImage('aboutGrenadaSpiceMarket', 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=1200&q=80');
+
+  const islandHighlights = [
+    {
+      title: "The Isle of Spice",
+      description: "Famous worldwide for nutmeg, cinnamon, and organic dark chocolate, filling the island air with rich aromatic sweetness.",
+      icon: Sparkles,
+      image: spiceImg
+    },
+    {
+      title: "World-Famous Grand Anse Beach",
+      description: "2 miles of pristine white sand and crystal-clear turquoise waters, perfect for beachfront fetes and sunset relaxation.",
+      icon: Waves,
+      image: heroImg
+    },
+    {
+      title: "Molinere Underwater Sculpture Park",
+      description: "The world's first underwater sculpture park, an ecological masterpiece ideal for snorkeling and diving.",
+      icon: Compass,
+      image: underwaterImg
+    },
+    {
+      title: "Cascading Rainforest Waterfalls",
+      description: "Lush tropical rainforests with cascading natural waterfalls like Annandale and Concord, fed by natural mountain springs.",
+      icon: Palmtree,
+      image: ecoImg
+    }
+  ];
+
   return (
-    <div className="space-y-12 pb-16">
-      
-      {/* Title */}
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={fadeInUp}
-        className="text-center max-w-3xl mx-auto space-y-3"
-      >
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400 font-sans-display">ISLAND OF SPICE & PARADISE</span>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          About Grenada: Eco-Tourism Gem
-        </h1>
-        <p className="text-slate-300 text-sm leading-relaxed font-light">
-          Grenada, a captivating eco-tourism paradise in the Caribbean, offers a perfect blend of adventure, natural beauty, rich heritage, and culinary delights.
-        </p>
-      </motion.div>
-
-      {/* Hero Showcase Grid */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={fadeInUp}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center glass-card border border-white/10 rounded-3xl p-8 sm:p-10 shadow-2xl"
-      >
-        <div className="space-y-6">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl w-fit border border-emerald-500/20">
-            <Mountain className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-white leading-tight">
-            Untouched Rainforests & 14 Waterfalls
-          </h2>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-light">
-            Adventure seekers can explore untouched rainforests, summit breathtaking mountain peaks, and dive into crystal-clear pools of <strong className="text-amber-300 font-semibold">14 spectacular waterfalls</strong> scattered across the lush island terrain.
-          </p>
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-light">
-            Whether you’re seeking sun-kissed beaches, family fun, romantic getaways, or a break from everyday life, Grenada has something for everyone.
-          </p>
-
-          <div className="pt-2">
-            <button
-              onClick={() => setActiveTab('about-mellowland')}
-              className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-full shadow-lg transition-transform hover:scale-[1.02] cursor-pointer flex items-center gap-2"
-            >
-              Explore Mellowland River Tubing
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="relative rounded-2xl overflow-hidden h-[300px] border border-white/15 shadow-xl group">
-            <img
-              src={getPageImage('aboutGrenadaEco', FESTIVAL_IMAGES.ecoParadise)}
-              alt="Grenada Eco Paradise"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-              }}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-100"
-            />
-          </div>
-          <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-xl">
-            <span className="font-bold text-emerald-400 block uppercase tracking-wider text-[11px] font-sans-display">Grenada Eco Paradise</span>
-            <span className="font-light text-slate-300 text-xs block mt-1">Crystal-clear turquoise mountain cascades, pristine coastline, and stunning rainforest peaks.</span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Highlights Grid */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
-      >
-        
-        <motion.div 
-          variants={fadeInUp}
-          className="glass-card p-6 sm:p-8 rounded-3xl space-y-4 shadow-xl border border-white/10"
-        >
-          <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20">
-            <Utensils className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Culinary Capital & Spices</h3>
-          <p className="text-xs text-slate-300 leading-relaxed font-light">
-            Relax on the beach or indulge in the island’s culinary capital, where organic chocolate, nutmeg, cinnamon, and local dishes create unforgettable gastronomic experiences.
-          </p>
-        </motion.div>
-
-        <motion.div 
-          variants={fadeInUp}
-          className="glass-card p-6 sm:p-8 rounded-3xl space-y-4 shadow-xl border border-white/10"
-        >
-          <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center border border-teal-500/20">
-            <Waves className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">World's 1st Underwater Sculpture Park</h3>
-          <p className="text-xs text-slate-300 leading-relaxed font-light">
-            Dive or snorkel into the world’s first underwater sculpture park, captivating wreck and reef dives, surrounded by vibrant marine life and turquoise waters.
-          </p>
-        </motion.div>
-
-        <motion.div 
-          variants={fadeInUp}
-          className="glass-card p-6 sm:p-8 rounded-3xl space-y-4 shadow-xl border border-white/10"
-        >
-          <div className="w-12 h-12 bg-amber-500/10 text-amber-300 rounded-2xl flex items-center justify-center border border-amber-500/20">
-            <Sun className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Carnival & Spice Market</h3>
-          <p className="text-xs text-slate-300 leading-relaxed font-light">
-            Grenada’s unique carnival and community traditions add to its cultural richness. Historical forts, colourful spice markets, and warm welcoming people make Grenada a gem worth discovering.
-          </p>
-        </motion.div>
-
-      </motion.div>
-
-      {/* Underwater Sculpture Banner */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={fadeInUp}
-        className="relative rounded-3xl overflow-hidden border border-teal-500/30 p-8 sm:p-12 text-white shadow-2xl"
-      >
-        <img
-          src={getPageImage('aboutGrenadaUnderwater', FESTIVAL_IMAGES.underwaterPark)}
-          alt="Underwater Sculpture Park"
-          referrerPolicy="no-referrer"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-          }}
-          className="absolute inset-0 w-full h-full object-cover filter brightness-[0.4]"
+    <div className="space-y-12 animate-fadeIn pb-16">
+      {/* Hero Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImg})` }}
         />
-        <div className="relative z-10 max-w-2xl space-y-5">
-          <div className="inline-flex items-center gap-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-[0.2em]">
-            <Waves className="w-3.5 h-3.5 text-teal-400" /> Iconic Grenada Attraction
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Molinière Bay Underwater Sculpture Park</h2>
-          <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-light">
-            Created as an artificial reef to support marine conservation, this breathtaking underwater gallery features life-sized human sculptures submerged in clear shallow waters.
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
+        <div className="relative z-10 max-w-2xl space-y-4">
+          <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
+            <Palmtree className="w-3.5 h-3.5" /> Welcome to Pure Grenada
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
+            Discover the <span className="text-gold-gradient">Spice Isle</span>
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
+            Grenada is a lush, vibrant paradise in the southern Caribbean known for warm island hospitality, tranquil turquoise waters, and rich cultural traditions.
           </p>
+        </div>
+      </div>
+
+      {/* Weather & Quick Facts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <h3 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+            <Sun className="w-5 h-5 text-amber-400" />
+            <span>Tropical Island Climate</span>
+          </h3>
+          <p className="text-neutral-300 text-xs sm:text-sm font-light leading-relaxed">
+            In May, Grenada enjoys warm, tropical sunshine with average temperatures ranging between 27°C and 30°C (80°F - 86°F), accompanied by soothing ocean trade breezes — ideal conditions for outdoor beach fetes and river adventure.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+              <span className="text-[10px] text-neutral-500 font-mono block">Avg Temp</span>
+              <span className="text-sm font-bold text-amber-400">29°C / 84°F</span>
+            </div>
+            <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+              <span className="text-[10px] text-neutral-500 font-mono block">Water Temp</span>
+              <span className="text-sm font-bold text-emerald-400">27°C / 80°F</span>
+            </div>
+            <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+              <span className="text-[10px] text-neutral-500 font-mono block">Currency</span>
+              <span className="text-sm font-bold text-white">XCD (ECD) / USD</span>
+            </div>
+            <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+              <span className="text-[10px] text-neutral-500 font-mono block">Language</span>
+              <span className="text-sm font-bold text-white">English</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Weather Widget Card */}
+        <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase text-amber-400 tracking-wider block">Live Weather Feed</span>
+          <GrenadaWeatherWidget />
+        </div>
+      </div>
+
+      {/* Island Highlights Grid */}
+      <div className="space-y-6">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white font-serif">
+            Why You’ll Fall in Love with Grenada
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-400 font-light">
+            An unbeatable destination combining luxury island relaxation, vibrant soca culture, and unspoiled natural wonder.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {islandHighlights.map((highlight, index) => {
+            const IconComp = highlight.icon;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-neutral-900/90 border border-neutral-800 hover:border-amber-500/30 rounded-2xl overflow-hidden shadow-xl flex flex-col sm:flex-row group"
+              >
+                <div className="sm:w-2/5 relative h-48 sm:h-auto overflow-hidden">
+                  <img 
+                    src={highlight.image} 
+                    alt={highlight.title} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-neutral-950/20" />
+                </div>
+                <div className="sm:w-3/5 p-5 space-y-2 flex flex-col justify-center">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <IconComp className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider font-mono">Highlight</span>
+                  </div>
+                  <h3 className="text-base font-bold text-white font-serif">{highlight.title}</h3>
+                  <p className="text-neutral-400 text-xs leading-relaxed font-light">
+                    {highlight.description}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Call to Action */}
+      <div className="bg-gradient-to-r from-amber-500/20 via-neutral-900 to-emerald-500/20 border border-amber-500/30 rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-2xl">
+        <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-serif">
+          Ready for Your 2027 Spice Isle Getaway?
+        </h2>
+        <p className="text-slate-300 text-xs sm:text-sm max-w-xl mx-auto font-light leading-relaxed">
+          Secure your festival passes now and get ready to experience Grenada CARICOM Festival 2027 in pure style!
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <button
             onClick={() => setActiveTab('events')}
-            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-full shadow-lg cursor-pointer"
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-2"
           >
-            Join Catamaran Cruise & Snorkel Day →
+            <span>Explore 10-Day Events</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setActiveTab('shop')}
+            className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+          >
+            Buy Festival Passes
           </button>
         </div>
-      </motion.div>
-
+      </div>
     </div>
   );
 };
-

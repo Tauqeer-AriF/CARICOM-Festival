@@ -6,7 +6,8 @@ import {
   GalleryItem,
   HotelItem,
   PassItem,
-  TestimonialItem
+  TestimonialItem,
+  MediaItem
 } from '../types';
 import { 
   getSubmissions, 
@@ -80,7 +81,15 @@ import {
   Save,
   RotateCcw,
   Menu,
-  Upload
+  Upload,
+  Crown,
+  Flame,
+  Music,
+  Globe,
+  Shield,
+  Compass,
+  Sun,
+  Palmtree
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
@@ -181,7 +190,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [siteConfig, setSiteConfigState] = useState<SiteConfig>(getSiteConfig());
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [customizerSubTab, setCustomizerSubTab] = useState<'hero' | 'brand' | 'banner' | 'social'>('hero');
+  const [customizerSubTab, setCustomizerSubTab] = useState<'identity' | 'hero' | 'brand' | 'banner' | 'social'>('identity');
   
   // Canvas Image Compression Helper for Direct Uploads
   const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<{ compressedUrl: string; compressedSize: number }> => {
@@ -296,11 +305,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   // Media Selector State
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
-    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | { heroIndex: number } | { pageImageKey: string } | null
+    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | 'logo' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
 
   const handleMediaSelect = (url: string) => {
-    if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'pageImageKey' in mediaSelectorTarget) {
+    if (mediaSelectorTarget === 'logo') {
+      const updatedConfig = {
+        ...siteConfig,
+        appLogoUrl: url
+      };
+      setSiteConfigState(updatedConfig);
+      saveSiteConfig(updatedConfig);
+      setSaveToast('Updated application logo from Media Library!');
+    } else if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'pageImageKey' in mediaSelectorTarget) {
       const key = mediaSelectorTarget.pageImageKey;
       const updatedPageImages = {
         ...(siteConfig.pageImages || {}),
@@ -398,6 +415,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   };
 
   // Dynamic Lists States
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [hotels, setHotels] = useState<HotelItem[]>([]);
@@ -425,6 +443,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [newGalleryForm, setNewGalleryForm] = useState<Partial<GalleryItem>>({
     title: '',
     category: 'VIP Beach Fete',
+    mediaType: 'image',
+    videoUrl: '',
     imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
     likesCount: 0,
     location: 'St. George\'s, Grenada',
@@ -761,6 +781,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
       setNewGalleryForm({
         title: '',
         category: 'VIP Beach Fete',
+        mediaType: 'image',
+        videoUrl: '',
         imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
         likesCount: 0,
         location: 'St. George\'s, Grenada',
@@ -768,7 +790,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
         aspectRatio: 'aspect-[16/9]',
         caption: ''
       });
-      setSaveToast('New gallery photo added!');
+      setSaveToast('New gallery item added!');
     }
     loadData();
     setTimeout(() => setSaveToast(null), 3000);
@@ -776,12 +798,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   const handleDeleteGallery = (id: string) => {
     triggerConfirm(
-      'Delete Gallery Photo',
-      'Are you sure you want to delete this photo from the public gallery?',
+      'Delete Gallery Item',
+      'Are you sure you want to delete this photo or video from the gallery?',
       () => {
         const filtered = galleryItems.filter(item => item.id !== id);
         saveGalleryItems(filtered);
-        setSaveToast('Gallery photo deleted!');
+        setSaveToast('Gallery item deleted!');
         loadData();
         setTimeout(() => setSaveToast(null), 3000);
       }
@@ -1035,6 +1057,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
         setTimeout(() => setSaveToast(null), 3000);
       }
     );
+  };
+
+  // Refresh Data Handler with loading animation & toast feedback
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    await loadData();
+    setSaveToast('Submissions and system data refreshed!');
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+    setTimeout(() => setSaveToast(null), 2500);
   };
 
   // Filter logic
@@ -1349,7 +1382,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             }`}
             style={activeAdminTab === 'gallery' ? { backgroundColor: primaryColor } : undefined}
           >
-            <Image className="w-4 h-4" /> Gallery Photos
+            <Image className="w-4 h-4" /> Gallery Media
           </button>
 
           <button
@@ -1623,11 +1656,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
 
                   <button
-                    onClick={loadData}
-                    className="p-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg border border-neutral-800 transition-colors cursor-pointer"
-                    title="Refresh Data Grid"
+                    onClick={handleRefreshData}
+                    disabled={isRefreshing}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 active:scale-95 text-neutral-300 hover:text-amber-400 rounded-lg border border-neutral-800 hover:border-amber-500/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm text-[11px] font-semibold"
+                    title="Refresh Data & Submissions"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">Refresh Data</span>
                   </button>
                 </div>
               </div>
@@ -2503,7 +2538,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </div>
                   <h2 className="text-2xl font-black text-white font-serif tracking-tight">Customizer Studio</h2>
                   <p className="text-xs text-neutral-400 max-w-2xl leading-relaxed">
-                    Tailor your festival website identity in real time. Manage homepage background slideshow photos, brand color palettes, typography, announcement alerts, and social links.
+                    Tailor your festival website identity in real time. Manage homepage background slideshow photos, typography, announcement alerts, and social links.
                   </p>
                 </div>
 
@@ -2526,6 +2561,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
               <div className="flex flex-wrap items-center gap-2 bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800/80">
                 {[
                   {
+                    id: 'identity',
+                    label: 'App Name & Logo',
+                    icon: Palmtree,
+                    badge: siteConfig.appLogoUrl ? 'Custom Logo' : 'Icon Logo'
+                  },
+                  {
                     id: 'hero',
                     label: 'Hero Backgrounds',
                     icon: Image,
@@ -2533,9 +2574,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   },
                   {
                     id: 'brand',
-                    label: 'Brand Colors & Fonts',
-                    icon: Palette,
-                    badge: 'Themes'
+                    label: 'Fonts',
+                    icon: Type,
+                    badge: 'Typography'
                   },
                   {
                     id: 'banner',
@@ -2576,6 +2617,348 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   );
                 })}
               </div>
+
+              {/* SUB-TAB 0: APP IDENTITY & LOGO MANAGER */}
+              {customizerSubTab === 'identity' && (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Header Banner */}
+                  <div className="bg-neutral-950/60 border border-neutral-800/80 p-6 rounded-2xl space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl">
+                          <Palmtree className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base text-white font-serif">Application Name, Logo & Branding</h3>
+                          <p className="text-xs text-neutral-400">
+                            Customize the public branding, header logo, festival title, and taglines displayed across the entire website.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveSiteConfig(siteConfig);
+                          setSaveToast('Application identity settings saved successfully!');
+                        }}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save Changes</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Column 1: App Identity Text Controls */}
+                    <div className="space-y-6">
+                      {/* App Title & Subtitle Card */}
+                      <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
+                        <span className="text-xs font-black uppercase text-amber-400 tracking-wider block">
+                          1. Brand Names & Titles
+                        </span>
+
+                        {/* Application Name */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>Main Application / Festival Name</span>
+                            <span className="text-[10px] text-neutral-500 font-mono">Navbar & Brand Header</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={siteConfig.appName || 'Grenada CARICOM Festival 2027'}
+                            onChange={(e) => {
+                              const updated = { ...siteConfig, appName: e.target.value };
+                              setSiteConfigState(updated);
+                              saveSiteConfig(updated);
+                            }}
+                            placeholder="e.g. Grenada CARICOM Festival 2027"
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-500 focus:outline-none font-medium"
+                          />
+                          <p className="text-[10px] text-neutral-500">
+                            Appears in header navigation bar and footer brand header.
+                          </p>
+                        </div>
+
+                        {/* Subtitle / Category Badge */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>Category Subtitle / Header Eyebrow</span>
+                            <span className="text-[10px] text-neutral-500 font-mono">Small Uppercase Label</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={siteConfig.appSubtitle || 'CARICOM FESTIVAL'}
+                            onChange={(e) => {
+                              const updated = { ...siteConfig, appSubtitle: e.target.value };
+                              setSiteConfigState(updated);
+                              saveSiteConfig(updated);
+                            }}
+                            placeholder="e.g. CARICOM FESTIVAL"
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-amber-400 font-mono font-bold uppercase focus:border-amber-500 focus:outline-none"
+                          />
+                          <p className="text-[10px] text-neutral-500">
+                            Appears as small gold uppercase label above the app name in header and footer.
+                          </p>
+                        </div>
+
+                        {/* Year / Badge Text */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>Year / Event Edition Badge</span>
+                            <span className="text-[10px] text-neutral-500 font-mono">Highlight Badge</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={siteConfig.appYearBadge || '2027'}
+                            onChange={(e) => {
+                              const updated = { ...siteConfig, appYearBadge: e.target.value };
+                              setSiteConfigState(updated);
+                              saveSiteConfig(updated);
+                            }}
+                            placeholder="e.g. 2027"
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-white font-mono focus:border-amber-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Tagline / Intro Description */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>Primary Brand Tagline</span>
+                            <span className="text-[10px] text-neutral-500 font-mono">Hero & Footer Description</span>
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={siteConfig.appTagline || "Where London's top DJs & revelers unite with Grenada's tropical warmth. A 10-day luxury festival of Caribbean culture, music, beach fetes, and river tubing."}
+                            onChange={(e) => {
+                              const updated = { ...siteConfig, appTagline: e.target.value };
+                              setSiteConfigState(updated);
+                              saveSiteConfig(updated);
+                            }}
+                            placeholder="Describe your festival or application tagline..."
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-500 focus:outline-none font-light leading-relaxed resize-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 2: Logo Manager & Live Preview */}
+                    <div className="space-y-6">
+                      {/* Custom Logo Card */}
+                      <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase text-amber-400 tracking-wider block">
+                            2. Application Logo & Icon
+                          </span>
+                          {siteConfig.appLogoUrl ? (
+                            <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-mono font-bold rounded-full">
+                              CUSTOM LOGO ACTIVE
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-mono font-bold rounded-full">
+                              VECTOR ICON ACTIVE
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Current Logo Preview Box */}
+                        <div className="p-4 bg-neutral-900/90 rounded-2xl border border-neutral-800 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center overflow-hidden shadow-inner p-1">
+                              {siteConfig.appLogoUrl ? (
+                                <img
+                                  src={siteConfig.appLogoUrl}
+                                  alt="Current Application Logo"
+                                  className="w-full h-full object-cover rounded-xl"
+                                />
+                              ) : (
+                                (() => {
+                                  const iconName = siteConfig.appLogoIcon || 'Palmtree';
+                                  const ic = "w-7 h-7 text-amber-400";
+                                  if (iconName === 'Sparkles') return <Sparkles className={ic} />;
+                                  if (iconName === 'Crown') return <Crown className={ic} />;
+                                  if (iconName === 'Sun') return <Sun className={ic} />;
+                                  if (iconName === 'Flame') return <Flame className={ic} />;
+                                  if (iconName === 'Music') return <Music className={ic} />;
+                                  if (iconName === 'Globe') return <Globe className={ic} />;
+                                  if (iconName === 'Shield') return <Shield className={ic} />;
+                                  if (iconName === 'Compass') return <Compass className={ic} />;
+                                  return <Palmtree className={ic} />;
+                                })()
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-white block">Active Logo Graphic</span>
+                              <span className="text-[10px] text-neutral-400 block font-mono">
+                                {siteConfig.appLogoUrl ? 'Uploaded Graphic Image' : `Vector Icon: ${siteConfig.appLogoIcon || 'Palmtree'}`}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Reset Button */}
+                          {siteConfig.appLogoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...siteConfig, appLogoUrl: '' };
+                                setSiteConfigState(updated);
+                                saveSiteConfig(updated);
+                                setSaveToast('Reverted custom logo image to vector icon.');
+                              }}
+                              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                              <span>Reset to Icon</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Upload & Media Library Actions */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {/* Choose from Media Library */}
+                          <button
+                            type="button"
+                            onClick={() => setMediaSelectorTarget('logo')}
+                            className="py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Image className="w-4 h-4 text-amber-400" />
+                            <span>Select from Media Library</span>
+                          </button>
+
+                          {/* Upload New File */}
+                          <label className="py-2.5 px-3 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 hover:border-amber-500/50 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer">
+                            <Upload className="w-4 h-4 text-emerald-400" />
+                            <span>Upload Image File</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  const { compressedUrl, compressedSize } = await compressImage(file, 600, 0.85);
+                                  const newItem: MediaItem = {
+                                    id: `media-logo-${Date.now()}`,
+                                    name: file.name || 'app-logo.png',
+                                    url: compressedUrl,
+                                    originalSize: file.size,
+                                    compressedSize,
+                                    type: file.type || 'image/png',
+                                    uploadedAt: new Date().toISOString()
+                                  };
+                                  addMediaItem(newItem);
+                                  const updatedConfig = { ...siteConfig, appLogoUrl: compressedUrl };
+                                  setSiteConfigState(updatedConfig);
+                                  saveSiteConfig(updatedConfig);
+                                  setSaveToast('Uploaded, placed in Media Library, and updated logo!');
+                                } catch (err) {
+                                  console.error('Logo upload error:', err);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        {/* Vector Icon Fallback Selector */}
+                        <div className="pt-2 space-y-2 border-t border-neutral-800/80">
+                          <span className="text-[11px] font-bold text-neutral-300 block">
+                            Or Select Vector Icon Logo:
+                          </span>
+                          <div className="grid grid-cols-3 sm:grid-cols-9 gap-1.5">
+                            {[
+                              { name: 'Palmtree', icon: Palmtree },
+                              { name: 'Sparkles', icon: Sparkles },
+                              { name: 'Crown', icon: Crown },
+                              { name: 'Sun', icon: Sun },
+                              { name: 'Flame', icon: Flame },
+                              { name: 'Music', icon: Music },
+                              { name: 'Globe', icon: Globe },
+                              { name: 'Shield', icon: Shield },
+                              { name: 'Compass', icon: Compass },
+                            ].map((item) => {
+                              const IconComp = item.icon;
+                              const isSelected = !siteConfig.appLogoUrl && (siteConfig.appLogoIcon || 'Palmtree') === item.name;
+                              return (
+                                <button
+                                  key={item.name}
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = {
+                                      ...siteConfig,
+                                      appLogoIcon: item.name as any,
+                                      appLogoUrl: '' // clear image logo to reveal icon
+                                    };
+                                    setSiteConfigState(updated);
+                                    saveSiteConfig(updated);
+                                    setSaveToast(`Set logo icon to ${item.name}!`);
+                                  }}
+                                  className={`p-2 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                                    isSelected
+                                      ? 'bg-amber-500 text-neutral-950 font-bold border-amber-400 shadow'
+                                      : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700'
+                                  }`}
+                                  title={item.name}
+                                >
+                                  <IconComp className={`w-4 h-4 ${isSelected ? 'text-neutral-950' : 'text-amber-400'}`} />
+                                  <span className="text-[9px] font-mono leading-none truncate max-w-full">{item.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Live Brand Header Navigation Preview Box */}
+                      <div className="bg-neutral-950/60 border border-amber-500/20 p-5 rounded-2xl space-y-3">
+                        <span className="text-xs font-black uppercase text-amber-400 tracking-wider block">
+                          3. Live Header Navigation Preview
+                        </span>
+                        <div className="p-4 bg-neutral-950/90 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-xl overflow-hidden">
+                          <div className="flex items-center gap-3">
+                            {siteConfig.appLogoUrl ? (
+                              <img
+                                src={siteConfig.appLogoUrl}
+                                alt="Logo Preview"
+                                className="w-10 h-10 object-cover rounded-xl border border-amber-500/40"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                                {(() => {
+                                  const iconName = siteConfig.appLogoIcon || 'Palmtree';
+                                  const ic = "w-5 h-5 text-amber-400";
+                                  if (iconName === 'Sparkles') return <Sparkles className={ic} />;
+                                  if (iconName === 'Crown') return <Crown className={ic} />;
+                                  if (iconName === 'Sun') return <Sun className={ic} />;
+                                  if (iconName === 'Flame') return <Flame className={ic} />;
+                                  if (iconName === 'Music') return <Music className={ic} />;
+                                  if (iconName === 'Globe') return <Globe className={ic} />;
+                                  if (iconName === 'Shield') return <Shield className={ic} />;
+                                  if (iconName === 'Compass') return <Compass className={ic} />;
+                                  return <Palmtree className={ic} />;
+                                })()}
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-amber-400/90 font-sans-display block">
+                                {siteConfig.appSubtitle || 'CARICOM FESTIVAL'}
+                              </span>
+                              <span className="text-base font-bold font-serif text-white flex items-center gap-1.5">
+                                {siteConfig.appName || 'Grenada CARICOM Festival 2027'}
+                                {siteConfig.appYearBadge && !siteConfig.appName?.includes(siteConfig.appYearBadge) && (
+                                  <span className="font-sans font-extrabold text-amber-400 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
+                                    {siteConfig.appYearBadge}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SUB-TAB 1: HERO BACKGROUND MANAGER */}
               {customizerSubTab === 'hero' && (
@@ -3076,246 +3459,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </div>
               )}
 
-              {/* SUB-TAB 2: BRAND COLORS & FONTS */}
+              {/* SUB-TAB 2: FONTS */}
               {customizerSubTab === 'brand' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fadeIn">
                   
                   {/* Left Column: Color & Typography Controls */}
                   <div className="space-y-6">
-                    {/* Instant Brand Presets */}
-                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="block text-xs font-black uppercase text-amber-400 tracking-wider">Curated Brand Presets</span>
-                          <span className="block text-[10px] text-neutral-500">Apply a professional color and typography theme in one click</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const restored = {
-                              ...siteConfig,
-                              branding: {
-                                primaryColor: '#F59E0B',
-                                secondaryColor: '#10B981',
-                                bgTone: 'dark-onyx' as const,
-                                headingFont: 'Poppins' as const,
-                                bodyFont: 'Inter' as const,
-                              }
-                            };
-                            setSiteConfigState(restored);
-                            setSaveToast('Branding restored to original defaults!');
-                          }}
-                          className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-[10px] font-bold text-neutral-400 hover:text-rose-400 rounded-lg cursor-pointer transition-colors"
-                        >
-                          Restore Defaults
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2.5 pt-1">
-                        {[
-                          {
-                            name: 'Spice Gold',
-                            primary: '#F59E0B',
-                            secondary: '#10B981',
-                            bgTone: 'dark-onyx',
-                            headingFont: 'Poppins',
-                            bodyFont: 'Inter',
-                            desc: 'Authentic Spice Island vibe.'
-                          },
-                          {
-                            name: 'Grand Anse Luxury',
-                            primary: '#D4AF37',
-                            secondary: '#4F46E5',
-                            bgTone: 'deep-midnight',
-                            headingFont: 'Playfair Display',
-                            bodyFont: 'Plus Jakarta Sans',
-                            desc: 'Royal VIP concierge elegance.'
-                          },
-                          {
-                            name: 'Caribbean Breeze',
-                            primary: '#0EA5E9',
-                            secondary: '#84CC16',
-                            bgTone: 'caribbean-night',
-                            headingFont: 'Montserrat',
-                            bodyFont: 'Outfit',
-                            desc: 'Vibrant turquoise coastal energy.'
-                          },
-                          {
-                            name: 'Soca Sunset',
-                            primary: '#F43F5E',
-                            secondary: '#F97316',
-                            bgTone: 'luxury-charcoal',
-                            headingFont: 'Syne',
-                            bodyFont: 'Poppins',
-                            desc: 'High-energy carnival design.'
-                          }
-                        ].map((preset) => (
-                          <button
-                            key={preset.name}
-                            type="button"
-                            onClick={() => {
-                              setSiteConfigState({
-                                ...siteConfig,
-                                branding: {
-                                  primaryColor: preset.primary,
-                                  secondaryColor: preset.secondary,
-                                  bgTone: preset.bgTone as any,
-                                  headingFont: preset.headingFont as any,
-                                  bodyFont: preset.bodyFont as any
-                                }
-                              });
-                              setSaveToast(`Applied "${preset.name}" preset!`);
-                            }}
-                            className="p-3 bg-neutral-900/60 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-xl text-left cursor-pointer transition-all active:scale-[0.98] group flex flex-col justify-between h-20"
-                          >
-                            <div>
-                              <span className="block text-xs font-bold text-white group-hover:text-amber-400 transition-colors">{preset.name}</span>
-                              <span className="block text-[9px] text-neutral-500 leading-tight mt-0.5">{preset.desc}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-2">
-                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.primary }} />
-                              <span className="w-2.5 h-2.5 rounded-full border border-neutral-950 shrink-0" style={{ backgroundColor: preset.secondary }} />
-                              <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-tight">{preset.bgTone.replace('-', ' ')}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Primary Color Picker */}
-                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="block text-xs font-bold uppercase text-white">Primary Brand Color</span>
-                          <span className="block text-[10px] text-neutral-500">Main buttons, hero accents, active badges, and highlights</span>
-                        </div>
-                        <input
-                          type="color"
-                          value={siteConfig.branding.primaryColor || '#F59E0B'}
-                          onChange={(e) => setSiteConfigState({
-                            ...siteConfig,
-                            branding: { ...siteConfig.branding, primaryColor: e.target.value }
-                          })}
-                          className="w-9 h-9 rounded-xl bg-transparent border border-neutral-700 cursor-pointer overflow-hidden p-0"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500 font-mono font-bold">#</span>
-                        <input
-                          type="text"
-                          maxLength={7}
-                          value={(siteConfig.branding.primaryColor || '#F59E0B').replace('#', '')}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val.length <= 6) {
-                              setSiteConfigState({
-                                ...siteConfig,
-                                branding: { ...siteConfig.branding, primaryColor: `#${val}` }
-                              });
-                            }
-                          }}
-                          placeholder="F59E0B"
-                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none font-mono uppercase"
-                        />
-                        <div 
-                          className="w-7 h-7 rounded-lg border border-neutral-800 shrink-0 shadow" 
-                          style={{ backgroundColor: siteConfig.branding.primaryColor || '#F59E0B' }}
-                        />
-                      </div>
-
-                      {/* Suggestions */}
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {[
-                          { name: 'Amber Gold', hex: '#F59E0B' },
-                          { name: 'Sunset Rose', hex: '#F43F5E' },
-                          { name: 'Neon Purple', hex: '#8B5CF6' },
-                          { name: 'Teal Blue', hex: '#0EA5E9' },
-                          { name: 'Fresh Mint', hex: '#10B981' }
-                        ].map((c) => (
-                          <button
-                            key={c.hex}
-                            type="button"
-                            onClick={() => setSiteConfigState({
-                              ...siteConfig,
-                              branding: { ...siteConfig.branding, primaryColor: c.hex }
-                            })}
-                            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-lg text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all"
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full border border-neutral-950" style={{ backgroundColor: c.hex }} />
-                            {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Secondary Color Picker */}
-                    <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="block text-xs font-bold uppercase text-white">Secondary Accent Color</span>
-                          <span className="block text-[10px] text-neutral-500">Secondary status tags, interactive pills, and complementary elements</span>
-                        </div>
-                        <input
-                          type="color"
-                          value={siteConfig.branding.secondaryColor || '#10B981'}
-                          onChange={(e) => setSiteConfigState({
-                            ...siteConfig,
-                            branding: { ...siteConfig.branding, secondaryColor: e.target.value }
-                          })}
-                          className="w-9 h-9 rounded-xl bg-transparent border border-neutral-700 cursor-pointer overflow-hidden p-0"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500 font-mono font-bold">#</span>
-                        <input
-                          type="text"
-                          maxLength={7}
-                          value={(siteConfig.branding.secondaryColor || '#10B981').replace('#', '')}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val.length <= 6) {
-                              setSiteConfigState({
-                                ...siteConfig,
-                                branding: { ...siteConfig.branding, secondaryColor: `#${val}` }
-                              });
-                            }
-                          }}
-                          placeholder="10B981"
-                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none font-mono uppercase"
-                        />
-                        <div 
-                          className="w-7 h-7 rounded-lg border border-neutral-800 shrink-0 shadow" 
-                          style={{ backgroundColor: siteConfig.branding.secondaryColor || '#10B981' }}
-                        />
-                      </div>
-
-                      {/* Suggestions */}
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {[
-                          { name: 'Emerald', hex: '#10B981' },
-                          { name: 'Aqua', hex: '#06B6D4' },
-                          { name: 'Sunset', hex: '#F97316' },
-                          { name: 'Fuchsia', hex: '#D946EF' },
-                          { name: 'Violet', hex: '#A855F7' }
-                        ].map((c) => (
-                          <button
-                            key={c.hex}
-                            type="button"
-                            onClick={() => setSiteConfigState({
-                              ...siteConfig,
-                              branding: { ...siteConfig.branding, secondaryColor: c.hex }
-                            })}
-                            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-lg text-[10px] font-medium text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-all"
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full border border-neutral-950" style={{ backgroundColor: c.hex }} />
-                            {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Typography & Background Tone */}
                     <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
                       <span className="block text-xs font-bold uppercase text-amber-400 tracking-wider">Typography & Background Canvas</span>
@@ -3716,6 +3865,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                             placeholder="https://x.com/..."
                           />
                         </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-neutral-400 mb-1">YouTube Channel URL</label>
+                          <input
+                            type="url"
+                            value={siteConfig.socialLinks.youtube || ''}
+                            onChange={(e) => setSiteConfigState({
+                              ...siteConfig,
+                              socialLinks: { ...siteConfig.socialLinks, youtube: e.target.value }
+                            })}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                            placeholder="https://youtube.com/..."
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -3804,7 +3967,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   { id: 'about-grenada', label: '🌴 About Grenada', count: 3 },
                   { id: 'about-mellowland', label: '🌊 About Mellowland', count: 3 },
                   { id: 'events', label: '📅 10-Day Events Schedule', count: events.length },
-                  { id: 'gallery', label: '🖼️ Gallery Photos', count: galleryItems.length },
+                  { id: 'gallery', label: '🖼️ Gallery Media', count: galleryItems.length },
                   { id: 'hotels', label: '🏨 Hotels & Resorts', count: hotels.length },
                   { id: 'banners', label: 'ℹ️ Header Banners', count: 5 }
                 ].map((tab) => (
@@ -4250,13 +4413,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </div>
               )}
 
-              {/* --- SUB-TAB: GALLERY PHOTOS --- */}
+              {/* --- SUB-TAB: GALLERY PHOTOS & VIDEOS --- */}
               {pageImagesSubTab === 'gallery' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-bold text-white font-serif">Public Gallery Photos ({galleryItems.length})</h3>
-                      <p className="text-xs text-neutral-400">Replace any photo in the official 2027 media gallery.</p>
+                      <h3 className="text-lg font-bold text-white font-serif">Public Gallery Media ({galleryItems.length})</h3>
+                      <p className="text-xs text-neutral-400">Replace any photo or video highlight in the official 2027 media gallery.</p>
                     </div>
                     <button
                       type="button"
@@ -4951,21 +5114,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             </div>
           )}
 
-          {/* TAB: GALLERY PHOTOS */}
+          {/* TAB: GALLERY PHOTOS & VIDEOS */}
           {activeAdminTab === 'gallery' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Media Assets Room</span>
-                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Gallery Photos & Moments</h2>
-                  <p className="text-xs text-neutral-400 font-light">Add, edit, or remove photos appearing in the public gallery.</p>
+                  <h2 className="text-xl font-bold text-white font-serif mt-0.5">Gallery Media & Highlights</h2>
+                  <p className="text-xs text-neutral-400 font-light">Add, edit, or remove photos and videos appearing in the public gallery.</p>
                 </div>
                 {!showAddGallery && !editingGallery && (
                   <button
                     onClick={() => setShowAddGallery(true)}
                     className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
                   >
-                    <Plus className="w-4 h-4" /> Add Photo
+                    <Plus className="w-4 h-4" /> Add Gallery Item
                   </button>
                 )}
               </div>
@@ -4978,12 +5141,28 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 >
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
                     <Image className="w-4 h-4 text-amber-400" />
-                    {editingGallery ? 'Edit Gallery Photo' : 'Add New Gallery Photo'}
+                    {editingGallery ? 'Edit Gallery Item' : 'Add New Gallery Item'}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
                     <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Photo Caption / Title</label>
+                      <label className="text-neutral-400 font-bold uppercase block">Media Type</label>
+                      <select
+                        value={editingGallery ? (editingGallery.mediaType || (editingGallery.videoUrl ? 'video' : 'image')) : (newGalleryForm.mediaType || 'image')}
+                        onChange={(e) => {
+                          const mType = e.target.value as 'image' | 'video';
+                          if (editingGallery) setEditingGallery({ ...editingGallery, mediaType: mType });
+                          else setNewGalleryForm({ ...newGalleryForm, mediaType: mType });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="image">📷 Photo / Image</option>
+                        <option value="video">🎥 Video Clip</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Title / Caption</label>
                       <input
                         type="text"
                         required
@@ -5016,9 +5195,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       </select>
                     </div>
 
+                    {((editingGallery && (editingGallery.mediaType === 'video' || Boolean(editingGallery.videoUrl))) || (!editingGallery && newGalleryForm.mediaType === 'video')) && (
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-amber-400 font-bold uppercase block">Video URL (YouTube Embed / Vimeo / MP4)</label>
+                        <input
+                          type="text"
+                          required
+                          value={editingGallery ? (editingGallery.videoUrl || '') : (newGalleryForm.videoUrl || '')}
+                          onChange={(e) => {
+                            if (editingGallery) setEditingGallery({ ...editingGallery, videoUrl: e.target.value, mediaType: 'video' });
+                            else setNewGalleryForm({ ...newGalleryForm, videoUrl: e.target.value, mediaType: 'video' });
+                          }}
+                          className="w-full bg-neutral-950 border border-amber-500/50 rounded-lg p-2.5 text-white focus:border-amber-400 focus:outline-none"
+                          placeholder="https://www.youtube.com/embed/... or https://domain.com/video.mp4"
+                        />
+                      </div>
+                    )}
+
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-neutral-400 font-bold uppercase block">Image URL</label>
+                        <label className="text-neutral-400 font-bold uppercase block">
+                          {((editingGallery && (editingGallery.mediaType === 'video' || Boolean(editingGallery.videoUrl))) || (!editingGallery && newGalleryForm.mediaType === 'video'))
+                            ? 'Thumbnail Poster Image URL'
+                            : 'Photo Image URL'}
+                        </label>
                         <button
                           type="button"
                           onClick={() => setMediaSelectorTarget('gallery')}
@@ -5070,7 +5270,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       type="submit"
                       className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
                     >
-                      {editingGallery ? 'Save Photo' : 'Add Photo'}
+                      {editingGallery ? 'Save Item' : 'Add Item'}
                     </button>
                   </div>
                 </form>
@@ -5081,7 +5281,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 <div className="bg-[#12162E] border border-amber-500/30 p-3 px-4 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200 shadow-[0_4px_20px_rgba(var(--primary-rgb),0.05)] mb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-amber-400">
-                      {selectedGallery.length} photo{selectedGallery.length > 1 ? 's' : ''} selected
+                      {selectedGallery.length} item{selectedGallery.length > 1 ? 's' : ''} selected
                     </span>
                     <button
                       type="button"
@@ -5100,7 +5300,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </div>
               )}
 
-              {/* Photos List Grid */}
+              {/* Items List Grid */}
               <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-5 shadow-md space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-neutral-800/40">
                   <div className="flex items-center gap-2">
@@ -5116,7 +5316,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       }}
                       className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer"
                     />
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Current Gallery Photos ({galleryItems.length})</h4>
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-neutral-300">Current Gallery Items ({galleryItems.length})</h4>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -5126,61 +5326,70 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     const paginatedGallery = galleryItems.slice((currentGalleryPage - 1) * ITEMS_PER_PAGE, currentGalleryPage * ITEMS_PER_PAGE);
                     return (
                       <>
-                        {paginatedGallery.map((item) => (
-                          <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
-                            <img
-                              src={item.imageUrl}
-                              alt={item.title}
-                              referrerPolicy="no-referrer"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                              }}
-                              className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
-                            
-                            <div className="p-2 z-10 flex items-center justify-between w-full">
-                              <span className="bg-neutral-950/95 border border-neutral-800 text-[8px] font-bold text-amber-400 px-2 py-0.5 rounded-full uppercase">{item.category}</span>
-                              <input
-                                type="checkbox"
-                                checked={selectedGallery.includes(item.id)}
-                                onChange={() => {
-                                  setSelectedGallery(prev => 
-                                    prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
-                                  );
-                                }}
-                                className="rounded border-neutral-700 bg-neutral-950/90 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer z-20"
-                              />
-                            </div>
+                        {paginatedGallery.map((item) => {
+                          const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
 
-                            <div className="p-2 z-10 space-y-1">
-                              <p className="text-white font-bold text-[10px] leading-snug truncate" title={item.title}>{item.title}</p>
-                              <p className="text-[8px] text-neutral-400 font-light truncate">{item.location}</p>
-                              <div className="flex justify-between items-center pt-1 border-t border-neutral-800/60">
-                                <span className="text-[8px] text-emerald-400 font-semibold font-mono">💖 {item.likesCount || 0} likes</span>
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setEditingGallery(item);
-                                      setShowAddGallery(false);
-                                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
-                                  >
-                                    Edit
-                                  </button>
-                                  <span className="text-neutral-700">|</span>
-                                  <button
-                                    onClick={() => handleDeleteGallery(item.id)}
-                                    className="text-[9px] text-rose-400 font-black hover:underline cursor-pointer"
-                                  >
-                                    Delete
-                                  </button>
+                          return (
+                            <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
+                              <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                                }}
+                                className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
+                              
+                              <div className="p-2 z-10 flex items-center justify-between w-full">
+                                <div className="flex items-center gap-1">
+                                  <span className="bg-neutral-950/95 border border-neutral-800 text-[8px] font-bold text-amber-400 px-2 py-0.5 rounded-full uppercase">{item.category}</span>
+                                  {isVideo && (
+                                    <span className="bg-rose-500/90 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase">VIDEO</span>
+                                  )}
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGallery.includes(item.id)}
+                                  onChange={() => {
+                                    setSelectedGallery(prev => 
+                                      prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                                    );
+                                  }}
+                                  className="rounded border-neutral-700 bg-neutral-950/90 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer z-20"
+                                />
+                              </div>
+
+                              <div className="p-2 z-10 space-y-1">
+                                <p className="text-white font-bold text-[10px] leading-snug truncate" title={item.title}>{item.title}</p>
+                                <p className="text-[8px] text-neutral-400 font-light truncate">{item.location}</p>
+                                <div className="flex justify-between items-center pt-1 border-t border-neutral-800/60">
+                                  <span className="text-[8px] text-emerald-400 font-semibold font-mono">💖 {item.likesCount || 0} likes</span>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => {
+                                        setEditingGallery(item);
+                                        setShowAddGallery(false);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                      }}
+                                      className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
+                                    >
+                                      Edit
+                                    </button>
+                                    <span className="text-neutral-700">|</span>
+                                    <button
+                                      onClick={() => handleDeleteGallery(item.id)}
+                                      className="text-[9px] text-rose-400 font-black hover:underline cursor-pointer"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                         {totalGalleryPages > 1 && (
                           <div className="col-span-full flex items-center justify-between pt-4 border-t border-neutral-800/40 bg-neutral-950/10 px-3 py-2 rounded-lg">
@@ -6332,7 +6541,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
       {/* MODAL: PREMIUM DETAIL POPUP MODEL FOR PASS ORDER */}
       {selectedPassOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg overflow-y-auto">
           <div className="bg-[#0C0F1E] border border-white/5 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden relative my-8">
             {/* Accent top gradient bar */}
             <div className="h-1 bg-gradient-to-r from-amber-500 via-amber-300 to-amber-600 w-full" />
@@ -6557,7 +6766,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
       {/* MODAL: MANUAL ADD SUBMISSION RECORD */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3.5 border-b border-neutral-800">
               <div>
@@ -6668,7 +6877,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
       {/* MODAL: CONCIERGE EXECUTIVE RESPONSE DESK */}
       {replyingSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans">
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-5 font-sans">
             <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
               <div className="flex items-center gap-2.5">

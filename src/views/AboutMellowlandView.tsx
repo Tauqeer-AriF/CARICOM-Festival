@@ -1,203 +1,136 @@
 import React from 'react';
 import { ActiveTab, PassItem } from '../types';
-import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { getPageImage } from '../services/submissionService';
-import { Waves, Shield, Utensils, Ticket, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
+import { 
+  Waves, 
+  Compass, 
+  Utensils, 
+  ShieldCheck, 
+  ShoppingBag,
+  ArrowRight
+} from 'lucide-react';
 
 interface AboutMellowlandViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onAddToCart: (pass: PassItem) => void;
-  passes?: PassItem[];
+  passes: PassItem[];
 }
 
-// Custom animation presets for a premium aesthetic
-const fadeInUp = {
-  hidden: { opacity: 0, y: 35 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1]
-    }
-  }
-};
+export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart, passes }) => {
+  const heroImg = getPageImage('aboutMellowlandHero', 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=1200&q=80');
+  const riverImg = getPageImage('aboutMellowlandRiver', 'https://images.unsplash.com/photo-1530731141654-5961b695817a?auto=format&fit=crop&w=1200&q=80');
+  const gardenImg = getPageImage('aboutMellowlandGarden', 'https://images.unsplash.com/photo-1541976844346-f18aeac57b06?auto=format&fit=crop&w=1200&q=80');
 
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.15
-    }
-  }
-};
-
-export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setActiveTab, onAddToCart, passes = [] }) => {
-  const activePasses = passes;
-  const tubingPass = activePasses.find((p) => p.id === 'pass-mellowland-tubing');
+  const tubingPass = passes.find(p => p.id.includes('tubing')) || passes[0];
 
   return (
-    <div className="space-y-12 pb-12">
-      
-      {/* Title */}
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={fadeInUp}
-        className="text-center max-w-3xl mx-auto space-y-3"
-      >
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 font-sans-display">PIONEERS OF RIVER TUBING IN GRENADA</span>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          About Mellowland
-        </h1>
-        <p className="text-slate-300 text-sm font-light leading-relaxed">
-          Mellows Entertainment Complex — or Mellowland as we like to call it — is Grenada's premier river adventure, organic restaurant, and outdoor party oasis.
-        </p>
-      </motion.div>
+    <div className="space-y-12 animate-fadeIn pb-16">
+      {/* Hero Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImg})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
+        <div className="relative z-10 max-w-2xl space-y-4">
+          <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
+            <Waves className="w-3.5 h-3.5" /> Festival Epicenter
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
+            Mellowland <span className="text-gold-gradient">Complex & River Tubing</span>
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
+            Nestled in Grenada’s verdant valley, Mellowland is the premier eco-entertainment complex hosting guided river tubing, outdoor stages, and farm-to-table culinary limes.
+          </p>
+        </div>
+      </div>
 
-      {/* Main Banner */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={fadeInUp}
-        className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/50 border border-amber-500/30 rounded-3xl p-8 md:p-12 shadow-2xl space-y-8"
-      >
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/30">
-              <Sparkles className="w-4 h-4 text-emerald-400" /> ORGANIC FOOD & RIVER ADVENTURES
-            </div>
-
-            <h2 className="text-3xl font-extrabold text-white">
-              Welcome to Mellows Entertainment Complex
-            </h2>
-
-            <p className="text-neutral-300 text-sm leading-relaxed">
-              Mellows Entertainment Complex, or <strong className="text-amber-400">Mellowland</strong> as we like to call it, is a lovely bar and restaurant that serves organic food straight from our own garden. We also have some fun outdoor parties and activities like river tubing and hiking.
+      {/* Feature Blocks */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* River Tubing Block */}
+        <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl overflow-hidden shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="relative h-56 overflow-hidden">
+            <img src={riverImg} alt="River Tubing Rapids" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
+            <span className="absolute bottom-3 left-4 bg-amber-500 text-neutral-950 font-black text-xs font-mono px-3 py-1 rounded-lg uppercase">
+              Main Attraction
+            </span>
+          </div>
+          <div className="p-6 space-y-3 flex-1">
+            <h3 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+              <Waves className="w-5 h-5 text-amber-400" />
+              <span>Guided River Tubing Excursion</span>
+            </h3>
+            <p className="text-neutral-300 text-xs sm:text-sm font-light leading-relaxed">
+              Drift along Grenada’s refreshing mountain river currents through lush rainforest canopy. All sessions are 45 minutes long, fully guided with certified life vests, safety helmets, and experienced river marshals.
             </p>
+            <ul className="text-xs text-neutral-400 space-y-1.5 pt-2">
+              <li className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Full safety gear (Life vest, Helmet, River Marshals)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Suitable for beginners & groups</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Utensils className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Complimentary fresh coconut water at river exit</span>
+              </li>
+            </ul>
+          </div>
+          <div className="p-6 pt-0">
+            {tubingPass && (
+              <button
+                onClick={() => onAddToCart(tubingPass)}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Book River Tubing Add-On (£{tubingPass.priceGBP})</span>
+              </button>
+            )}
+          </div>
+        </div>
 
-            <p className="text-neutral-300 text-sm leading-relaxed">
-              Come and have a great time with your friends and family at Mellow’s Entertainment Complex—<strong className="text-amber-300">we’re the first to bring river tubing to Grenada!</strong>
+        {/* Eco Garden & Outdoor Pavilion */}
+        <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl overflow-hidden shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="relative h-56 overflow-hidden">
+            <img src={gardenImg} alt="Mellowland Organic Garden" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
+            <span className="absolute bottom-3 left-4 bg-emerald-500 text-neutral-950 font-black text-xs font-mono px-3 py-1 rounded-lg uppercase">
+              Culinary & Culture
+            </span>
+          </div>
+          <div className="p-6 space-y-3 flex-1">
+            <h3 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+              <Utensils className="w-5 h-5 text-amber-400" />
+              <span>Organic Garden & Outdoor Pavilion</span>
+            </h3>
+            <p className="text-neutral-300 text-xs sm:text-sm font-light leading-relaxed">
+              Mellowland features an organic spice and fruit garden providing fresh ingredients for our daily culinary limes. Enjoy live acoustic soca, local grilled fish, oil down tastings, and open-air cocktail bars.
             </p>
-
-            <div className="p-4 bg-neutral-950/80 rounded-2xl border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
-              <Ticket className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <strong className="block text-amber-400 text-sm">Entry Note:</strong>
-                Wristbands must be obtained to ensure your entry (Party Time!).
+            <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
+              <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800 space-y-1">
+                <span className="font-bold text-amber-400 block">Location</span>
+                <span className="text-neutral-400 text-[11px] block">St. David's Parish, Grenada</span>
+              </div>
+              <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800 space-y-1">
+                <span className="font-bold text-amber-400 block">Shuttle Time</span>
+                <span className="text-neutral-400 text-[11px] block">20 mins from Grand Anse</span>
               </div>
             </div>
           </div>
-
-          <div className="relative rounded-2xl overflow-hidden h-[340px] border border-neutral-700 shadow-xl">
-            <img
-              src={getPageImage('aboutMellowlandRiver', FESTIVAL_IMAGES.riverTubing)}
-              alt="Mellowland River Tubing"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-              }}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 bg-neutral-950/90 p-3 rounded-xl text-xs text-white">
-              <span className="text-amber-400 font-bold block">45-Minute River Tubing Sessions</span>
-              <span>Supervised by professional guides with helmets, life jackets, and tubes provided.</span>
-            </div>
-          </div>
-
-        </div>
-
-      </motion.div>
-
-      {/* Tubing Features Grid */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
-      >
-        
-        <motion.div 
-          variants={fadeInUp}
-          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
-        >
-          <div className="w-12 h-12 bg-teal-500/20 text-teal-400 rounded-2xl flex items-center justify-center">
-            <Waves className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold font-serif text-white">Thrilling River Rapids</h3>
-          <p className="text-xs text-neutral-300 leading-relaxed">
-            Get ready for an exciting and fun adventure navigating the rapids, all while enjoying the beauty of untouched nature. Don’t forget to take amazing photos!
-          </p>
-        </motion.div>
-
-        <motion.div 
-          variants={fadeInUp}
-          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
-        >
-          <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center">
-            <Shield className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold font-serif text-white">Safety & Supervision</h3>
-          <p className="text-xs text-neutral-300 leading-relaxed">
-            Our sessions are 45 minutes long, and we have professional guides who will be there to supervise you, providing helmets, life jackets, and safety tubes.
-          </p>
-        </motion.div>
-
-        <motion.div 
-          variants={fadeInUp}
-          className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-3"
-        >
-          <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
-            <Utensils className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold font-serif text-white">Garden Lunch & Bar</h3>
-          <p className="text-xs text-neutral-300 leading-relaxed">
-            And if you’re hungry, we have delicious organic lunch available straight from our garden, along with cold tropical drinks at our riverside bar.
-          </p>
-        </motion.div>
-
-      </motion.div>
-
-      {/* Book Pass CTA */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={fadeInUp}
-        className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl"
-      >
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold font-serif text-white">Ready to Tube Down the River?</h3>
-          <p className="text-neutral-300 text-xs sm:text-sm">
-            Lock in your Mellowland River Tubing & Garden Lunch Pass today or select the 10-Day VIP Pass for full access.
-          </p>
-        </div>
-
-        <div className="flex gap-3 shrink-0">
-          {tubingPass && (
+          <div className="p-6 pt-0">
             <button
-              onClick={() => onAddToCart(tubingPass)}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer flex items-center gap-2"
+              onClick={() => setActiveTab('events')}
+              className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <Ticket className="w-4 h-4" />
-              Add Tubing Pass (£{tubingPass.priceGBP})
+              <span>View Mellowland Events</span>
+              <ArrowRight className="w-4 h-4 text-amber-400" />
             </button>
-          )}
-          <button
-            onClick={() => setActiveTab('shop')}
-            className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl cursor-pointer"
-          >
-            View All Passes
-          </button>
+          </div>
         </div>
-      </motion.div>
-
+      </div>
     </div>
   );
 };
