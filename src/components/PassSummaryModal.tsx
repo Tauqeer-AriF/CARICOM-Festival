@@ -14,6 +14,7 @@ interface PassSummaryModalProps {
   currencySymbol: string;
   currency: string;
   totalConverted: string;
+  isConfirmed?: boolean;
 }
 
 export const PassSummaryModal: React.FC<PassSummaryModalProps> = ({
@@ -26,31 +27,38 @@ export const PassSummaryModal: React.FC<PassSummaryModalProps> = ({
   cart,
   currencySymbol,
   currency,
-  totalConverted
+  totalConverted,
+  isConfirmed = false
 }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   if (!isOpen) return null;
 
+  const getCurrencyRate = (amountGBP: number) => {
+    if (currency === 'USD') return Math.round(amountGBP * 1.28);
+    if (currency === 'XCD') return Math.round(amountGBP * 3.45);
+    return amountGBP;
+  };
+
   // Safe pricing calculation avoiding NaN
   const parsedTotal = parseFloat(String(totalConverted || '').replace(/[^0-9.]/g, ''));
   const safeTotalAmount = !isNaN(parsedTotal) && parsedTotal > 0
     ? parsedTotal
     : cart.reduce((sum, item) => {
-        const p = typeof item.pass?.priceGbp === 'number' && !isNaN(item.pass.priceGbp)
-          ? item.pass.priceGbp
-          : parseFloat(String(item.pass?.priceGbp || '169').replace(/[^0-9.]/g, '')) || 169;
-        return sum + p * (item.quantity || 1);
+        const p = typeof item.pass?.priceGBP === 'number' && !isNaN(item.pass.priceGBP)
+          ? item.pass.priceGBP
+          : parseFloat(String(item.pass?.priceGBP || '169').replace(/[^0-9.]/g, '')) || 169;
+        return sum + getCurrencyRate(p) * (item.quantity || 1);
       }, 0) || 169;
 
   const symbol = currencySymbol || '£';
   const displayTotal = `${symbol}${safeTotalAmount.toLocaleString('en-GB')}`;
 
-  const refCode = reservationRef || 'GCF-2027-8892';
-  const nameDisplay = buyerName || 'Valued VIP Guest';
-  const emailDisplay = buyerEmail || 'guest@mellows-grenada.com';
-  const phoneDisplay = buyerPhone || '+44 7900 123456';
+  const refCode = isConfirmed ? (reservationRef || 'GCF-2027-PENDING') : 'DRAFT-PREVIEW';
+  const nameDisplay = isConfirmed ? (buyerName || 'Valued VIP Guest') : (buyerName || 'Guest Details Pending');
+  const emailDisplay = isConfirmed ? (buyerEmail || 'guest@mellows-grenada.com') : (buyerEmail || 'Complete Checkout to Register Email');
+  const phoneDisplay = isConfirmed ? (buyerPhone || '+44 7900 123456') : (buyerPhone || 'Complete Checkout to Register Phone');
   const dateIssued = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const handlePrint = async () => {
@@ -190,19 +198,6 @@ WhatsApp Concierge: +44 7900 123456
           
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              disabled={isGeneratingPdf}
-              className="px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:brightness-110 disabled:opacity-50 text-neutral-950 font-extrabold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/20"
-            >
-              {isGeneratingPdf ? (
-                <div className="w-3.5 h-3.5 border-2 border-neutral-950/20 border-t-neutral-950 rounded-full animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4" />
-              )}
-              <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Executive PDF'}</span>
-            </button>
-
-            <button
               onClick={onClose}
               className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer"
             >
@@ -243,9 +238,6 @@ WhatsApp Concierge: +44 7900 123456
                   </span>
                   <span className="text-lg font-mono font-black text-amber-300 block tracking-wider mt-0.5">
                     {refCode}
-                  </span>
-                  <span className="text-[10px] font-mono text-emerald-400 font-black bg-emerald-950/90 px-2.5 py-0.5 rounded border border-emerald-500/60 inline-block mt-1">
-                    ✓ VERIFIED & CONFIRMED
                   </span>
                 </div>
               </div>
@@ -295,10 +287,11 @@ WhatsApp Concierge: +44 7900 123456
                     </thead>
                     <tbody className="divide-y divide-slate-800 text-white font-medium">
                       {cart.map((item, idx) => {
-                        const p = typeof item.pass?.priceGbp === 'number' && !isNaN(item.pass.priceGbp)
-                          ? item.pass.priceGbp
-                          : parseFloat(String(item.pass?.priceGbp || '169').replace(/[^0-9.]/g, '')) || 169;
-                        const linePrice = `${symbol}${(p * (item.quantity || 1)).toLocaleString('en-GB')}`;
+                        const p = typeof item.pass?.priceGBP === 'number' && !isNaN(item.pass.priceGBP)
+                          ? item.pass.priceGBP
+                          : parseFloat(String(item.pass?.priceGBP || '169').replace(/[^0-9.]/g, '')) || 169;
+                        const convertedUnitPrice = getCurrencyRate(p);
+                        const linePrice = `${symbol}${(convertedUnitPrice * (item.quantity || 1)).toLocaleString('en-GB')}`;
 
                         return (
                           <tr key={item.pass?.id || idx}>
@@ -308,7 +301,7 @@ WhatsApp Concierge: +44 7900 123456
                                 <strong className="text-white font-bold text-xs">{item.pass?.title || 'VIP Festival Pass'}</strong>
                               </div>
                               <span className="text-[10px] text-slate-300 block pl-5.5 mt-0.5 font-sans">
-                                {item.pass?.tier || 'VIP'} Tier • Full Access to 10-Day Events
+                                {item.pass?.tier || 'VIP'} Tier • {symbol}{convertedUnitPrice.toLocaleString('en-GB')} each • Full Access
                               </span>
                             </td>
                             <td className="py-3 px-3.5 text-center font-mono font-bold text-slate-200">
@@ -368,18 +361,6 @@ WhatsApp Concierge: +44 7900 123456
               className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer border border-neutral-800"
             >
               Close
-            </button>
-            <button
-              onClick={handlePrint}
-              disabled={isGeneratingPdf}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:brightness-110 disabled:opacity-50 text-neutral-950 font-extrabold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/20"
-            >
-              {isGeneratingPdf ? (
-                <div className="w-4 h-4 border-2 border-neutral-950/20 border-t-neutral-950 rounded-full animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Executive Dark PDF'}</span>
             </button>
           </div>
         </div>

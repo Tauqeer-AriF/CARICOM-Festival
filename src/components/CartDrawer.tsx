@@ -29,6 +29,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [orderRef, setOrderRef] = useState('');
 
   const getCurrencyRate = (amountGBP: number) => {
     if (currency === 'USD') return Math.round(amountGBP * 1.28);
@@ -63,7 +64,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     e.preventDefault();
     setIsProcessing(true);
 
-    const orderRef = `GCF-2027-${Math.floor(10000 + Math.random() * 90000)}`;
+    const generatedRef = `GCF-2027-${Math.floor(10000 + Math.random() * 90000)}`;
+    setOrderRef(generatedRef);
     const passItemsSummary = cart.map(i => `${i.quantity}x ${i.pass.title}`).join(', ');
     const passDetailsText = `Pass order reserved in ${currency}. Total: ${getCurrencySymbol()}${totalConverted} (£${totalGBP} GBP). Purchased: ${cart.map(i => `${i.quantity}x ${i.pass.title} @ £${i.pass.priceGBP}`).join('; ')}`;
 
@@ -77,7 +79,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       messageOrDetails: passDetailsText,
       amountGBP: totalGBP,
       extraDetails: {
-        OrderRef: orderRef,
+        OrderRef: generatedRef,
         Currency: currency,
         TotalPaid: `${getCurrencySymbol()}${totalConverted}`,
         PurchasedItems: passItemsSummary,
@@ -260,7 +262,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
               <h4 className="text-xl font-bold font-serif text-white">Pass Reserved Successfully!</h4>
               <p className="text-xs text-neutral-300 leading-relaxed">
-                Thank you, <strong className="text-amber-300">{buyerName || 'Valued Guest'}</strong>! Your festival pass reservation reference is <span className="font-mono text-amber-400 font-bold">GCF-2027-8892</span>.
+                Thank you, <strong className="text-amber-300">{buyerName || 'Valued Guest'}</strong>! Your festival pass reservation reference is <span className="font-mono text-amber-400 font-bold">{orderRef}</span>.
               </p>
 
               <div className="bg-neutral-800 p-4 rounded-2xl text-left border border-neutral-700 space-y-2 text-xs">
@@ -277,8 +279,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     }}
                     className="py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>PDF Pass</span>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Pass Summary</span>
                   </button>
                 </div>
 
@@ -341,11 +343,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         buyerName={buyerName}
         buyerEmail={buyerEmail}
         buyerPhone={buyerPhone}
-        reservationRef="GCF-2027-8892"
+        reservationRef={orderRef || 'GCF-2027-PENDING'}
         cart={cart}
         currencySymbol={getCurrencySymbol()}
         currency={currency}
         totalConverted={totalConverted.toString()}
+        isConfirmed={checkoutStep === 'confirmed'}
       />
     </>
   );
