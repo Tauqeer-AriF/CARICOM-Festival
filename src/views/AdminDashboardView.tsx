@@ -219,7 +219,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
           ctx.drawImage(img, 0, 0, width, height);
           
-          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          // Convert heavy PNG files (which ignore the quality parameter in toDataURL) to highly compressed JPEG
+          // except if they are small logos/icons under 200KB where transparency needs to be preserved.
+          let mimeType = 'image/jpeg';
+          if (file.type === 'image/png' && file.size < 200 * 1024) {
+            mimeType = 'image/png';
+          }
           const compressedUrl = canvas.toDataURL(mimeType, quality);
           
           // Calculate exact base64 size in bytes
@@ -318,7 +323,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   // Media Selector State
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
-    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | 'logo' | { heroIndex: number } | { pageImageKey: string } | null
+    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
 
   const handleMediaSelect = (url: string) => {
@@ -330,6 +335,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
       setSiteConfigState(updatedConfig);
       saveSiteConfig(updatedConfig);
       setSaveToast('Updated application logo from Media Library!');
+    } else if (mediaSelectorTarget === 'favicon') {
+      const updatedConfig = {
+        ...siteConfig,
+        appFaviconUrl: url
+      };
+      setSiteConfigState(updatedConfig);
+      saveSiteConfig(updatedConfig);
+      setSaveToast('Updated application favicon from Media Library!');
     } else if (typeof mediaSelectorTarget === 'object' && mediaSelectorTarget !== null && 'pageImageKey' in mediaSelectorTarget) {
       const key = mediaSelectorTarget.pageImageKey;
       const updatedPageImages = {
@@ -1098,6 +1111,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  const showReplyButton = activeAdminTab === 'orders' || typeFilter !== 'all' || statusFilter !== 'all';
+
   // KPI Statistics
   const totalCount = submissions.length;
   const newCount = submissions.filter(s => s.status === 'new').length;
@@ -1858,18 +1873,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                                     {/* Lifecycle Status */}
                                     <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                      <div className="flex flex-col items-center gap-1.5">
-                                        {getStatusBadge(sub.status)}
-                                        <select
-                                          value={sub.status}
-                                          onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
-                                          className="bg-neutral-950 border border-neutral-800 text-[9px] text-neutral-400 font-bold hover:text-white rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
-                                        >
-                                          <option value="new">New</option>
-                                          <option value="in-review">In Review</option>
-                                          <option value="resolved">Resolved</option>
-                                        </select>
-                                      </div>
+                                      <span className="text-neutral-600 font-mono text-xs">—</span>
                                     </td>
 
                                     {/* Quick Actions */}
@@ -1881,14 +1885,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                           title="Print / Export Pass & Wristband Badge PDF"
                                         >
                                           <Printer className="w-3 h-3 text-amber-400" /> Badge
-                                        </button>
-                                        <button
-                                          onClick={() => setReplyingSub(sub)}
-                                          className="px-2 py-1 text-[10px] font-bold text-neutral-950 rounded transition-all cursor-pointer flex items-center gap-1 hover:brightness-110 shadow-sm"
-                                          style={{ backgroundColor: primaryColor }}
-                                          title="Send official guest reply"
-                                        >
-                                          <Send className="w-3 h-3" /> Reply
                                         </button>
                                         <button
                                           onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
@@ -2024,6 +2020,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                             </div>
                                           </div>
                                         )}
+
+                                        {/* PROCESSING & ACTION PANEL */}
+                                        <div className="p-4 bg-[#0C0F1E] rounded-lg border border-neutral-800/80 space-y-3">
+                                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider block font-mono">Inquiry Processing & Actions</span>
+                                          <div className="flex flex-wrap items-center justify-between gap-4 bg-neutral-950 p-3.5 rounded-xl border border-neutral-900/60">
+                                            <div className="flex items-center gap-3">
+                                              <span className="text-xs text-neutral-400 font-medium font-mono">Lifecycle Status:</span>
+                                              <div className="flex items-center gap-2">
+                                                {getStatusBadge(sub.status)}
+                                                <select
+                                                  value={sub.status}
+                                                  onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
+                                                  className="bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 font-bold hover:text-white rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                                                >
+                                                  <option value="new">New</option>
+                                                  <option value="in-review">In Review</option>
+                                                  <option value="resolved">Resolved</option>
+                                                </select>
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                onClick={() => setReplyingSub(sub)}
+                                                className="px-3.5 py-1.5 text-xs font-bold text-neutral-950 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 hover:brightness-110 shadow-sm"
+                                                style={{ backgroundColor: primaryColor }}
+                                                title="Send official guest reply"
+                                              >
+                                                <Send className="w-3.5 h-3.5" /> Reply to Guest
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
                                     </td>
                                   </tr>
@@ -2071,7 +2100,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                   />
                                   {getTypeBadge(sub.type)}
                                 </div>
-                                {getStatusBadge(sub.status)}
                               </div>
 
                               <div className="flex items-center gap-3">
@@ -2102,16 +2130,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                               {/* Mobile action bar */}
                               <div className="flex items-center justify-between pt-2 border-t border-neutral-900/60" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] text-neutral-500 uppercase tracking-wider block">Status:</span>
-                                  <select
-                                    value={sub.status}
-                                    onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
-                                    className="bg-neutral-950 border border-neutral-850 text-[10px] text-neutral-400 rounded px-1.5 py-0.5"
-                                  >
-                                    <option value="new">New</option>
-                                    <option value="in-review">In Review</option>
-                                    <option value="resolved">Resolved</option>
-                                  </select>
+                                  {/* Empty left side placeholder as status is hidden */}
+                                  <span className="text-neutral-600 font-mono text-xs">—</span>
                                 </div>
 
                                 <div className="flex items-center gap-1">
@@ -2121,13 +2141,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                     title="Pass / Badge Studio"
                                   >
                                     <Printer className="w-3.5 h-3.5 text-amber-400" />
-                                  </button>
-                                  <button
-                                    onClick={() => setReplyingSub(sub)}
-                                    className="px-2.5 py-1 text-[10px] font-bold text-neutral-950 rounded transition-all cursor-pointer flex items-center gap-1 hover:brightness-110"
-                                    style={{ backgroundColor: primaryColor }}
-                                  >
-                                    <Send className="w-3 h-3" /> Reply
                                   </button>
                                   <button
                                     onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
@@ -2222,6 +2235,36 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                     </div>
                                   </div>
                                 )}
+
+                                {/* Compact Mobile Processing Desk */}
+                                <div className="bg-[#0C0F1E] border border-neutral-800 p-3 rounded-lg space-y-2.5">
+                                  <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider block font-mono">Inquiry Processing & Actions</span>
+                                  <div className="flex flex-col gap-2.5 bg-neutral-950 p-2.5 rounded-lg border border-neutral-900/60">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10px] text-neutral-400 font-medium">Status:</span>
+                                      <div className="flex items-center gap-1.5">
+                                        {getStatusBadge(sub.status)}
+                                        <select
+                                          value={sub.status}
+                                          onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
+                                          className="bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-300 font-bold rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none"
+                                        >
+                                          <option value="new">New</option>
+                                          <option value="in-review">In Review</option>
+                                          <option value="resolved">Resolved</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    
+                                    <button
+                                      onClick={() => setReplyingSub(sub)}
+                                      className="w-full py-1.5 text-[10px] font-bold text-neutral-950 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 hover:brightness-110"
+                                      style={{ backgroundColor: primaryColor }}
+                                    >
+                                      <Send className="w-3 h-3" /> Reply to Guest
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -2931,6 +2974,111 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                               );
                             })}
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Custom Favicon Card */}
+                      <div className="bg-neutral-950/60 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase text-amber-400 tracking-wider block">
+                            3. Site Favicon Management
+                          </span>
+                          <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-mono font-bold rounded-full">
+                            FAVICON SETTINGS
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                          The Favicon is the icon displayed in the browser tab. You can select any image from the media library or upload a custom favicon file.
+                        </p>
+
+                        {/* Current Favicon Preview Box */}
+                        <div className="p-4 bg-neutral-900/90 rounded-2xl border border-neutral-800 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center overflow-hidden shadow-inner p-1">
+                              <img
+                                src={siteConfig.appFaviconUrl || '/src/assets/images/favicon_icon_1786434632871.jpg'}
+                                alt="Current Favicon"
+                                className="w-full h-full object-cover rounded-xl"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-white block">Active Favicon Icon</span>
+                              <span className="text-[10px] text-neutral-400 block font-mono truncate max-w-[150px]">
+                                {siteConfig.appFaviconUrl ? 'Custom Favicon Active' : 'Default Gold Palm Favicon'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Reset Button */}
+                          {siteConfig.appFaviconUrl && siteConfig.appFaviconUrl !== '/src/assets/images/favicon_icon_1786434632871.jpg' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...siteConfig, appFaviconUrl: '/src/assets/images/favicon_icon_1786434632871.jpg' };
+                                setSiteConfigState(updated);
+                                saveSiteConfig(updated);
+                                setSaveToast('Reverted custom favicon to default gold palm tree icon.');
+                              }}
+                              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                              <span>Reset to Default</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Upload & Media Library Actions */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {/* Choose from Media Library */}
+                          <button
+                            type="button"
+                            onClick={() => setMediaSelectorTarget('favicon')}
+                            className="py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Image className="w-4 h-4 text-amber-400" />
+                            <span>Select from Media Library</span>
+                          </button>
+
+                          {/* Upload New File */}
+                          <label className="py-2.5 px-3 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 hover:border-amber-500/50 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer">
+                            <Upload className="w-4 h-4 text-emerald-400" />
+                            <span>Upload Favicon</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  // Compress favicon strictly to 128x128 for speed and storage size
+                                  const { compressedUrl, compressedSize } = await compressImage(file, 128, 0.8);
+                                  const newItem: MediaItem = {
+                                    id: `media-favicon-${Date.now()}`,
+                                    name: file.name || 'favicon.png',
+                                    url: compressedUrl,
+                                    originalSize: file.size,
+                                    compressedSize,
+                                    type: file.type || 'image/png',
+                                    uploadedAt: new Date().toISOString()
+                                  };
+                                  const success = await addMediaItem(newItem);
+                                  if (success) {
+                                    const updatedConfig = { ...siteConfig, appFaviconUrl: compressedUrl };
+                                    setSiteConfigState(updatedConfig);
+                                    saveSiteConfig(updatedConfig);
+                                    setSaveToast('Uploaded, saved to Media Library, and updated Favicon!');
+                                  } else {
+                                    setSaveToast('Failed to upload favicon. File might be too large or invalid.');
+                                  }
+                                } catch (err) {
+                                  console.error('Favicon upload error:', err);
+                                }
+                              }}
+                            />
+                          </label>
                         </div>
                       </div>
 

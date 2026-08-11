@@ -103,6 +103,7 @@ export interface SiteConfig {
   appName?: string;
   appSubtitle?: string;
   appLogoUrl?: string;
+  appFaviconUrl?: string;
   appLogoIcon?: 'Palmtree' | 'Sparkles' | 'Crown' | 'Sun' | 'Flame' | 'Music' | 'Globe' | 'Shield' | 'Compass';
   appTagline?: string;
   appYearBadge?: string;

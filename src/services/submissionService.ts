@@ -15,6 +15,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   appName: 'Grenada CARICOM Festival 2027',
   appSubtitle: 'CARICOM FESTIVAL',
   appLogoUrl: '',
+  appFaviconUrl: '/src/assets/images/favicon_icon_1786434632871.jpg',
   appLogoIcon: 'Palmtree',
   appTagline: "Where London's top DJs & revelers unite with Grenada's tropical warmth.",
   appYearBadge: '2027',
@@ -1026,17 +1027,28 @@ export const saveMediaItems = (items: MediaItem[]): void => {
   }
 };
 
-export const addMediaItem = (item: MediaItem): void => {
-  const current = getMediaItems();
-  const updated = [item, ...current];
-  saveMediaItems(updated);
+export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
+  try {
+    // Sync to backend SQLite first
+    const res = await safeApiCall('/api/media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    });
 
-  // Sync to backend SQLite
-  safeApiCall('/api/media', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(item)
-  });
+    if (res && res.ok) {
+      const current = getMediaItems();
+      const updated = [item, ...current];
+      saveMediaItems(updated);
+      return true;
+    } else {
+      console.error('Server rejected the media item, status:', res?.status);
+      return false;
+    }
+  } catch (err) {
+    console.error('Error in addMediaItem:', err);
+    return false;
+  }
 };
 
 export const deleteMediaItem = (id: string): void => {

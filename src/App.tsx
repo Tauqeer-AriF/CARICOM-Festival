@@ -159,6 +159,18 @@ export default function App() {
     return () => window.removeEventListener('site_config_updated', handleConfigUpdate);
   }, []);
 
+  // Dynamically update document favicon
+  useEffect(() => {
+    const faviconUrl = siteConfig.appFaviconUrl || '/src/assets/images/favicon_icon_1786434632871.jpg';
+    let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    link.href = faviconUrl;
+  }, [siteConfig.appFaviconUrl]);
+
   // Auto-detect user currency on app load based on timezone, locale, and IP location
   useEffect(() => {
     // Immediate locale/timezone detection

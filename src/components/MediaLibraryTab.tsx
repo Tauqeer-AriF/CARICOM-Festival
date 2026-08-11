@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { MediaItem } from '../types';
+import { CustomConfirmModal } from './CustomConfirmModal';
 import { 
   getMediaItems, 
   addMediaItem, 
@@ -66,6 +67,22 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   const [selectedCleanupDays, setSelectedCleanupDays] = useState<number>(7);
   const [customDaysInput, setCustomDaysInput] = useState<string>('14');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom Confirm Modal state
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    primaryColor?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     setPage(1);
@@ -135,7 +152,12 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
           ctx.drawImage(img, 0, 0, width, height);
           
-          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          // Convert heavy PNG files (which ignore the quality parameter in toDataURL) to highly compressed JPEG
+          // except if they are small logos/icons under 200KB where transparency needs to be preserved.
+          let mimeType = 'image/jpeg';
+          if (file.type === 'image/png' && file.size < 200 * 1024) {
+            mimeType = 'image/png';
+          }
           const compressedUrl = canvas.toDataURL(mimeType, quality);
           
           // Calculate base64 size in bytes
@@ -158,6 +180,8 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
     let totalOriginal = 0;
     let totalCompressed = 0;
+    let successCount = 0;
+    let failedCount = 0;
 
     for (let i = 0; i < totalFiles; i++) {
       setUploadProgress({ current: i + 1, total: totalFiles });
@@ -195,22 +219,34 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           uploadedAt: new Date().toISOString()
         };
 
-        addMediaItem(newItem);
+        const success = await addMediaItem(newItem);
+        if (success) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
       } catch (err) {
         console.error('File upload/compression failed:', err);
+        failedCount++;
       }
     }
 
     loadMedia();
-    if (totalFiles === 1 && totalOriginal > 0) {
-      setUploadStats({
-        original: totalOriginal,
-        compressed: totalCompressed,
-        name: files[0].name
-      });
-      setTimeout(() => setUploadStats(null), 5000);
-    } else {
-      showToast(`Successfully uploaded ${totalFiles} media item${totalFiles > 1 ? 's' : ''}!`);
+    if (successCount > 0) {
+      if (totalFiles === 1 && totalOriginal > 0) {
+        setUploadStats({
+          original: totalOriginal,
+          compressed: totalCompressed,
+          name: files[0].name
+        });
+        setTimeout(() => setUploadStats(null), 5000);
+      } else {
+        showToast(`Successfully uploaded ${successCount} media item${successCount > 1 ? 's' : ''}!`);
+      }
+    }
+
+    if (failedCount > 0) {
+      showToast(`Warning: ${failedCount} file${failedCount > 1 ? 's' : ''} failed to upload. Payloads might be too large.`);
     }
 
     setUploading(false);
@@ -219,22 +255,40 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this media asset?')) {
-      deleteMediaItem(id);
-      setSelectedIds(prev => prev.filter(item => item !== id));
-      loadMedia();
-      showToast('Asset deleted!');
-    }
+    setConfirmState({
+      isOpen: true,
+      title: 'Delete Asset',
+      message: 'Are you sure you want to permanently delete this media asset?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      primaryColor: '#EF4444',
+      onConfirm: () => {
+        deleteMediaItem(id);
+        setSelectedIds(prev => prev.filter(item => item !== id));
+        loadMedia();
+        showToast('Asset deleted!');
+        setConfirmState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const handleBulkDelete = () => {
     if (!selectedIds.length) return;
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected asset${selectedIds.length > 1 ? 's' : ''}?`)) {
-      deleteMultipleMediaItems(selectedIds);
-      showToast(`Successfully deleted ${selectedIds.length} asset${selectedIds.length > 1 ? 's' : ''}!`);
-      setSelectedIds([]);
-      loadMedia();
-    }
+    setConfirmState({
+      isOpen: true,
+      title: 'Bulk Delete Assets',
+      message: `Are you sure you want to permanently delete the ${selectedIds.length} selected asset${selectedIds.length > 1 ? 's' : ''}?`,
+      confirmText: 'Delete All',
+      cancelText: 'Cancel',
+      primaryColor: '#EF4444',
+      onConfirm: () => {
+        deleteMultipleMediaItems(selectedIds);
+        showToast(`Successfully deleted ${selectedIds.length} asset${selectedIds.length > 1 ? 's' : ''}!`);
+        setSelectedIds([]);
+        loadMedia();
+        setConfirmState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const handleBulkCopyUrls = async () => {
@@ -319,12 +373,21 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     const totalFreed = matchingUnused.reduce((acc, i) => acc + (i.compressedSize || i.originalSize || 0), 0);
     const dayLabel = daysThreshold === 0 ? 'any age' : `older than ${daysThreshold} day${daysThreshold > 1 ? 's' : ''}`;
 
-    if (window.confirm(`Are you sure you want to permanently delete ${matchingUnused.length} unused media asset(s) (${dayLabel})? This will free up ${formatBytes(totalFreed)}.`)) {
-      const result = performUnusedMediaCleanup(daysThreshold);
-      showToast(`Deleted ${result.deletedCount} unused asset(s) (${formatBytes(result.freedBytes)} freed)!`);
-      setSelectedIds([]);
-      loadMedia();
-    }
+    setConfirmState({
+      isOpen: true,
+      title: 'Unused Assets Cleanup',
+      message: `Are you sure you want to permanently delete ${matchingUnused.length} unused media asset(s) (${dayLabel})? This will free up ${formatBytes(totalFreed)}.`,
+      confirmText: 'Clean Up Now',
+      cancelText: 'Cancel',
+      primaryColor: '#EF4444',
+      onConfirm: () => {
+        const result = performUnusedMediaCleanup(daysThreshold);
+        showToast(`Deleted ${result.deletedCount} unused asset(s) (${formatBytes(result.freedBytes)} freed)!`);
+        setSelectedIds([]);
+        loadMedia();
+        setConfirmState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const handleSaveAutoCleanup = (enabled: boolean, ageInDays: number) => {
@@ -1169,6 +1232,18 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Custom Confirmation Modal */}
+      <CustomConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        primaryColor={confirmState.primaryColor}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

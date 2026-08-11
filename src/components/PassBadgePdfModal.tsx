@@ -107,7 +107,7 @@ export const PassBadgePdfModal: React.FC<PassBadgePdfModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/95 backdrop-blur-2xl animate-fadeIn font-sans">
+    <div className="fixed inset-0 z-[10010] flex items-center justify-center p-3 sm:p-4 bg-black/95 backdrop-blur-2xl animate-fadeIn font-sans">
       <style>{`
         @media print {
           @page {
