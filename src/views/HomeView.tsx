@@ -11,6 +11,7 @@ import {
   Music, 
   Heart, 
   Ticket, 
+  ArrowLeft,
   ArrowRight, 
   Waves, 
   ShieldCheck, 
@@ -229,53 +230,55 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         {/* Carousel Navigation Controls */}
         {activeHeroImages.length > 1 && (
           <>
-            {/* Desktop Left Chevron */}
+            {/* Desktop Left Carousel Control */}
             <button
               onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden lg:flex items-center justify-center"
-              title="Previous Background Slide"
+              className="group absolute left-4 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-neutral-900/85 hover:bg-neutral-900 border border-amber-500/40 hover:border-amber-400 backdrop-blur-xl text-amber-400 hover:text-amber-300 transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)] hidden lg:flex items-center justify-center overflow-hidden"
+              title="Previous Slide"
               aria-label="Previous Slide"
             >
-              <ChevronLeft className="w-5 h-5 text-amber-400" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/0 via-amber-500/10 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <ArrowLeft className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-0.5" />
             </button>
 
-            {/* Desktop Right Chevron */}
+            {/* Desktop Right Carousel Control */}
             <button
               onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/75 border border-white/10 text-white/80 hover:text-white backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 shadow-2xl hidden lg:flex items-center justify-center"
-              title="Next Background Slide"
+              className="group absolute right-4 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-neutral-900/85 hover:bg-neutral-900 border border-amber-500/40 hover:border-amber-400 backdrop-blur-xl text-amber-400 hover:text-amber-300 transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)] hidden lg:flex items-center justify-center overflow-hidden"
+              title="Next Slide"
               aria-label="Next Slide"
             >
-              <ChevronRight className="w-5 h-5 text-amber-400" />
+              <div className="absolute inset-0 bg-gradient-to-tl from-amber-500/0 via-amber-500/10 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-0.5" />
             </button>
 
             {/* Bottom Controls Pill Bar (Mobile Friendly Flow + Desktop Absolute) */}
             <div className="relative z-20 mt-6 sm:mt-0 sm:absolute sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 flex items-center justify-center shrink-0">
-              <div className="flex items-center gap-2 sm:gap-3 bg-[#07090D]/85 backdrop-blur-md px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-amber-500/40 shadow-2xl">
+              <div className="flex items-center gap-2 sm:gap-3 bg-neutral-950/85 backdrop-blur-xl px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-amber-500/40 hover:border-amber-400/80 shadow-[0_15px_35px_rgba(0,0,0,0.8)] transition-all">
                 {/* Mobile Left Arrow */}
                 <button
                   onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
-                  className="p-1 rounded-full hover:bg-white/10 text-amber-400 transition-all cursor-pointer flex items-center justify-center lg:hidden"
+                  className="p-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 hover:text-amber-300 border border-amber-500/30 transition-all cursor-pointer flex items-center justify-center lg:hidden active:scale-90"
                   title="Previous Slide"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-3.5 h-3.5" />
                 </button>
 
                 {/* Slide Counter */}
-                <span className="text-[10px] sm:text-xs font-mono font-extrabold text-amber-400 uppercase tracking-widest border-r border-white/15 pr-2.5 sm:pr-3">
-                  {String(currentImageIndex + 1).padStart(2, '0')} / {String(activeHeroImages.length).padStart(2, '0')}
+                <span className="text-[10px] sm:text-xs font-mono font-black text-amber-400 uppercase tracking-widest border-r border-amber-500/20 pr-3 sm:pr-3.5">
+                  {String(currentImageIndex + 1).padStart(2, '0')} <span className="text-neutral-500 font-normal">/</span> {String(activeHeroImages.length).padStart(2, '0')}
                 </span>
 
                 {/* Dots */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 px-1">
                   {activeHeroImages.map((imgItem, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
                       className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                         currentImageIndex === idx 
-                          ? 'w-5 sm:w-6 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]' 
-                          : 'w-2 bg-white/30 hover:bg-white/60'
+                          ? 'w-6 sm:w-7 bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]' 
+                          : 'w-2 bg-white/20 hover:bg-white/50'
                       }`}
                       title={imgItem.alt || `Slide ${idx + 1}`}
                       aria-label={`Go to slide ${idx + 1}`}
@@ -286,7 +289,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
                 {/* Pause/Play Toggle */}
                 <button
                   onClick={() => setIsPaused((prev) => !prev)}
-                  className="text-white/70 hover:text-amber-300 transition-colors cursor-pointer border-l border-white/15 pl-2 sm:pl-2.5 flex items-center"
+                  className="p-1 sm:p-1.5 rounded-full hover:bg-amber-500/20 text-amber-400 transition-all cursor-pointer border-l border-amber-500/20 pl-2.5 sm:pl-3 flex items-center"
                   title={isPaused ? "Resume Autoplay" : "Pause Autoplay"}
                 >
                   {isPaused ? <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
@@ -295,10 +298,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
                 {/* Mobile Right Arrow */}
                 <button
                   onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
-                  className="p-1 rounded-full hover:bg-white/10 text-amber-400 transition-all cursor-pointer flex items-center justify-center lg:hidden"
+                  className="p-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 hover:text-amber-300 border border-amber-500/30 transition-all cursor-pointer flex items-center justify-center lg:hidden active:scale-90"
                   title="Next Slide"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
