@@ -609,8 +609,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const configPassword = siteConfig.adminPassword || '2027';
-    if (pinInput === configPassword || pinInput === '2027' || pinInput.toLowerCase() === 'admin' || pinInput === 'admin123') {
+    const configPassword = (siteConfig.adminPassword || '2027').trim();
+    if (pinInput.trim() === configPassword) {
       sessionStorage.setItem('admin_authenticated', 'true');
       localStorage.setItem('admin_authenticated', 'true');
       setIsAuthenticated(true);

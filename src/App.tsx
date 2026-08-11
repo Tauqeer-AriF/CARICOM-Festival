@@ -27,17 +27,17 @@ import { AnimatePresence } from 'motion/react';
 import { SplashScreen } from './components/SplashScreen';
 
 // Helper to parse current path to ActiveTab
-const getTabFromUrl = (): ActiveTab => {
+const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
   const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
   const hash = window.location.hash.toLowerCase().replace(/^#+/, '');
   
   const current = path || hash;
   if (!current) return 'home';
   
-  const config = getSiteConfig();
-  const adminPath = (config.adminPath || 'admin').toLowerCase();
+  const config = overrideConfig || getSiteConfig();
+  const secretPath = (config.adminPath || 'admin').toLowerCase().trim();
   
-  if (current === adminPath) return 'admin';
+  if (current === secretPath) return 'admin';
   if (current === 'events') return 'events';
   if (current === 'gallery') return 'gallery';
   if (current === 'about-grenada') return 'about-grenada';
@@ -128,36 +128,45 @@ export default function App() {
   // Listen for browser forward/back popstate events
   useEffect(() => {
     const handlePopState = () => {
-      setActiveTabState(getTabFromUrl());
+      setActiveTabState(getTabFromUrl(siteConfig));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Update address bar dynamically when adminPath changes
-  useEffect(() => {
-    if (activeTab === 'admin') {
-      const adminPath = siteConfig.adminPath || 'admin';
-      const targetPath = `/${adminPath}`;
-      if (window.location.pathname !== targetPath) {
-        window.history.replaceState({ tab: 'admin' }, '', targetPath);
-      }
-    }
-  }, [siteConfig.adminPath, activeTab]);
+  }, [siteConfig]);
 
   // Listen for dynamic site branding & banner updates from Admin Dashboard
   useEffect(() => {
     const handleConfigUpdate = (e: Event) => {
       const customEv = e as CustomEvent<SiteConfig>;
-      if (customEv.detail) {
-        setSiteConfig(customEv.detail);
+      const newConfig = customEv.detail || getSiteConfig();
+      const prevAdminPath = (siteConfig.adminPath || 'admin').toLowerCase().trim();
+      const newAdminPath = (newConfig.adminPath || 'admin').toLowerCase().trim();
+      setSiteConfig(newConfig);
+
+      const pathTab = getTabFromUrl(newConfig);
+      const currentPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+
+      if (activeTab === 'admin') {
+        // If the admin saved a new path while actively working on the admin dashboard in this tab:
+        if (currentPath === prevAdminPath || currentPath === newAdminPath) {
+          const targetPath = `/${newAdminPath}`;
+          if (window.location.pathname !== targetPath) {
+            window.history.replaceState({ tab: 'admin' }, '', targetPath);
+          }
+        } else {
+          // If the current path in address bar is NOT the valid secret path (e.g. user typed /admin or old path in a new tab), navigate to 404
+          setActiveTabState(pathTab);
+        }
       } else {
-        setSiteConfig(getSiteConfig());
+        // If the URL in address bar no longer matches activeTab under new config
+        if (pathTab !== activeTab) {
+          setActiveTabState(pathTab);
+        }
       }
     };
     window.addEventListener('site_config_updated', handleConfigUpdate);
     return () => window.removeEventListener('site_config_updated', handleConfigUpdate);
-  }, []);
+  }, [activeTab, siteConfig.adminPath]);
 
   // Dynamically update document favicon
   useEffect(() => {
@@ -218,10 +227,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Sync browser URL pathname
-    const adminPath = siteConfig.adminPath || 'admin';
-    const targetPath = newTab === 'home' ? '/' : (newTab === 'admin' ? `/${adminPath}` : `/${newTab}`);
-    if (window.location.pathname !== targetPath) {
-      window.history.pushState({ tab: newTab }, '', targetPath);
+    const adminPath = (siteConfig.adminPath || 'admin').toLowerCase().trim();
+    if (newTab !== 'not-found') {
+      const targetPath = newTab === 'home' ? '/' : (newTab === 'admin' ? `/${adminPath}` : `/${newTab}`);
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ tab: newTab }, '', targetPath);
+      }
     }
 
     setTimeout(() => {
