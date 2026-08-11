@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { getDb } from './src/db/database';
 
@@ -16,8 +18,54 @@ async function startServer() {
   app.use(express.json({ limit: '200mb' }));
   app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
+  // Setup disk upload directory and Multer storage
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      const sanitizedBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}${ext}`;
+      cb(null, uniqueName);
+    }
+  });
+
+  const upload = multer({
+    storage,
+    limits: { fileSize: 500 * 1024 * 1024 } // 500MB max limit
+  });
+
+  // Serve binary uploads statically
+  app.use('/uploads', express.static(uploadsDir));
+
   // Helper to get database connection
   const db = await getDb();
+
+  // Binary File Upload API Endpoint
+  app.post('/api/upload', upload.single('file'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+      }
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({
+        url: fileUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (err: any) {
+      console.error('[Upload Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // SSE Real-Time Updates Clients
   const clients = new Set<express.Response>();
@@ -58,8 +106,9 @@ async function startServer() {
       const row = await db.get('SELECT data_json FROM site_config WHERE id = ?', 'main');
       if (!row) {
         // Seed DEFAULT_SITE_CONFIG
-        await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(DEFAULT_SITE_CONFIG));
-        return res.json(DEFAULT_SITE_CONFIG);
+        const seedConfig = { ...DEFAULT_SITE_CONFIG, updatedAt: new Date().toISOString() };
+        await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedConfig));
+        return res.json(seedConfig);
       }
       res.json(JSON.parse(row.data_json));
     } catch (e: any) {
@@ -200,15 +249,6 @@ async function startServer() {
         return res.json(FESTIVAL_EVENTS);
       }
       const events = rows.map(r => JSON.parse(r.data_json));
-      let updated = false;
-      for (const ev of events) {
-        const matchingDefault = FESTIVAL_EVENTS.find(fe => fe.id === ev.id);
-        if (matchingDefault && ev.highlightImage !== matchingDefault.highlightImage) {
-          ev.highlightImage = matchingDefault.highlightImage;
-          await db.run('UPDATE events SET data_json = ? WHERE id = ?', JSON.stringify(ev), ev.id);
-          updated = true;
-        }
-      }
       res.json(events);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -241,15 +281,6 @@ async function startServer() {
         return res.json(GALLERY_ITEMS);
       }
       const items = rows.map(r => JSON.parse(r.data_json));
-      let updated = false;
-      for (const item of items) {
-        const matchingDefault = GALLERY_ITEMS.find(gi => gi.id === item.id);
-        if (matchingDefault && item.imageUrl !== matchingDefault.imageUrl) {
-          item.imageUrl = matchingDefault.imageUrl;
-          await db.run('UPDATE gallery SET data_json = ? WHERE id = ?', JSON.stringify(item), item.id);
-          updated = true;
-        }
-      }
       res.json(items);
     } catch (e: any) {
       res.status(500).json({ error: e.message });

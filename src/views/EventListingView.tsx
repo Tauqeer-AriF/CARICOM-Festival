@@ -15,6 +15,8 @@ import {
   Search,
   Shirt,
   ShieldCheck,
+  Disc,
+  Radio,
   X
 } from 'lucide-react';
 
@@ -35,9 +37,11 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
 
   const filteredEvents = events.filter(evt => {
     const matchesCategory = selectedCategory === 'All' || evt.category.toLowerCase() === selectedCategory.toLowerCase();
-    const matchesSearch = evt.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          evt.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          evt.djLineup.some(dj => dj.toLowerCase().includes(searchQuery.toLowerCase()));
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = evt.title.toLowerCase().includes(query) || 
+                          evt.description.toLowerCase().includes(query) ||
+                          (evt.djLineup && evt.djLineup.some(dj => dj.toLowerCase().includes(query))) ||
+                          (evt.genres && evt.genres.some(g => g.toLowerCase().includes(query)));
     return matchesCategory && matchesSearch;
   });
 
@@ -143,6 +147,21 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
                 <p className="text-neutral-400 text-xs leading-relaxed line-clamp-2">
                   {event.description}
                 </p>
+
+                {/* Music Genres Badges */}
+                {event.genres && event.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {event.genres.map((genre, idx) => (
+                      <span 
+                        key={idx} 
+                        className="px-2 py-0.5 rounded-md bg-neutral-950/80 border border-neutral-800 text-amber-300 text-[10px] font-bold tracking-wide flex items-center gap-1"
+                      >
+                        <Tag className="w-2.5 h-2.5 text-amber-400" />
+                        <span>{genre}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Location & DJ Lineup */}
@@ -154,7 +173,7 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
 
                 {event.djLineup && event.djLineup.length > 0 && (
                   <div className="flex items-center gap-2 text-neutral-400">
-                    <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <Disc className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span className="truncate text-[11px]">
                       DJs: {event.djLineup.join(', ')}
                     </span>
@@ -267,10 +286,25 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
                     </div>
                   </div>
 
-                  {activeEventModal.djLineup && (
+                  {activeEventModal.genres && activeEventModal.genres.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                        <Music className="w-4 h-4" /> DJ Lineup & Entertainers
+                        <Tag className="w-4 h-4" /> Music Genres
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {activeEventModal.genres.map((genre, i) => (
+                          <span key={i} className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
+                            <Radio className="w-3.5 h-3.5 text-amber-400" /> {genre}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeEventModal.djLineup && activeEventModal.djLineup.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <Disc className="w-4 h-4" /> DJ Lineup & Entertainers
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {activeEventModal.djLineup.map((dj, i) => (

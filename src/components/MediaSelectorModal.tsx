@@ -12,7 +12,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { MediaItem } from '../types';
-import { getMediaItems, addMediaItem, deleteMediaItem } from '../services/submissionService';
+import { getMediaItems, addMediaItem, deleteMediaItem, uploadFileToServer } from '../services/submissionService';
 
 interface MediaSelectorModalProps {
   isOpen: boolean;
@@ -117,8 +117,16 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
       try {
         let url = '';
         let compressedSize = file.size;
+        let fileType = file.type || (file.name.match(/\.(mp4|mov|avi|webm|mkv)$/i) ? 'video/mp4' : 'image/jpeg');
 
-        if (file.type.startsWith('image/')) {
+        const serverRes = await uploadFileToServer(file);
+        if (serverRes && serverRes.url) {
+          url = serverRes.url;
+          compressedSize = serverRes.size;
+          fileType = serverRes.type || fileType;
+          totalOriginal += file.size;
+          totalCompressed += compressedSize;
+        } else if (file.type.startsWith('image/')) {
           // Compress image using client-side HTML5 Canvas
           const result = await compressImage(file, 1024, 0.75);
           url = result.compressedUrl;
@@ -146,11 +154,11 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
           url: url,
           originalSize: file.size,
           compressedSize: compressedSize,
-          type: file.type || (file.name.match(/\.(mp4|mov|avi)$/i) ? 'video/mp4' : 'image/jpeg'),
+          type: fileType,
           uploadedAt: new Date().toISOString()
         };
 
-        addMediaItem(newItem);
+        await addMediaItem(newItem);
       } catch (err) {
         console.error('File upload/compression failed:', err);
       }
@@ -204,9 +212,15 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
     }
   };
 
-  const filteredMedia = media.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video'>('all');
+
+  const filteredMedia = media.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
+    if (typeFilter === 'image' && isVideo) return false;
+    if (typeFilter === 'video' && !isVideo) return false;
+    return matchesSearch;
+  });
 
   return createPortal(
     <AnimatePresence>
@@ -321,16 +335,41 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
 
               {/* Right Side: Media Asset Grid */}
               <div className="flex-1 flex flex-col gap-4 min-w-0 min-h-[300px]">
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
-                    placeholder="Search media files by name..."
-                  />
+                {/* Search Bar & Media Type Filters */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                      placeholder="Search media files by name..."
+                    />
+                  </div>
+                  <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl p-1 gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setTypeFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'all' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTypeFilter('image')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'image' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                    >
+                      📷 Photos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTypeFilter('video')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'video' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                    >
+                      🎥 Videos
+                    </button>
+                  </div>
                 </div>
 
                 {/* Media Grid */}
@@ -343,7 +382,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                       <div className="space-y-1">
                         <h4 className="text-xs font-bold text-white">No Assets Found</h4>
                         <p className="text-[11px] text-neutral-500 font-light max-w-xs">
-                          Try searching for another keyword or upload new images on the left panel.
+                          Try searching for another keyword or upload new files on the left panel.
                         </p>
                       </div>
                     </div>
@@ -351,6 +390,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {filteredMedia.map((item) => {
                         const compressionRatio = Math.round((1 - item.compressedSize / item.originalSize) * 100);
+                        const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
                         return (
                           <div
                             key={item.id}
@@ -360,11 +400,12 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                             }}
                             className="group relative border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950 aspect-video flex flex-col justify-end shadow-sm cursor-pointer hover:border-amber-500/60 transition-all hover:shadow-lg"
                           >
-                            {item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4') ? (
+                            {isVideo ? (
                               <video
                                 src={item.url}
                                 className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
                                 muted
+                                playsInline
                               />
                             ) : (
                               <img

@@ -13,7 +13,8 @@ import {
   Ticket, 
   Share2, 
   Camera,
-  Video
+  Video,
+  AlertCircle
 } from 'lucide-react';
 import { GalleryItem } from '../types';
 
@@ -25,6 +26,25 @@ interface GalleryModalProps {
   onPrev: () => void;
   onNavigateShop?: () => void;
 }
+
+const getYouTubeEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}?autoplay=1&rel=0`;
+  }
+  return null;
+};
+
+const getVimeoEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const match = url.trim().match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)(\d+)/);
+  if (match && match[1]) {
+    return `https://player.vimeo.com/video/${match[1]}?autoplay=1`;
+  }
+  return null;
+};
 
 export const GalleryModal: React.FC<GalleryModalProps> = ({
   item,
@@ -87,48 +107,72 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
   };
 
   const renderMedia = () => {
-    if (isVideo && item.videoUrl) {
-      const url = item.videoUrl.trim();
-      if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        let embedId = '';
-        if (url.includes('youtu.be/')) {
-          embedId = url.split('youtu.be/')[1]?.split('?')[0] || '';
-        } else if (url.includes('v=')) {
-          embedId = url.split('v=')[1]?.split('&')[0] || '';
-        }
+    if (isVideo) {
+      const rawVideoUrl = (item.videoUrl || '').trim();
+      const rawImageUrl = (item.imageUrl || '').trim();
+
+      // Check YouTube
+      const ytEmbed = getYouTubeEmbedUrl(rawVideoUrl) || getYouTubeEmbedUrl(rawImageUrl);
+      if (ytEmbed) {
         return (
-          <iframe
-            src={`https://www.youtube.com/embed/${embedId}?autoplay=1&rel=0`}
-            title={item.title}
-            className="w-full max-w-4xl h-[55vh] sm:h-[65vh] rounded-2xl shadow-2xl border border-amber-500/20"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        );
-      } else if (url.includes('vimeo.com')) {
-        const parts = url.split('vimeo.com/');
-        const vimeoId = parts[1]?.split('?')[0] || '';
-        return (
-          <iframe
-            src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
-            title={item.title}
-            className="w-full max-w-4xl h-[55vh] sm:h-[65vh] rounded-2xl shadow-2xl border border-amber-500/20"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-          />
-        );
-      } else {
-        return (
-          <video
-            src={item.videoUrl}
-            controls
-            autoPlay
-            loop
-            poster={item.imageUrl}
-            className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl border border-amber-500/20"
-          />
+          <div className="w-full max-w-4xl h-[55vh] sm:h-[65vh] flex items-center justify-center bg-black rounded-2xl overflow-hidden shadow-2xl border border-amber-500/20">
+            <iframe
+              src={ytEmbed}
+              title={item.title}
+              className="w-full h-full rounded-2xl"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
         );
       }
+
+      // Check Vimeo
+      const vimeoEmbed = getVimeoEmbedUrl(rawVideoUrl) || getVimeoEmbedUrl(rawImageUrl);
+      if (vimeoEmbed) {
+        return (
+          <div className="w-full max-w-4xl h-[55vh] sm:h-[65vh] flex items-center justify-center bg-black rounded-2xl overflow-hidden shadow-2xl border border-amber-500/20">
+            <iframe
+              src={vimeoEmbed}
+              title={item.title}
+              className="w-full h-full rounded-2xl"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      }
+
+      // Direct video file (MP4, WebM, MOV, blob, data:video, /uploads/, etc.)
+      const directVideoSrc = rawVideoUrl || (rawImageUrl.includes('data:video') || rawImageUrl.includes('/uploads/') || /\.(mp4|webm|mov|m4v|avi)$/i.test(rawImageUrl) ? rawImageUrl : '');
+
+      if (directVideoSrc) {
+        return (
+          <div className="w-full max-w-4xl h-[55vh] sm:h-[65vh] flex items-center justify-center bg-black rounded-2xl overflow-hidden shadow-2xl border border-amber-500/20 relative">
+            <video
+              src={directVideoSrc}
+              controls
+              autoPlay
+              playsInline
+              loop
+              preload="metadata"
+              poster={item.imageUrl && !item.imageUrl.includes('logo') && !item.imageUrl.includes('favicon') && !item.imageUrl.startsWith('data:video') ? item.imageUrl : undefined}
+              className="w-full h-full object-contain"
+            />
+          </div>
+        );
+      }
+
+      // Fallback if video URL is missing or invalid
+      return (
+        <div className="w-full max-w-4xl h-[55vh] sm:h-[65vh] flex flex-col items-center justify-center bg-neutral-900/90 rounded-2xl border border-amber-500/20 text-center p-6 gap-3 shadow-2xl">
+          <AlertCircle className="w-12 h-12 text-amber-400 opacity-80" />
+          <h4 className="text-base font-bold text-white font-serif">{item.title}</h4>
+          <p className="text-xs text-neutral-400 max-w-md leading-relaxed">
+            Video link format not recognized or video source unavailable. Please verify the video URL (YouTube, Vimeo, or MP4) in the Admin Dashboard.
+          </p>
+        </div>
+      );
     }
 
     return (

@@ -153,6 +153,7 @@ export interface GalleryItem {
   imageUrl: string;
   videoUrl?: string;
   mediaType?: 'image' | 'video';
+  uploadedAt?: string;
   aspectRatio: 'aspect-square' | 'aspect-[3/4]' | 'aspect-[4/3]' | 'aspect-[9/16]' | 'aspect-[16/9]';
   caption: string;
   likesCount: number;
@@ -168,11 +169,13 @@ export interface EventItem {
   location: string;
   time: string;
   description: string;
-  djLineup: string[];
+  djLineup?: string[];
   dressCode?: string;
   wristbandRequired: boolean;
   highlightImage: string;
-  genres: string[];
+  genres?: string[];
+  ticketPrice?: number;
+  isFeatured?: boolean;
 }
 
 export interface HotelItem {

@@ -336,6 +336,34 @@ export function safeRemoveItem(key: string): void {
   }
 }
 
+export async function uploadFileToServer(file: File): Promise<{ url: string; size: number; name: string; type: string } | null> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers = {} as any;
+    if (typeof window !== 'undefined' && (window as any).clientId) {
+      headers['X-Client-Id'] = (window as any).clientId;
+    }
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        url: data.url,
+        size: data.size,
+        name: data.originalName || file.name,
+        type: data.mimetype || file.type
+      };
+    }
+  } catch (err) {
+    console.warn('[Upload] Binary file upload to server deferred/failed:', err);
+  }
+  return null;
+}
+
 async function fetchWithRetry(url: string, retries = 3, delayMs = 500): Promise<Response | null> {
   for (let i = 0; i < retries; i++) {
     try {

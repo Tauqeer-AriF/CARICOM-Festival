@@ -37,6 +37,7 @@ import {
   saveAutoCleanupConfig,
   performUnusedMediaCleanup,
   checkAndRunAutoCleanup,
+  uploadFileToServer,
   AutoCleanupConfig
 } from '../services/submissionService';
 
@@ -190,8 +191,17 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       try {
         let url = '';
         let compressedSize = file.size;
+        let fileType = file.type || (file.name.match(/\.(mp4|mov|avi|webm|mkv)$/i) ? 'video/mp4' : 'image/jpeg');
 
-        if (file.type.startsWith('image/')) {
+        // First attempt server binary file upload
+        const serverRes = await uploadFileToServer(file);
+        if (serverRes && serverRes.url) {
+          url = serverRes.url;
+          compressedSize = serverRes.size;
+          fileType = serverRes.type || fileType;
+          totalOriginal += file.size;
+          totalCompressed += compressedSize;
+        } else if (file.type.startsWith('image/')) {
           const result = await compressImage(file, 1024, 0.75);
           url = result.compressedUrl;
           compressedSize = result.compressedSize;
@@ -215,7 +225,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           url: url,
           originalSize: file.size,
           compressedSize: compressedSize,
-          type: file.type || (file.name.match(/\.(mp4|mov|avi)$/i) ? 'video/mp4' : 'image/jpeg'),
+          type: fileType,
           uploadedAt: new Date().toISOString()
         };
 
@@ -354,7 +364,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
   const filteredMedia = media.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4');
+    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
     const isUsed = usedUrls.has(item.url);
 
     if (typeFilter === 'video' && !isVideo) return false;
@@ -720,7 +730,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 {paginatedMedia.map((item) => {
                   const pctSavings = Math.round((1 - item.compressedSize / item.originalSize) * 100);
                   const isSelected = selectedIds.includes(item.id);
-                  const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || item.url?.endsWith('.mp4');
+                  const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
 
                   return (
                     <div
@@ -891,7 +901,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       <AnimatePresence>
         {lightboxIndex !== null && filteredMedia[lightboxIndex] && (() => {
           const currentItem = filteredMedia[lightboxIndex];
-          const isVideo = currentItem.type?.startsWith('video/') || currentItem.url?.includes('data:video') || currentItem.url?.endsWith('.mp4');
+          const isVideo = currentItem.type?.startsWith('video/') || currentItem.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(currentItem.url);
 
           return (
             <motion.div

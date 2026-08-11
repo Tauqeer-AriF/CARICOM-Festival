@@ -31,7 +31,8 @@ import {
   getTestimonials,
   saveTestimonials,
   addMediaItem,
-  syncWithDatabase
+  syncWithDatabase,
+  uploadFileToServer
 } from '../services/submissionService';
 import { 
   ShieldCheck, 
@@ -76,6 +77,7 @@ import {
   FileText,
   Calendar,
   Image,
+  Video,
   Hotel,
   FolderOpen,
   Save,
@@ -85,6 +87,7 @@ import {
   Crown,
   Flame,
   Music,
+  Disc,
   Globe,
   Shield,
   Compass,
@@ -106,7 +109,7 @@ interface AdminDashboardViewProps {
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiveTab }) => {
   // Auth state (Password / Passcode Protected)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('admin_authenticated') === 'true';
+    return sessionStorage.getItem('admin_authenticated') === 'true' || localStorage.getItem('admin_authenticated') === 'true';
   });
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<boolean>(false);
@@ -323,7 +326,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   // Media Selector State
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
-    'event' | 'gallery' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | { heroIndex: number } | { pageImageKey: string } | null
+    'event' | 'gallery' | 'gallery_video' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
 
   const handleMediaSelect = (url: string) => {
@@ -400,6 +403,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
         saveGalleryItems(newGallery);
       } else setNewGalleryForm({ ...newGalleryForm, imageUrl: url });
       setSaveToast('Updated gallery image from Media Library!');
+    } else if (mediaSelectorTarget === 'gallery_video') {
+      if (editingGallery) {
+        const updated = { ...editingGallery, videoUrl: url, mediaType: 'video' as const };
+        setEditingGallery(updated);
+        const newGallery = galleryItems.map(g => g.id === updated.id ? updated : g);
+        setGalleryItems(newGallery);
+        saveGalleryItems(newGallery);
+      } else setNewGalleryForm({ ...newGalleryForm, videoUrl: url, mediaType: 'video' });
+      setSaveToast('Selected video from Media Library!');
     } else if (mediaSelectorTarget === 'hotel') {
       if (editingHotel) {
         const updated = { ...editingHotel, image: url };
@@ -459,8 +471,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     location: '',
     description: '',
     highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
-    genres: ['Soca'],
-    ticketPrice: 50,
+    genres: [],
+    djLineup: [],
+    ticketPrice: undefined,
     isFeatured: false
   });
 
@@ -599,6 +612,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     const configPassword = siteConfig.adminPassword || '2027';
     if (pinInput === configPassword || pinInput === '2027' || pinInput.toLowerCase() === 'admin' || pinInput === 'admin123') {
       sessionStorage.setItem('admin_authenticated', 'true');
+      localStorage.setItem('admin_authenticated', 'true');
       setIsAuthenticated(true);
       setPinError(false);
     } else {
@@ -608,6 +622,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   const handleLogout = () => {
     sessionStorage.removeItem('admin_authenticated');
+    localStorage.removeItem('admin_authenticated');
     setIsAuthenticated(false);
     setPinInput('');
   };
@@ -753,7 +768,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     } else {
       const created: EventItem = {
         ...newEventForm as EventItem,
-        id: 'event-' + Date.now()
+        id: 'event-' + Date.now(),
+        djLineup: newEventForm.djLineup || []
       };
       saveEvents([...events, created]);
       setShowAddEvent(false);
@@ -765,8 +781,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
         location: '',
         description: '',
         highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
-        genres: ['Soca'],
-        ticketPrice: 50,
+        genres: [],
+        djLineup: [],
+        ticketPrice: undefined,
         isFeatured: false
       });
       setSaveToast('New event created successfully!');
@@ -800,9 +817,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     } else {
       const created: GalleryItem = {
         ...newGalleryForm as GalleryItem,
-        id: 'gallery-' + Date.now()
+        id: 'gallery-' + Date.now(),
+        uploadedAt: new Date().toISOString()
       };
-      saveGalleryItems([...galleryItems, created]);
+      saveGalleryItems([created, ...galleryItems]);
       setShowAddGallery(false);
       setNewGalleryForm({
         title: '',
@@ -2905,18 +2923,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 try {
-                                  const { compressedUrl, compressedSize } = await compressImage(file, 600, 0.85);
+                                  let resultUrl = '';
+                                  let resultCompSize = file.size;
+                                  let resultFileType = file.type || 'image/png';
+                                  const serverRes = await uploadFileToServer(file);
+                                  if (serverRes && serverRes.url) {
+                                    resultUrl = serverRes.url;
+                                    resultCompSize = serverRes.size;
+                                    resultFileType = serverRes.type || resultFileType;
+                                  } else {
+                                    const comp = await compressImage(file, 600, 0.85);
+                                    resultUrl = comp.compressedUrl;
+                                    resultCompSize = comp.compressedSize;
+                                  }
                                   const newItem: MediaItem = {
                                     id: `media-logo-${Date.now()}`,
                                     name: file.name || 'app-logo.png',
-                                    url: compressedUrl,
+                                    url: resultUrl,
                                     originalSize: file.size,
-                                    compressedSize,
-                                    type: file.type || 'image/png',
+                                    compressedSize: resultCompSize,
+                                    type: resultFileType,
                                     uploadedAt: new Date().toISOString()
                                   };
-                                  addMediaItem(newItem);
-                                  const updatedConfig = { ...siteConfig, appLogoUrl: compressedUrl };
+                                  await addMediaItem(newItem);
+                                  const updatedConfig = { ...siteConfig, appLogoUrl: resultUrl };
                                   setSiteConfigState(updatedConfig);
                                   saveSiteConfig(updatedConfig);
                                   setSaveToast('Uploaded, placed in Media Library, and updated logo!');
@@ -3053,26 +3083,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 try {
-                                  // Compress favicon strictly to 128x128 for speed and storage size
-                                  const { compressedUrl, compressedSize } = await compressImage(file, 128, 0.8);
+                                  let resultUrl = '';
+                                  let resultCompSize = file.size;
+                                  let resultFileType = file.type || 'image/png';
+                                  const serverRes = await uploadFileToServer(file);
+                                  if (serverRes && serverRes.url) {
+                                    resultUrl = serverRes.url;
+                                    resultCompSize = serverRes.size;
+                                    resultFileType = serverRes.type || resultFileType;
+                                  } else {
+                                    const comp = await compressImage(file, 128, 0.8);
+                                    resultUrl = comp.compressedUrl;
+                                    resultCompSize = comp.compressedSize;
+                                  }
                                   const newItem: MediaItem = {
                                     id: `media-favicon-${Date.now()}`,
                                     name: file.name || 'favicon.png',
-                                    url: compressedUrl,
+                                    url: resultUrl,
                                     originalSize: file.size,
-                                    compressedSize,
-                                    type: file.type || 'image/png',
+                                    compressedSize: resultCompSize,
+                                    type: resultFileType,
                                     uploadedAt: new Date().toISOString()
                                   };
-                                  const success = await addMediaItem(newItem);
-                                  if (success) {
-                                    const updatedConfig = { ...siteConfig, appFaviconUrl: compressedUrl };
-                                    setSiteConfigState(updatedConfig);
-                                    saveSiteConfig(updatedConfig);
-                                    setSaveToast('Uploaded, saved to Media Library, and updated Favicon!');
-                                  } else {
-                                    setSaveToast('Failed to upload favicon. File might be too large or invalid.');
-                                  }
+                                  await addMediaItem(newItem);
+                                  const updatedConfig = { ...siteConfig, appFaviconUrl: resultUrl };
+                                  setSiteConfigState(updatedConfig);
+                                  saveSiteConfig(updatedConfig);
+                                  setSaveToast('Uploaded, saved to Media Library, and updated Favicon!');
                                 } catch (err) {
                                   console.error('Favicon upload error:', err);
                                 }
@@ -3161,11 +3198,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                               const files = e.target.files;
                               if (files && files[0]) {
                                 const file = files[0];
-                                setSaveToast(`Compressing "${file.name}"...`);
+                                setSaveToast(`Uploading "${file.name}"...`);
                                 try {
-                                  const result = await compressImage(file, 1200, 0.8);
+                                  let resultUrl = '';
+                                  let resultCompSize = file.size;
+                                  let resultFileType = file.type || 'image/jpeg';
+                                  const serverRes = await uploadFileToServer(file);
+                                  if (serverRes && serverRes.url) {
+                                    resultUrl = serverRes.url;
+                                    resultCompSize = serverRes.size;
+                                    resultFileType = serverRes.type || resultFileType;
+                                  } else {
+                                    const comp = await compressImage(file, 1200, 0.8);
+                                    resultUrl = comp.compressedUrl;
+                                    resultCompSize = comp.compressedSize;
+                                  }
                                   const currentList = siteConfig.hero?.images || [];
-                                  const updated = [...currentList, { url: result.compressedUrl, alt: file.name.split('.')[0] }];
+                                  const updated = [...currentList, { url: resultUrl, alt: file.name.split('.')[0] }];
                                   
                                   setSiteConfigState({
                                     ...siteConfig,
@@ -3179,10 +3228,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                   const newItem = {
                                     id: 'media-' + Date.now(),
                                     name: file.name,
-                                    url: result.compressedUrl,
+                                    url: resultUrl,
                                     originalSize: file.size,
-                                    compressedSize: result.compressedSize,
-                                    type: file.type,
+                                    compressedSize: resultCompSize,
+                                    type: resultFileType,
                                     uploadedAt: new Date().toISOString()
                                   };
                                   addMediaItem(newItem);
@@ -6465,34 +6514,59 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Ticket Price (GBP)</label>
+                      <label className="text-neutral-400 font-bold uppercase block">
+                        Ticket Price (GBP) <span className="text-neutral-500 font-normal text-xs">(Optional)</span>
+                      </label>
                       <input
                         type="number"
                         min="0"
-                        required
-                        value={editingEvent ? editingEvent.ticketPrice : newEventForm.ticketPrice}
+                        value={editingEvent ? (editingEvent.ticketPrice ?? '') : (newEventForm.ticketPrice ?? '')}
                         onChange={(e) => {
-                          const pr = Number(e.target.value);
+                          const val = e.target.value;
+                          const pr = val === '' ? undefined : Number(val);
                           if (editingEvent) setEditingEvent({ ...editingEvent, ticketPrice: pr });
                           else setNewEventForm({ ...newEventForm, ticketPrice: pr });
                         }}
                         className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. 50 (leave blank if free/included)"
                       />
                     </div>
 
                     <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Music Genres (Comma-separated)</label>
+                      <label className="text-neutral-400 font-bold uppercase block">
+                        Music Genres <span className="text-neutral-500 font-normal text-xs">(Optional, Comma-separated)</span>
+                      </label>
                       <input
                         type="text"
-                        value={editingEvent ? editingEvent.genres.join(', ') : newEventForm.genres?.join(', ')}
+                        value={editingEvent ? (editingEvent.genres ? editingEvent.genres.join(', ') : '') : (newEventForm.genres ? newEventForm.genres.join(', ') : '')}
                         onChange={(e) => {
                           const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
                           if (editingEvent) setEditingEvent({ ...editingEvent, genres: arr });
                           else setNewEventForm({ ...newEventForm, genres: arr });
                         }}
                         className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="Soca, Reggae, Afro"
+                        placeholder="e.g. Soca, Reggae, Afro (leave blank if none)"
                       />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-neutral-400 font-bold uppercase block flex items-center gap-1.5">
+                        <Disc className="w-3.5 h-3.5 text-amber-400" /> Event DJs & Lineup <span className="text-neutral-500 font-normal text-xs">(Optional, Comma-separated)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editingEvent ? (editingEvent.djLineup ? editingEvent.djLineup.join(', ') : '') : (newEventForm.djLineup ? newEventForm.djLineup.join(', ') : '')}
+                        onChange={(e) => {
+                          const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                          if (editingEvent) setEditingEvent({ ...editingEvent, djLineup: arr });
+                          else setNewEventForm({ ...newEventForm, djLineup: arr });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none font-mono text-xs"
+                        placeholder="e.g. DJ Slick (London), DJ Spice (Grenada), Selecta Quad (leave blank if none)"
+                      />
+                      <p className="text-[10px] text-neutral-500 font-light">
+                        Separate multiple DJs with commas. If provided, these will display on the festival schedule.
+                      </p>
                     </div>
                   </div>
 
@@ -6602,11 +6676,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                   <span>⏰ {ev.time}</span>
                                   <span>📍 {ev.location}</span>
                                 </p>
-                                <div className="flex items-center gap-1">
-                                  {ev.genres.map((g, idx) => (
+                                {ev.djLineup && ev.djLineup.length > 0 && (
+                                  <p className="text-[11px] text-amber-300/90 font-medium flex items-center gap-1.5 pt-0.5">
+                                    <Disc className="w-3 h-3 text-amber-400 shrink-0" />
+                                    <span className="text-neutral-400 font-semibold">DJs:</span>
+                                    <span>{ev.djLineup.join(', ')}</span>
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                  {ev.genres && ev.genres.map((g, idx) => (
                                     <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
                                   ))}
-                                  <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                                  {ev.ticketPrice !== undefined && ev.ticketPrice !== null && (
+                                    <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -6752,7 +6835,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                     {((editingGallery && (editingGallery.mediaType === 'video' || Boolean(editingGallery.videoUrl))) || (!editingGallery && newGalleryForm.mediaType === 'video')) && (
                       <div className="space-y-1.5 md:col-span-2">
-                        <label className="text-amber-400 font-bold uppercase block">Video URL (YouTube Embed / Vimeo / MP4)</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-amber-400 font-bold uppercase block">Video URL (YouTube Embed / Vimeo / MP4 Video)</label>
+                          <button
+                            type="button"
+                            onClick={() => setMediaSelectorTarget('gallery_video')}
+                            className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded border border-amber-500/30"
+                          >
+                            <Video className="w-3 h-3" /> Select Video from Media
+                          </button>
+                        </div>
                         <input
                           type="text"
                           required
@@ -6762,7 +6854,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                             else setNewGalleryForm({ ...newGalleryForm, videoUrl: e.target.value, mediaType: 'video' });
                           }}
                           className="w-full bg-neutral-950 border border-amber-500/50 rounded-lg p-2.5 text-white focus:border-amber-400 focus:outline-none"
-                          placeholder="https://www.youtube.com/embed/... or https://domain.com/video.mp4"
+                          placeholder="https://www.youtube.com/embed/... or /uploads/video.mp4 or select from Media"
                         />
                       </div>
                     )}
