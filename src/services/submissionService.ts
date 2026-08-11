@@ -1113,62 +1113,184 @@ export const deleteMultipleMediaItems = (ids: string[]): void => {
 };
 
 // --- UNUSED MEDIA & AUTO-CLEANUP SERVICES ---
-export const getAllUsedMediaUrls = (): Set<string> => {
-  const used = new Set<string>();
+export const getMediaUsageMap = (): Record<string, string[]> => {
+  const usageMap: Record<string, string[]> = {};
+
+  const addUsage = (rawUrl: any, label: string) => {
+    if (!rawUrl || typeof rawUrl !== 'string') return;
+    const url = rawUrl.trim();
+    if (!url) return;
+
+    if (!usageMap[url]) {
+      usageMap[url] = [];
+    }
+    if (!usageMap[url].includes(label)) {
+      usageMap[url].push(label);
+    }
+  };
 
   try {
-    // 1. Site Config (hero slideshow, page images & app logo)
+    // 1. Site Config
     const config = getSiteConfig();
-    if (config?.appLogoUrl) {
-      used.add(config.appLogoUrl);
-    }
-    if (config?.hero?.images) {
-      config.hero.images.forEach((img: any) => {
-        if (img?.url) used.add(img.url);
-      });
-    }
-    if (config?.pageImages) {
-      Object.values(config.pageImages).forEach((url: any) => {
-        if (typeof url === 'string' && url) used.add(url);
-      });
+    if (config) {
+      if (config.appLogoUrl) addUsage(config.appLogoUrl, 'Site Logo');
+      if (config.appFaviconUrl) addUsage(config.appFaviconUrl, 'Favicon');
+      if (config.footer?.logoUrl) addUsage(config.footer.logoUrl, 'Footer Logo');
+      if (config.hero?.videoUrl) addUsage(config.hero.videoUrl, 'Hero Video Background');
+
+      if (Array.isArray(config.hero?.images)) {
+        config.hero.images.forEach((img: any) => {
+          if (img?.url) addUsage(img.url, 'Hero Slideshow');
+        });
+      }
+
+      if (config.pageImages && typeof config.pageImages === 'object') {
+        Object.entries(config.pageImages).forEach(([key, url]) => {
+          if (url && typeof url === 'string') {
+            const prettyName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            addUsage(url, `Page Banner (${prettyName})`);
+          }
+        });
+      }
     }
 
     // 2. Events
     const events = getEvents();
-    events.forEach((e: any) => {
-      if (e?.imageUrl) used.add(e.imageUrl);
-    });
+    if (Array.isArray(events)) {
+      events.forEach((e: any) => {
+        const title = e.title || e.name || 'Event';
+        if (e.imageUrl) addUsage(e.imageUrl, `Event Cover: ${title}`);
+        if (e.bannerUrl) addUsage(e.bannerUrl, `Event Banner: ${title}`);
+        if (Array.isArray(e.gallery)) {
+          e.gallery.forEach((gUrl: any) => {
+            if (typeof gUrl === 'string') addUsage(gUrl, `Event Gallery: ${title}`);
+            else if (gUrl?.url) addUsage(gUrl.url, `Event Gallery: ${title}`);
+          });
+        }
+      });
+    }
 
     // 3. Gallery Items
     const gallery = getGalleryItems();
-    gallery.forEach((g: any) => {
-      if (g?.imageUrl) used.add(g.imageUrl);
-      if (g?.url) used.add(g.url);
-    });
+    if (Array.isArray(gallery)) {
+      gallery.forEach((g: any) => {
+        const title = g.title || g.caption || 'Gallery Photo';
+        if (g.imageUrl) addUsage(g.imageUrl, `Gallery: ${title}`);
+        if (g.url) addUsage(g.url, `Gallery: ${title}`);
+        if (g.thumbnailUrl) addUsage(g.thumbnailUrl, `Gallery Thumbnail: ${title}`);
+      });
+    }
 
     // 4. Hotels
     const hotels = getHotels();
-    hotels.forEach((h: any) => {
-      if (h?.imageUrl) used.add(h.imageUrl);
-    });
+    if (Array.isArray(hotels)) {
+      hotels.forEach((h: any) => {
+        const name = h.name || h.title || 'Hotel';
+        if (h.imageUrl) addUsage(h.imageUrl, `Hotel Cover: ${name}`);
+        if (Array.isArray(h.images)) {
+          h.images.forEach((imgUrl: any) => {
+            if (typeof imgUrl === 'string') addUsage(imgUrl, `Hotel Gallery: ${name}`);
+            else if (imgUrl?.url) addUsage(imgUrl.url, `Hotel Gallery: ${name}`);
+          });
+        }
+      });
+    }
 
     // 5. Testimonials
     const testimonials = getTestimonials();
-    testimonials.forEach((t: any) => {
-      if (t?.avatarUrl) used.add(t.avatarUrl);
-      if (t?.imageUrl) used.add(t.imageUrl);
-    });
+    if (Array.isArray(testimonials)) {
+      testimonials.forEach((t: any) => {
+        const name = t.name || t.author || 'Guest';
+        if (t.avatarUrl) addUsage(t.avatarUrl, `Testimonial Avatar: ${name}`);
+        if (t.imageUrl) addUsage(t.imageUrl, `Testimonial Photo: ${name}`);
+      });
+    }
 
     // 6. Passes
     const passes = getPasses();
-    passes.forEach((p: any) => {
-      if ((p as any)?.imageUrl) used.add((p as any).imageUrl);
-    });
+    if (Array.isArray(passes)) {
+      passes.forEach((p: any) => {
+        const title = p.title || p.name || 'Festival Pass';
+        if (p.imageUrl) addUsage(p.imageUrl, `Pass Cover: ${title}`);
+        if (p.badgeUrl) addUsage(p.badgeUrl, `Pass Badge: ${title}`);
+      });
+    }
+
+    // 7. Submissions (Forms, Vendor Logos, Performer Photos, Orders, Attachments)
+    const submissions = getSubmissions();
+    if (Array.isArray(submissions)) {
+      submissions.forEach((sub: any) => {
+        const sender = sub.name || sub.formData?.fullName || sub.formData?.companyName || sub.email || sub.id;
+        const subType = sub.type ? sub.type.toUpperCase() : 'FORM';
+        const label = `Submission (${subType}): ${sender}`;
+
+        if (sub.formData) {
+          Object.entries(sub.formData).forEach(([k, val]) => {
+            if (typeof val === 'string' && (val.startsWith('/uploads/') || val.startsWith('http') || val.startsWith('data:'))) {
+              addUsage(val, `${label} [${k}]`);
+            }
+          });
+        }
+        if (Array.isArray(sub.attachments)) {
+          sub.attachments.forEach((att: any) => {
+            if (typeof att === 'string') addUsage(att, `${label} [Attachment]`);
+            else if (att?.url) addUsage(att.url, `${label} [Attachment]`);
+          });
+        }
+      });
+    }
+
+    // 8. Deep Search fallback across all stringified entities
+    const allMedia = getMediaItems();
+    if (Array.isArray(allMedia)) {
+      const configStr = JSON.stringify(config || {});
+      const eventsStr = JSON.stringify(events || []);
+      const galleryStr = JSON.stringify(gallery || []);
+      const hotelsStr = JSON.stringify(hotels || []);
+      const testimonialsStr = JSON.stringify(testimonials || []);
+      const passesStr = JSON.stringify(passes || []);
+      const subStr = JSON.stringify(submissions || []);
+
+      allMedia.forEach(m => {
+        if (!m.url) return;
+        const url = m.url;
+        const filename = m.name || url.split('/').pop() || '';
+
+        if (!usageMap[url] || usageMap[url].length === 0) {
+          if (configStr.includes(url) || (filename && configStr.includes(filename))) {
+            addUsage(url, 'Site Config');
+          }
+          if (eventsStr.includes(url) || (filename && eventsStr.includes(filename))) {
+            addUsage(url, 'Events Collection');
+          }
+          if (galleryStr.includes(url) || (filename && galleryStr.includes(filename))) {
+            addUsage(url, 'Gallery Collection');
+          }
+          if (hotelsStr.includes(url) || (filename && hotelsStr.includes(filename))) {
+            addUsage(url, 'Hotels Listing');
+          }
+          if (testimonialsStr.includes(url) || (filename && testimonialsStr.includes(filename))) {
+            addUsage(url, 'Guest Testimonials');
+          }
+          if (passesStr.includes(url) || (filename && passesStr.includes(filename))) {
+            addUsage(url, 'Festival Passes');
+          }
+          if (subStr.includes(url) || (filename && subStr.includes(filename))) {
+            addUsage(url, 'Form Submissions');
+          }
+        }
+      });
+    }
   } catch (err) {
-    console.error('Error computing used media URLs:', err);
+    console.error('Error computing media usage map:', err);
   }
 
-  return used;
+  return usageMap;
+};
+
+export const getAllUsedMediaUrls = (): Set<string> => {
+  const map = getMediaUsageMap();
+  return new Set(Object.keys(map).filter(url => map[url] && map[url].length > 0));
 };
 
 export const getUnusedMediaItems = (olderThanDays?: number): MediaItem[] => {

@@ -32,6 +32,7 @@ import {
   deleteMediaItem, 
   deleteMultipleMediaItems,
   getAllUsedMediaUrls,
+  getMediaUsageMap,
   getUnusedMediaItems,
   getAutoCleanupConfig,
   saveAutoCleanupConfig,
@@ -50,8 +51,9 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 }) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [usedUrls, setUsedUrls] = useState<Set<string>>(new Set());
+  const [usageMap, setUsageMap] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'unused'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'used' | 'unused'>('all');
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -62,6 +64,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploadStats, setUploadStats] = useState<{ original: number; compressed: number; name: string } | null>(null);
   const [isBatchOptimizing, setIsBatchOptimizing] = useState(false);
+  const [expandedLocationsId, setExpandedLocationsId] = useState<string | null>(null);
 
   const handleBatchOptimizeMedia = async () => {
     setIsBatchOptimizing(true);
@@ -122,15 +125,34 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     }
 
     const handleUpdate = () => loadMedia();
-    window.addEventListener('media_updated', handleUpdate);
+
+    // Listen to real-time events across all content collections to keep usage map 100% in sync
+    const updateEvents = [
+      'media_updated',
+      'events_updated',
+      'site_config_updated',
+      'gallery_updated',
+      'hotels_updated',
+      'testimonials_updated',
+      'passes_updated',
+      'submissions_updated',
+      'system_restored',
+      'sse_data_sync'
+    ];
+
+    updateEvents.forEach(evt => window.addEventListener(evt, handleUpdate));
+
     return () => {
-      window.removeEventListener('media_updated', handleUpdate);
+      updateEvents.forEach(evt => window.removeEventListener(evt, handleUpdate));
     };
   }, []);
 
   const loadMedia = () => {
-    setMedia(getMediaItems());
-    setUsedUrls(getAllUsedMediaUrls());
+    const items = getMediaItems();
+    const usage = getMediaUsageMap();
+    setMedia(items);
+    setUsageMap(usage);
+    setUsedUrls(new Set(Object.keys(usage).filter(u => usage[u] && usage[u].length > 0)));
   };
 
   const showToast = (msg: string) => {
@@ -377,16 +399,19 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     }
   };
 
-  const unusedMediaList = media.filter(item => !usedUrls.has(item.url));
+  const usedCount = media.filter(item => (usageMap[item.url] || []).length > 0).length;
+  const unusedMediaList = media.filter(item => (usageMap[item.url] || []).length === 0);
   const unusedCount = unusedMediaList.length;
 
   const filteredMedia = media.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
-    const isUsed = usedUrls.has(item.url);
+    const locations = usageMap[item.url] || [];
+    const isUsed = locations.length > 0;
 
     if (typeFilter === 'video' && !isVideo) return false;
     if (typeFilter === 'image' && isVideo) return false;
+    if (typeFilter === 'used' && !isUsed) return false;
     if (typeFilter === 'unused' && isUsed) return false;
     return matchesSearch;
   });
@@ -497,6 +522,18 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              loadMedia();
+              showToast('Media usage index re-calculated!');
+            }}
+            className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-neutral-800 transition-all cursor-pointer flex items-center gap-1.5"
+            title="Scan all site sections for media references"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Refresh Usage Index</span>
+          </button>
           <button
             type="button"
             onClick={handleBatchOptimizeMedia}
@@ -671,10 +708,21 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 <span>Videos</span>
               </button>
               <button
+                onClick={() => setTypeFilter('used')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-all ${
+                  typeFilter === 'used'
+                    ? 'bg-emerald-500 text-neutral-950 shadow font-extrabold'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
+                }`}
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>In Use ({usedCount})</span>
+              </button>
+              <button
                 onClick={() => setTypeFilter('unused')}
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-all ${
                   typeFilter === 'unused'
-                    ? 'bg-amber-500 text-neutral-950 shadow'
+                    ? 'bg-amber-500 text-neutral-950 shadow font-extrabold'
                     : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
                 }`}
               >
@@ -825,28 +873,70 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                       </div>
 
                       {/* Metadata & Actions */}
-                      <div className="p-4 space-y-3.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-0.5 min-w-0 flex-1">
-                            <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
-                              {item.name}
-                            </h4>
-                            <span className="text-[9px] text-neutral-500 font-mono block">
-                              Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                          </div>
-                          {usedUrls.has(item.url) ? (
-                            <span className="shrink-0 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              <span>IN USE</span>
-                            </span>
-                          ) : (
-                            <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider">
-                              <AlertTriangle className="w-2.5 h-2.5" />
-                              <span>UNUSED</span>
-                            </span>
-                          )}
-                        </div>
+                      <div className="p-4 space-y-3">
+                        {(() => {
+                          const locations = usageMap[item.url] || [];
+                          const isUsed = locations.length > 0;
+                          return (
+                            <>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-0.5 min-w-0 flex-1">
+                                  <h4 className="text-xs font-bold text-white truncate leading-tight" title={item.name}>
+                                    {item.name}
+                                  </h4>
+                                  <span className="text-[9px] text-neutral-500 font-mono block">
+                                    Uploaded: {new Date(item.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                                {isUsed ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedLocationsId(expandedLocationsId === item.id ? null : item.id)}
+                                    className="shrink-0 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider cursor-pointer hover:bg-emerald-500/20 transition-colors"
+                                    title="Click to view all usage locations"
+                                  >
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                    <span>IN USE ({locations.length})</span>
+                                  </button>
+                                ) : (
+                                  <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-mono font-bold rounded-full flex items-center gap-1 uppercase tracking-wider">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    <span>UNUSED</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Real-Time Location Reference Tag List */}
+                              {isUsed && (
+                                <div className="bg-neutral-950/60 p-2 border border-neutral-800/80 rounded-xl space-y-1 text-[10px]">
+                                  <div className="flex items-center justify-between text-[9px] font-bold text-neutral-400 uppercase tracking-wider font-mono">
+                                    <span>Referenced In ({locations.length}):</span>
+                                    {locations.length > 2 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedLocationsId(expandedLocationsId === item.id ? null : item.id)}
+                                        className="text-amber-400 hover:underline cursor-pointer text-[9px]"
+                                      >
+                                        {expandedLocationsId === item.id ? 'Hide' : `+${locations.length - 2} more`}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {(expandedLocationsId === item.id ? locations : locations.slice(0, 2)).map((loc, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[9px] font-semibold rounded-md truncate max-w-full"
+                                        title={loc}
+                                      >
+                                        {loc}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Storage Analytics Ribbon */}
                         <div className="bg-neutral-950/40 p-2 border border-neutral-800/40 rounded-xl grid grid-cols-2 gap-2 text-[10px] font-mono leading-tight">
