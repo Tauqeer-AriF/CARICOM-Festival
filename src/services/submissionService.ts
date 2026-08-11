@@ -255,22 +255,13 @@ export const INITIAL_DEMO_MEDIA: MediaItem[] = [
     uploadedAt: new Date(Date.now() - 3600000 * 4).toISOString()
   },
   {
-    id: 'media-1',
-    name: 'Soca Monarch Live Concert.jpg',
-    url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
-    originalSize: 1048576,
-    compressedSize: 184320,
+    id: 'media-4',
+    name: 'Spiceland Mall Excursion.jpg',
+    url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80',
+    originalSize: 3145728,
+    compressedSize: 327680,
     type: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600000 * 48).toISOString()
-  },
-  {
-    id: 'media-2',
-    name: 'Grand Anse Beach Sunrise.jpg',
-    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
-    originalSize: 2097152,
-    compressedSize: 245760,
-    type: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600000 * 24).toISOString()
+    uploadedAt: new Date(Date.now() - 3600000 * 5).toISOString()
   },
   {
     id: 'media-3',
@@ -279,16 +270,25 @@ export const INITIAL_DEMO_MEDIA: MediaItem[] = [
     originalSize: 1572864,
     compressedSize: 153600,
     type: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600000 * 12).toISOString()
+    uploadedAt: new Date(Date.now() - 3600000 * 6).toISOString()
   },
   {
-    id: 'media-4',
-    name: 'Spiceland Mall Excursion.jpg',
-    url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80',
-    originalSize: 3145728,
-    compressedSize: 327680,
+    id: 'media-2',
+    name: 'Grand Anse Beach Sunrise.jpg',
+    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
+    originalSize: 2097152,
+    compressedSize: 245760,
     type: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600000 * 2).toISOString()
+    uploadedAt: new Date(Date.now() - 3600000 * 7).toISOString()
+  },
+  {
+    id: 'media-1',
+    name: 'Soca Monarch Live Concert.jpg',
+    url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
+    originalSize: 1048576,
+    compressedSize: 184320,
+    type: 'image/jpeg',
+    uploadedAt: new Date(Date.now() - 3600000 * 8).toISOString()
   }
 ];
 
@@ -504,6 +504,9 @@ export async function syncResource(type: string): Promise<void> {
         const resMedia = await fetchWithRetry('/api/media');
         if (resMedia?.ok) {
           const media = await resMedia.json();
+          if (Array.isArray(media)) {
+            media.sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+          }
           safeSetItem(MEDIA_KEY, JSON.stringify(media));
           window.dispatchEvent(new Event('media_updated'));
         }
@@ -1033,10 +1036,13 @@ export const getMediaItems = (): MediaItem[] => {
   try {
     const raw = safeGetItem(MEDIA_KEY);
     if (!raw) {
-      safeSetItem(MEDIA_KEY, JSON.stringify(INITIAL_DEMO_MEDIA));
-      return INITIAL_DEMO_MEDIA;
+      const sortedSeed = [...INITIAL_DEMO_MEDIA].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+      safeSetItem(MEDIA_KEY, JSON.stringify(sortedSeed));
+      return sortedSeed;
     }
-    return JSON.parse(raw);
+    const items: MediaItem[] = JSON.parse(raw);
+    items.sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+    return items;
   } catch (e) {
     console.error('Error loading media items:', e);
     return INITIAL_DEMO_MEDIA;
@@ -1045,7 +1051,8 @@ export const getMediaItems = (): MediaItem[] => {
 
 export const saveMediaItems = (items: MediaItem[]): void => {
   try {
-    const success = safeSetItem(MEDIA_KEY, JSON.stringify(items));
+    const sorted = [...items].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+    const success = safeSetItem(MEDIA_KEY, JSON.stringify(sorted));
     if (!success) {
       throw new Error('Write verification failed for media items');
     }
@@ -1066,7 +1073,7 @@ export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
 
     if (res && res.ok) {
       const current = getMediaItems();
-      const updated = [item, ...current];
+      const updated = [item, ...current.filter(i => i.id !== item.id)];
       saveMediaItems(updated);
       return true;
     } else {

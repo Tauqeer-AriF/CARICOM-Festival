@@ -403,9 +403,12 @@ async function startServer() {
         for (const item of INITIAL_DEMO_MEDIA) {
           await db.run('INSERT INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
         }
-        return res.json(INITIAL_DEMO_MEDIA);
+        const sortedSeed = [...INITIAL_DEMO_MEDIA].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+        return res.json(sortedSeed);
       }
-      res.json(rows.map(r => JSON.parse(r.data_json)));
+      const items = rows.map(r => JSON.parse(r.data_json));
+      items.sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+      res.json(items);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
