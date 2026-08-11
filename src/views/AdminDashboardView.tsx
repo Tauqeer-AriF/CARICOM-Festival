@@ -92,7 +92,8 @@ import {
   Shield,
   Compass,
   Sun,
-  Palmtree
+  Palmtree,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
@@ -100,6 +101,7 @@ import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
 import { CustomConfirmModal } from '../components/CustomConfirmModal';
 import { MediaSelectorModal } from '../components/MediaSelectorModal';
 import { MediaLibraryTab } from '../components/MediaLibraryTab';
+import { BackupRestoreTab } from '../components/BackupRestoreTab';
 import { PassBadgePdfModal, parseSubmissionItems } from '../components/PassBadgePdfModal';
 
 interface AdminDashboardViewProps {
@@ -242,7 +244,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     });
   };
   
-  type AdminTab = 'submissions' | 'orders' | 'branding' | 'page-images' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials';
+  type AdminTab = 'submissions' | 'orders' | 'branding' | 'page-images' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials' | 'backup';
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('analytics');
   const [selectedAnalyticsLocation, setSelectedAnalyticsLocation] = useState<string>('Grand Anse Beach');
   const [hoveredChartIndex, setHoveredChartIndex] = useState<number | null>(null);
@@ -1505,6 +1507,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
           >
             <Settings className="w-4 h-4" /> Operations
           </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab('backup');
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeAdminTab === 'backup'
+                ? 'text-neutral-950 shadow-md font-extrabold'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+            }`}
+            style={activeAdminTab === 'backup' ? { backgroundColor: primaryColor } : undefined}
+          >
+            <Database className="w-4 h-4" /> Backup & Restore
+          </button>
         </nav>
 
         {/* Sidebar Footer Controls */}
@@ -1554,6 +1571,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
               {activeAdminTab === 'media' && 'Asset & Media Library'}
               {activeAdminTab === 'system' && 'Infrastructure & Operations'}
               {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
+              {activeAdminTab === 'backup' && 'System Backup & Recovery'}
             </span>
           </div>
 
@@ -8181,6 +8199,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 )}
               </div>
             </div>
+          )}
+
+          {activeAdminTab === 'backup' && (
+            <BackupRestoreTab
+              primaryColor={primaryColor}
+              onRefreshData={loadData}
+              triggerConfirm={triggerConfirm}
+            />
           )}
 
         </motion.main>

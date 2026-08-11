@@ -7,7 +7,19 @@ let dbInstance: any = null;
 export async function getDb(): Promise<any> {
   if (!dbInstance) {
     const SQL = await initSqlJs();
-    const dbPath = path.resolve(process.cwd(), 'festival.db');
+    // Choose database directory (support persistent /data volume)
+    let storageDir = process.cwd();
+    if (fs.existsSync('/data')) {
+      try {
+        fs.accessSync('/data', fs.constants.W_OK);
+        storageDir = '/data';
+        console.log('[DATABASE ENGINE] Persistent volume detected at /data. Storing database there.');
+      } catch (e) {
+        console.warn('[DATABASE ENGINE] /data exists but is not writable, defaulting to current working directory.');
+      }
+    }
+    
+    const dbPath = path.resolve(storageDir, 'festival.db');
     
     let fileBuffer: Buffer | undefined;
     if (fs.existsSync(dbPath)) {

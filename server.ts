@@ -14,12 +14,24 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Determine dynamic storage directory (support persistent Railway /data volume)
+  let storageDir = process.cwd();
+  if (fs.existsSync('/data')) {
+    try {
+      fs.accessSync('/data', fs.constants.W_OK);
+      storageDir = '/data';
+      console.log('[SYSTEM CONFIG] Persistent storage volume detected at /data. Redirecting SQLite database, uploads, and backups there.');
+    } catch (e) {
+      console.warn('[SYSTEM CONFIG] Persistent storage directory /data exists but is not writable, falling back to process.cwd()');
+    }
+  }
+
   // Body parsing middleware
   app.use(express.json({ limit: '200mb' }));
   app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
   // Setup disk upload directory and Multer storage
-  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const uploadsDir = path.join(storageDir, 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
@@ -433,6 +445,357 @@ async function startServer() {
       const senderId = req.headers['x-client-id'] as string;
       broadcast('media', senderId);
       res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // API Route: Backup & Restore Endpoints
+  const backupsDir = path.join(storageDir, 'backups');
+  if (!fs.existsSync(backupsDir)) {
+    fs.mkdirSync(backupsDir, { recursive: true });
+  }
+
+  // Export full JSON database snapshot
+  app.get('/api/admin/backup/export', async (req, res) => {
+    try {
+      const siteConfigRows = await db.all('SELECT * FROM site_config');
+      const submissionsRows = await db.all('SELECT * FROM submissions');
+      const eventsRows = await db.all('SELECT * FROM events');
+      const galleryRows = await db.all('SELECT * FROM gallery');
+      const hotelsRows = await db.all('SELECT * FROM hotels');
+      const passesRows = await db.all('SELECT * FROM passes');
+      const testimonialsRows = await db.all('SELECT * FROM testimonials');
+      const mediaRows = await db.all('SELECT * FROM media');
+
+      const parseRows = (rows: any[]) => rows.map(r => {
+        try {
+          return JSON.parse(r.data_json);
+        } catch {
+          return r;
+        }
+      });
+
+      const tables = {
+        site_config: parseRows(siteConfigRows),
+        submissions: parseRows(submissionsRows),
+        events: parseRows(eventsRows),
+        gallery: parseRows(galleryRows),
+        hotels: parseRows(hotelsRows),
+        passes: parseRows(passesRows),
+        testimonials: parseRows(testimonialsRows),
+        media: parseRows(mediaRows)
+      };
+
+      const totalRecords = Object.values(tables).reduce((sum, arr) => sum + arr.length, 0);
+
+      let dbSize = 0;
+      const dbPath = path.resolve(storageDir, 'festival.db');
+      if (fs.existsSync(dbPath)) {
+        dbSize = fs.statSync(dbPath).size;
+      }
+
+      const backupPackage = {
+        version: '2027.1.0',
+        system: 'CARICOM Festival Enterprise Database',
+        exportedAt: new Date().toISOString(),
+        dbSizeFormatted: (dbSize / 1024).toFixed(2) + ' KB',
+        summary: {
+          site_config: tables.site_config.length,
+          submissions: tables.submissions.length,
+          events: tables.events.length,
+          gallery: tables.gallery.length,
+          hotels: tables.hotels.length,
+          passes: tables.passes.length,
+          testimonials: tables.testimonials.length,
+          media: tables.media.length,
+          totalRecords
+        },
+        tables
+      };
+
+      // Auto-save a copy to local server snapshot history
+      const snapshotFilename = `auto-export-${Date.now()}.json`;
+      fs.writeFileSync(path.join(backupsDir, snapshotFilename), JSON.stringify(backupPackage, null, 2));
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="caricom-festival-backup-${Date.now()}.json"`);
+      res.json(backupPackage);
+    } catch (e: any) {
+      console.error('[Backup Export Error]', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Import JSON backup snapshot & restore system state
+  app.post('/api/admin/backup/import', async (req, res) => {
+    try {
+      const backupData = req.body.backupData || req.body;
+      if (!backupData || !backupData.tables) {
+        return res.status(400).json({ error: 'Invalid backup snapshot file. Missing required tables schema.' });
+      }
+
+      // Safety: Create pre-restore snapshot of current database
+      try {
+        const siteConfigRows = await db.all('SELECT * FROM site_config');
+        const submissionsRows = await db.all('SELECT * FROM submissions');
+        const eventsRows = await db.all('SELECT * FROM events');
+        const galleryRows = await db.all('SELECT * FROM gallery');
+        const hotelsRows = await db.all('SELECT * FROM hotels');
+        const passesRows = await db.all('SELECT * FROM passes');
+        const testimonialsRows = await db.all('SELECT * FROM testimonials');
+        const mediaRows = await db.all('SELECT * FROM media');
+
+        const safetySnapshot = {
+          version: '2027.1.0',
+          system: 'Pre-Restore Automated Safety Rollback',
+          exportedAt: new Date().toISOString(),
+          tables: {
+            site_config: siteConfigRows.map(r => JSON.parse(r.data_json)),
+            submissions: submissionsRows.map(r => JSON.parse(r.data_json)),
+            events: eventsRows.map(r => JSON.parse(r.data_json)),
+            gallery: galleryRows.map(r => JSON.parse(r.data_json)),
+            hotels: hotelsRows.map(r => JSON.parse(r.data_json)),
+            passes: passesRows.map(r => JSON.parse(r.data_json)),
+            testimonials: testimonialsRows.map(r => JSON.parse(r.data_json)),
+            media: mediaRows.map(r => JSON.parse(r.data_json))
+          }
+        };
+        fs.writeFileSync(path.join(backupsDir, `pre-restore-safety-${Date.now()}.json`), JSON.stringify(safetySnapshot, null, 2));
+      } catch (err) {
+        console.warn('[Safety Snapshot Warning]', err);
+      }
+
+      const { tables } = backupData;
+
+      // Atomic overwrite of database tables
+      const restoreTable = async (tableName: string, items: any[]) => {
+        await db.run(`DELETE FROM ${tableName}`);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const id = item.id || `${tableName}-${Math.random().toString(36).substring(2, 9)}`;
+            await db.run(`INSERT INTO ${tableName} (id, data_json) VALUES (?, ?)`, id, JSON.stringify(item));
+          }
+        }
+      };
+
+      if (tables.site_config) await restoreTable('site_config', tables.site_config);
+      if (tables.submissions) await restoreTable('submissions', tables.submissions);
+      if (tables.events) await restoreTable('events', tables.events);
+      if (tables.gallery) await restoreTable('gallery', tables.gallery);
+      if (tables.hotels) await restoreTable('hotels', tables.hotels);
+      if (tables.passes) await restoreTable('passes', tables.passes);
+      if (tables.testimonials) await restoreTable('testimonials', tables.testimonials);
+      if (tables.media) await restoreTable('media', tables.media);
+
+      broadcast('system_restored');
+
+      // Send response confirming successful restore and update
+      res.json({
+        success: true,
+        message: 'Backup restored successfully!',
+        restored: true,
+        restoredAt: new Date().toISOString()
+      });
+
+    } catch (e: any) {
+      console.error('[Backup Import Error]', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // List local auto-snapshots
+  app.get('/api/admin/backup/snapshots', async (req, res) => {
+    try {
+      if (!fs.existsSync(backupsDir)) {
+        return res.json([]);
+      }
+      const files = fs.readdirSync(backupsDir).filter(f => f.endsWith('.json'));
+      const snapshots = files.map(filename => {
+        const filePath = path.join(backupsDir, filename);
+        const stats = fs.statSync(filePath);
+        let recordCount = 0;
+        let systemTag = 'System Snapshot';
+        try {
+          const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          if (content.summary?.totalRecords) {
+            recordCount = content.summary.totalRecords;
+          }
+          if (content.system) {
+            systemTag = content.system;
+          }
+        } catch {}
+
+        return {
+          filename,
+          sizeBytes: stats.size,
+          sizeFormatted: (stats.size / 1024).toFixed(1) + ' KB',
+          createdTime: stats.mtime.toISOString(),
+          recordCount,
+          systemTag
+        };
+      }).sort((a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
+
+      res.json(snapshots);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Restore snapshot from local server snapshot file
+  app.post('/api/admin/backup/restore-snapshot', async (req, res) => {
+    try {
+      const { filename } = req.body;
+      if (!filename) {
+        return res.status(400).json({ error: 'Filename is required' });
+      }
+      const filePath = path.join(backupsDir, filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Snapshot file not found' });
+      }
+
+      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const { tables } = content;
+      if (!tables) {
+        return res.status(400).json({ error: 'Invalid snapshot format' });
+      }
+
+      const restoreTable = async (tableName: string, items: any[]) => {
+        await db.run(`DELETE FROM ${tableName}`);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const id = item.id || `${tableName}-${Math.random().toString(36).substring(2, 9)}`;
+            await db.run(`INSERT INTO ${tableName} (id, data_json) VALUES (?, ?)`, id, JSON.stringify(item));
+          }
+        }
+      };
+
+      if (tables.site_config) await restoreTable('site_config', tables.site_config);
+      if (tables.submissions) await restoreTable('submissions', tables.submissions);
+      if (tables.events) await restoreTable('events', tables.events);
+      if (tables.gallery) await restoreTable('gallery', tables.gallery);
+      if (tables.hotels) await restoreTable('hotels', tables.hotels);
+      if (tables.passes) await restoreTable('passes', tables.passes);
+      if (tables.testimonials) await restoreTable('testimonials', tables.testimonials);
+      if (tables.media) await restoreTable('media', tables.media);
+
+      broadcast('system_restored');
+
+      res.json({
+        success: true,
+        message: `Restored from snapshot ${filename} successfully.`,
+        restored: true
+      });
+
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Delete snapshot file
+  app.delete('/api/admin/backup/snapshots/:filename', async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const filePath = path.join(backupsDir, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Create on-demand manual server snapshot
+  app.post('/api/admin/backup/create-snapshot', async (req, res) => {
+    try {
+      const { label } = req.body;
+      const siteConfigRows = await db.all('SELECT * FROM site_config');
+      const submissionsRows = await db.all('SELECT * FROM submissions');
+      const eventsRows = await db.all('SELECT * FROM events');
+      const galleryRows = await db.all('SELECT * FROM gallery');
+      const hotelsRows = await db.all('SELECT * FROM hotels');
+      const passesRows = await db.all('SELECT * FROM passes');
+      const testimonialsRows = await db.all('SELECT * FROM testimonials');
+      const mediaRows = await db.all('SELECT * FROM media');
+
+      const parseRows = (rows: any[]) => rows.map(r => JSON.parse(r.data_json));
+
+      const tables = {
+        site_config: parseRows(siteConfigRows),
+        submissions: parseRows(submissionsRows),
+        events: parseRows(eventsRows),
+        gallery: parseRows(galleryRows),
+        hotels: parseRows(hotelsRows),
+        passes: parseRows(passesRows),
+        testimonials: parseRows(testimonialsRows),
+        media: parseRows(mediaRows)
+      };
+
+      const totalRecords = Object.values(tables).reduce((sum, arr) => sum + arr.length, 0);
+
+      const snapshot = {
+        version: '2027.1.0',
+        system: label ? `Manual Snapshot: ${label}` : 'Manual Admin Snapshot',
+        exportedAt: new Date().toISOString(),
+        summary: { totalRecords },
+        tables
+      };
+
+      const sanitizedLabel = (label || 'manual').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const filename = `snapshot-${sanitizedLabel}-${Date.now()}.json`;
+      fs.writeFileSync(path.join(backupsDir, filename), JSON.stringify(snapshot, null, 2));
+
+      res.json({ success: true, filename, snapshot });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Factory reset to initial default dataset and restart server
+  app.post('/api/admin/backup/factory-reset', async (req, res) => {
+    try {
+      await db.run('DELETE FROM site_config');
+      await db.run('DELETE FROM submissions');
+      await db.run('DELETE FROM events');
+      await db.run('DELETE FROM gallery');
+      await db.run('DELETE FROM hotels');
+      await db.run('DELETE FROM passes');
+      await db.run('DELETE FROM testimonials');
+      await db.run('DELETE FROM media');
+
+      // Seed baseline
+      await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(DEFAULT_SITE_CONFIG));
+      for (const item of INITIAL_DEMO_SUBMISSIONS) {
+        await db.run('INSERT INTO submissions (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of FESTIVAL_EVENTS) {
+        await db.run('INSERT INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of GALLERY_ITEMS) {
+        await db.run('INSERT INTO gallery (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of FESTIVAL_HOTELS) {
+        await db.run('INSERT INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of FESTIVAL_PASSES) {
+        await db.run('INSERT INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of FESTIVAL_TESTIMONIALS) {
+        await db.run('INSERT INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of INITIAL_DEMO_MEDIA) {
+        await db.run('INSERT INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+
+      broadcast('system_restored');
+
+      res.json({
+        success: true,
+        message: 'Factory reset completed successfully.',
+        restored: true
+      });
+
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
