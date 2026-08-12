@@ -21,6 +21,13 @@
     letter-spacing: -0.02em;
     font-style: normal;
   }
+
+  /* Prevent automatic zooming on iOS Safari when focusing input elements */
+  @media screen and (max-width: 868px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* Dynamic Metallic Brand Theme */
