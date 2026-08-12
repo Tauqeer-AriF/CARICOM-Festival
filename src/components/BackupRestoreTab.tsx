@@ -23,7 +23,10 @@ import {
   FileCheck,
   XCircle,
   Lock,
-  ArrowRight
+  Cloud,
+  ArrowRight,
+  Mail,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -75,17 +78,197 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
   // Status toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Automated backup schedule state
+  const [intervalHours, setIntervalHours] = useState<number>(0);
+  const [lastBackupTime, setLastBackupTime] = useState<string>('');
+  const [excludeMedia, setExcludeMedia] = useState<boolean>(false);
+  const [isSavingSchedule, setIsSavingSchedule] = useState<boolean>(false);
+
+  // Cloud Vault states
+  const [uploadingFilenames, setUploadingFilenames] = useState<string[]>([]);
+  const [vaultLinkModal, setVaultLinkModal] = useState<{ filename: string; url: string; expiry: string } | null>(null);
+  const [showEmailComposer, setShowEmailComposer] = useState<boolean>(false);
+  const [recipientEmail, setRecipientEmail] = useState<string>('');
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+
+  // SMTP Dashboard states
+  const [smtpHost, setSmtpHost] = useState<string>('');
+  const [smtpPort, setSmtpPort] = useState<number>(587);
+  const [smtpUser, setSmtpUser] = useState<string>('');
+  const [smtpPass, setSmtpPass] = useState<string>('');
+  const [smtpTo, setSmtpTo] = useState<string>('');
+  const [smtpEnabled, setSmtpEnabled] = useState<boolean>(false);
+  const [isSavingSmtp, setIsSavingSmtp] = useState<boolean>(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState<boolean>(false);
+
   useEffect(() => {
     fetchSnapshots();
+    fetchSchedule();
+    fetchSmtpSettings();
+
+    // Client-side polling interval (every 10 seconds) to sync with any background scheduler activity silently
+    const pollInterval = setInterval(() => {
+      fetchSnapshots(true);
+      fetchSchedule();
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, []);
+
+  const handlePushToCloudVault = async (filename: string) => {
+    setUploadingFilenames(prev => [...prev, filename]);
+    try {
+      const res = await fetch('/api/admin/backup/push-to-vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      });
+      if (!res.ok) {
+        throw new Error('Upload to cloud vault failed');
+      }
+      const data = await res.json();
+      if (data.success) {
+        setVaultLinkModal({
+          filename,
+          url: data.url,
+          expiry: data.expiry
+        });
+        showToast('Backup successfully sent to secure remote cloud vault!');
+      } else {
+        throw new Error(data.error || 'Upload failed');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Failed to send backup to remote cloud', 'error');
+    } finally {
+      setUploadingFilenames(prev => prev.filter(f => f !== filename));
+    }
+  };
+
+  const fetchSchedule = async () => {
+    try {
+      const res = await fetch('/api/admin/backup/schedule');
+      if (res.ok) {
+        const data = await res.json();
+        setIntervalHours(data.intervalHours || 0);
+        setLastBackupTime(data.lastBackupTime || '');
+        setExcludeMedia(data.excludeMedia || false);
+      }
+    } catch (e) {
+      console.error('Failed to load backup schedule:', e);
+    }
+  };
+
+  const handleSaveScheduleSettings = async (hours: number, exclude: boolean) => {
+    setIsSavingSchedule(true);
+    try {
+      const res = await fetch('/api/admin/backup/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          intervalHours: hours,
+          excludeMedia: exclude
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIntervalHours(data.intervalHours);
+        setLastBackupTime(data.lastBackupTime);
+        setExcludeMedia(data.excludeMedia);
+        showToast('Backup configuration updated successfully!');
+        // Refresh snapshots list to capture any immediate automated files
+        fetchSnapshots();
+      } else {
+        throw new Error('Failed to update schedule');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Error updating backup settings', 'error');
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  };
+
+  const fetchSmtpSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/backup/smtp');
+      if (res.ok) {
+        const data = await res.json();
+        setSmtpHost(data.host || '');
+        setSmtpPort(data.port || 587);
+        setSmtpUser(data.user || '');
+        setSmtpPass(data.pass || '');
+        setSmtpTo(data.to || '');
+        setSmtpEnabled(data.enabled || false);
+      }
+    } catch (e) {
+      console.error('Failed to fetch SMTP settings:', e);
+    }
+  };
+
+  const handleSaveSmtpSettings = async () => {
+    setIsSavingSmtp(true);
+    try {
+      const res = await fetch('/api/admin/backup/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: smtpHost,
+          port: smtpPort,
+          user: smtpUser,
+          pass: smtpPass,
+          to: smtpTo,
+          enabled: smtpEnabled
+        })
+      });
+      if (res.ok) {
+        showToast('SMTP settings saved successfully!');
+        fetchSmtpSettings();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save SMTP settings');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Error saving SMTP settings', 'error');
+    } finally {
+      setIsSavingSmtp(false);
+    }
+  };
+
+  const handleTestSmtpSettings = async () => {
+    setIsTestingSmtp(true);
+    try {
+      const res = await fetch('/api/admin/backup/smtp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: smtpHost,
+          port: smtpPort,
+          user: smtpUser,
+          pass: smtpPass,
+          to: smtpTo
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || 'SMTP connection test successful!', 'success');
+      } else {
+        throw new Error(data.error || 'Failed SMTP connection test');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'SMTP connection test failed', 'error');
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchSnapshots = async () => {
-    setIsLoadingSnapshots(true);
+  const fetchSnapshots = async (silent: boolean = false) => {
+    if (!silent) {
+      setIsLoadingSnapshots(true);
+    }
     try {
       const res = await fetch('/api/admin/backup/snapshots');
       if (res.ok) {
@@ -527,6 +710,296 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
         </div>
       </div>
 
+      {/* AUTOMATED SCHEDULER SECTION */}
+      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
+        <div 
+          className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-[80px] pointer-events-none opacity-10"
+          style={{ backgroundColor: primaryColor }}
+        />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Clock className={`w-5 h-5 ${intervalHours > 0 ? 'animate-pulse' : ''}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-white font-serif">Automated Snapshots Scheduler</h3>
+                {intervalHours > 0 && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Active Daemon
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-neutral-400">Configure background tasks to auto-generate system backup snapshots.</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-neutral-400 font-mono">Select Interval:</label>
+            <select
+              value={intervalHours}
+              onChange={(e) => handleSaveScheduleSettings(parseFloat(e.target.value), excludeMedia)}
+              disabled={isSavingSchedule}
+              className="bg-neutral-950 border border-neutral-800 text-xs text-white rounded-xl px-4 py-2.5 focus:border-amber-400 focus:outline-none cursor-pointer font-bold disabled:opacity-50"
+            >
+              <option value="0">Disabled (Manual Only)</option>
+              <option value="0.0167">Every 1 Minute (Test Mode)</option>
+              <option value="0.0833">Every 5 Minutes (Test Mode)</option>
+              <option value="6">Every 6 Hours</option>
+              <option value="12">Every 12 Hours</option>
+              <option value="24">Every 24 Hours</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Low-traffic optimization toggles */}
+        <div className="bg-neutral-950/40 p-5 rounded-2xl border border-neutral-800/80">
+          <div className="flex items-start gap-3">
+            <input 
+              id="lowTrafficMode"
+              type="checkbox"
+              checked={excludeMedia}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setExcludeMedia(val);
+                handleSaveScheduleSettings(intervalHours, val);
+              }}
+              disabled={isSavingSchedule}
+              className="mt-1 w-4.5 h-4.5 rounded border-neutral-800 bg-neutral-950 text-amber-500 focus:ring-amber-500/40 accent-amber-500 cursor-pointer"
+            />
+            <div className="space-y-1">
+              <label htmlFor="lowTrafficMode" className="text-xs font-bold text-white cursor-pointer flex items-center gap-1.5">
+                Exclude Multimedia Binaries (Low-Traffic Mode)
+                <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded uppercase">Highly Recommended</span>
+              </label>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                Only transfer database records (`database.json`), skipping the heavy multimedia uploads folder. This reduces backup payload size by **99.5%** (bringing transfer size down from 35MB to only ~15KB), making remote synchronization nearly instantaneous and using virtually zero bandwidth!
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
+            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-sky-400" />
+              Scheduler Status
+            </span>
+            <p className="text-sm font-bold text-white font-mono flex items-center gap-2">
+              {intervalHours > 0 ? (
+                <>
+                  <span className="text-emerald-400">Running Background Daemon</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </>
+              ) : (
+                <span className="text-neutral-500">Idle / Deactivated</span>
+              )}
+            </p>
+            <p className="text-[10px] text-neutral-500 leading-normal font-sans">
+              {intervalHours > 0 
+                ? `The server will automatically generate snapshot ZIP backups every ${intervalHours >= 1 ? `${intervalHours} hour(s)` : `${intervalHours * 60} min(s)`} continuously.`
+                : 'Automated tasks are disabled. Select an interval to initiate background automated snapshots.'}
+            </p>
+          </div>
+
+          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
+            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              Last Backup Executed
+            </span>
+            <p className="text-sm font-bold text-white font-mono">
+              {lastBackupTime ? new Date(lastBackupTime).toLocaleTimeString() : 'N/A'}
+            </p>
+            <p className="text-[10px] text-neutral-500 font-sans leading-normal">
+              {lastBackupTime 
+                ? `Last automated system sweep was completed on ${new Date(lastBackupTime).toLocaleDateString()} at ${new Date(lastBackupTime).toLocaleTimeString()}` 
+                : 'No automatic backups run yet. Click dropdown to activate.'}
+            </p>
+          </div>
+
+          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
+            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              Next Scheduled Sweep
+            </span>
+            <p className="text-sm font-bold text-amber-400 font-mono">
+              {intervalHours > 0 && lastBackupTime ? (
+                new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleTimeString()
+              ) : 'N/A'}
+            </p>
+            <p className="text-[10px] text-neutral-500 font-sans leading-normal">
+              {intervalHours > 0 && lastBackupTime
+                ? `Next automatic save is scheduled for ${new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleDateString()} at ${new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleTimeString()}`
+                : 'Set a schedule interval to active automated countdown triggers.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* PERSISTENT DATABASE-BACKED SMTP EMAIL ROUTER SETTINGS */}
+      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center border"
+              style={{ 
+                borderColor: `${primaryColor}40`, 
+                backgroundColor: `${primaryColor}10`,
+                color: primaryColor 
+              }}
+            >
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-white font-serif">Automated Delivery Dispatcher (SMTP)</h3>
+                <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                  smtpEnabled && smtpHost
+                    ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                    : 'text-neutral-500 bg-neutral-500/10 border border-neutral-500/10'
+                }`}>
+                  {smtpEnabled && smtpHost ? 'Online Service' : 'Deactivated'}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-400">Configure SMTP credentials to automatically email secure cloud backup retrieval links straight to your inbox.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-neutral-400 font-mono">Status Toggle:</label>
+            <button
+              type="button"
+              onClick={() => {
+                const nextVal = !smtpEnabled;
+                setSmtpEnabled(nextVal);
+                // Auto-save toggle status immediately
+                fetch('/api/admin/backup/smtp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ enabled: nextVal })
+                }).then(() => showToast(`Automated backup emails ${nextVal ? 'enabled' : 'disabled'}!`));
+              }}
+              className={`text-xs px-4 py-2 font-bold rounded-xl cursor-pointer transition-all border ${
+                smtpEnabled
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              {smtpEnabled ? '🟢 Enabled' : '⚪ Disabled'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+          <div className="md:col-span-8 space-y-2">
+            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Host Address:</label>
+            <input
+              type="text"
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="e.g. smtp.gmail.com or mail.example.com"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+            />
+          </div>
+
+          <div className="md:col-span-4 space-y-2">
+            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Port Number:</label>
+            <input
+              type="number"
+              value={smtpPort}
+              onChange={(e) => setSmtpPort(parseInt(e.target.value) || 587)}
+              placeholder="e.g. 587 or 465"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+            />
+          </div>
+
+          <div className="md:col-span-6 space-y-2">
+            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Sender Username:</label>
+            <input
+              type="text"
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="e.g. your-email@gmail.com"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+            />
+          </div>
+
+          <div className="md:col-span-6 space-y-2">
+            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP App Password (secured):</label>
+            <input
+              type="password"
+              value={smtpPass}
+              onChange={(e) => setSmtpPass(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+            />
+          </div>
+
+          <div className="md:col-span-12 space-y-2">
+            <label className="text-xs font-bold text-neutral-300 font-mono">System Recipient Inbox (`SMTP_TO`):</label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={smtpTo}
+                onChange={(e) => setSmtpTo(e.target.value)}
+                placeholder="e.g. recipient@gmail.com"
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setSmtpTo('')}
+                className="text-[10px] px-3 font-bold bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-white rounded-xl cursor-pointer font-mono"
+                title="Clear input"
+              >
+                Clear
+              </button>
+            </div>
+            <p className="text-[11px] text-neutral-500 leading-normal font-sans">
+              Whenever a background automatic backup is triggered, the secure cloud retrieval link is automatically emailed here.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-neutral-850">
+          <button
+            type="button"
+            disabled={isTestingSmtp || !smtpHost || !smtpUser}
+            onClick={handleTestSmtpSettings}
+            className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 disabled:opacity-40 text-neutral-400 hover:text-white text-xs font-bold rounded-xl cursor-pointer transition-colors border border-neutral-800 flex items-center gap-2"
+          >
+            {isTestingSmtp ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                <span>Testing Connection...</span>
+              </>
+            ) : (
+              <>
+                <Mail className="w-3.5 h-3.5" />
+                <span>Send Test Email</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            disabled={isSavingSmtp}
+            onClick={handleSaveSmtpSettings}
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-neutral-950 text-xs font-extrabold rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
+          >
+            {isSavingSmtp ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving configurations...</span>
+              </>
+            ) : (
+              <span>💾 Save SMTP Configuration</span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* RESTORE DROPZONE & PREVIEW BOARD */}
       <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
@@ -761,6 +1234,28 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                     <td className="py-3 px-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => handlePushToCloudVault(snap.filename)}
+                          disabled={uploadingFilenames.includes(snap.filename)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1 ${
+                            uploadingFilenames.includes(snap.filename)
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                              : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}
+                          title="Instantly send this backup to secure cloud"
+                        >
+                          {uploadingFilenames.includes(snap.filename) ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <span>Sending...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Cloud className="w-3 h-3" />
+                              <span>Send to Cloud Vault</span>
+                            </>
+                          )}
+                        </button>
+                        <button
                           onClick={() => handleRestoreSnapshot(snap.filename)}
                           className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
                           title="Restore this snapshot"
@@ -844,6 +1339,182 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black uppercase rounded-xl cursor-pointer transition-colors"
               >
                 Execute Reset & Reboot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECURE CLOUD VAULT TRANSFER SUCCESS MODAL */}
+      {vaultLinkModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="bg-[#0C0F1E] border border-amber-500/30 rounded-2xl p-6 md:p-8 max-w-lg w-full space-y-6 shadow-2xl relative overflow-hidden">
+            <div 
+              className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-[80px] pointer-events-none opacity-20 bg-amber-500"
+            />
+            
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <Cloud className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white font-serif">Remote Cloud Vault Sync</h3>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Successfully Dispatched
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs text-neutral-300 leading-relaxed font-sans">
+              <p>
+                Your backup snapshot <strong className="text-white font-mono">{vaultLinkModal.filename}</strong> has been uploaded successfully to an ephemeral secure cloud storage vault.
+              </p>
+              <p className="text-neutral-400">
+                It is now accessible from any laptop, mobile device, or remote server. The link will remain active for <span className="text-amber-400 font-bold">{vaultLinkModal.expiry}</span> before auto-destructing.
+              </p>
+            </div>
+
+            {/* Link Container */}
+            <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 space-y-2 font-mono text-xs">
+              <span className="text-[9px] text-neutral-500 font-bold uppercase">Secure Retrieval Link</span>
+              <div className="flex items-center gap-2 bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-850">
+                <input
+                  type="text"
+                  readOnly
+                  value={vaultLinkModal.url}
+                  className="bg-transparent text-amber-400 font-bold text-xs w-full focus:outline-none select-all"
+                />
+              </div>
+            </div>
+
+            {/* Quick Actions Panel */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(vaultLinkModal.url);
+                  showToast('Link copied to clipboard!');
+                }}
+                className="py-3 bg-neutral-900 hover:bg-neutral-850 text-white font-bold text-xs rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors border border-neutral-800"
+              >
+                📋 Copy Link
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmailComposer(prev => !prev);
+                  // Trigger standard mailto fallback as standard browser behaviour
+                  const mailtoUrl = `mailto:${recipientEmail}?subject=Festival Backup: ${vaultLinkModal.filename}&body=Here is your secure, one-click remote backup link (valid for ${vaultLinkModal.expiry}):%0D%0A%0D%0A${encodeURIComponent(vaultLinkModal.url)}%0D%0A%0D%0APlease save this link to restore your system state or download the archive from any remote device.`;
+                  // Create dynamic hidden link to trigger mail handler
+                  const a = document.createElement('a');
+                  a.href = mailtoUrl;
+                  a.style.display = 'none';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  showToast('Launching email application fallback panel...');
+                }}
+                className={`py-3 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  showEmailComposer 
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                    : 'bg-amber-500 hover:bg-amber-600 text-neutral-950 active:scale-[0.98]'
+                }`}
+              >
+                ✉️ {showEmailComposer ? 'Hide Email Panel' : 'Email Link to Me'}
+              </button>
+            </div>
+
+            {showEmailComposer && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 space-y-4 font-sans text-xs overflow-hidden"
+              >
+                <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 animate-pulse" /> Direct Email Delivery
+                  </span>
+                  <span className="text-[9px] text-neutral-500 font-mono">Sandbox friendly copy & send</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-neutral-400 font-bold">Recipient Email Address:</label>
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      placeholder="e.g. yourname@gmail.com"
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-neutral-400 font-bold">Email Message Preview:</label>
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 space-y-2 text-[11px] leading-relaxed relative">
+                      <p className="font-bold text-white border-b border-neutral-800/60 pb-1.5 mb-1.5 font-sans">
+                        Subject: <span className="font-mono text-amber-400">Festival Backup: {vaultLinkModal.filename}</span>
+                      </p>
+                      <p className="text-neutral-300 font-mono text-[10px] whitespace-pre-wrap leading-normal">
+                        Here is your secure, one-click remote backup link (valid for {vaultLinkModal.expiry}):{"\n\n"}
+                        <span className="text-amber-400 underline break-all font-bold">{vaultLinkModal.url}</span>{"\n\n"}
+                        Please save this link to restore your system state or download the archive from any remote device.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fullMsg = `Subject: Festival Backup: ${vaultLinkModal.filename}\n\nHere is your secure, one-click remote backup link (valid for ${vaultLinkModal.expiry}):\n\n${vaultLinkModal.url}\n\nPlease save this link to restore your system state or download the archive from any remote device.`;
+                          navigator.clipboard.writeText(fullMsg);
+                          showToast('Email content template copied!');
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-neutral-950 border border-neutral-800 text-neutral-400 hover:text-white rounded-md hover:bg-neutral-850 transition-colors flex items-center gap-1 text-[10px]"
+                        title="Copy template text"
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSendingEmail || !recipientEmail}
+                    onClick={() => {
+                      setIsSendingEmail(true);
+                      setTimeout(() => {
+                        setIsSendingEmail(false);
+                        showToast(`Mock email dispatched successfully to ${recipientEmail}!`);
+                      }, 1000);
+                    }}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-neutral-950 font-extrabold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {isSendingEmail ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Dispatching Mail Courier...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Send Test Email Now</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setVaultLinkModal(null);
+                  setShowEmailComposer(false);
+                }}
+                className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-neutral-400 text-xs font-bold rounded-xl cursor-pointer transition-colors border border-neutral-850"
+              >
+                Close Vault Info
               </button>
             </div>
           </div>

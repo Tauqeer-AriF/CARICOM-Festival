@@ -47,7 +47,7 @@ export const AboutMellowlandView: React.FC<AboutMellowlandViewProps> = ({ setAct
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
         <div className="relative z-10 max-w-2xl space-y-4">
           <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
-            <Waves className="w-3.5 h-3.5" /> Festival Epicenter
+            <Waves className="w-3.5 h-3.5" /> Festival Epicentre
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
             Mellowland <span className="text-gold-gradient">Complex & River Tubing</span>

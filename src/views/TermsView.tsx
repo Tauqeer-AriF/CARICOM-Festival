@@ -22,7 +22,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ setActiveTab }) => {
         <div className="space-y-4 leading-relaxed font-light">
           <section className="space-y-2">
             <h3 className="text-base font-bold text-white font-serif text-amber-400">1. Age Requirement</h3>
-            <p>Grenada CARICOM Festival 2027 events are strictly 18+. Valid photo ID (passport or driver's license) is required upon wristband collection.</p>
+            <p>Grenada CARICOM Festival 2027 events are strictly 18+. Valid photo ID (passport or driver's licence) is required upon wristband collection.</p>
           </section>
 
           <section className="space-y-2">

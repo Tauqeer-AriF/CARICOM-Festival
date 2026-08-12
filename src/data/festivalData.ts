@@ -244,7 +244,7 @@ export const FESTIVAL_HOTELS: HotelItem[] = [
     distanceToMellowland: '18 mins transport',
     features: [
       'Oceanview Dining',
-      'Water Sports Center',
+      'Water Sports Centre',
       'Quiet Relaxing Ambiance',
       'Mellows Representative Pickup Point'
     ],

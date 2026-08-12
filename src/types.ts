@@ -135,6 +135,11 @@ export interface SiteConfig {
     images: HeroImageConfig[];
     displayCount: number;
     autoplayInterval?: number; // rotation speed in seconds
+    videoUrl?: string;
+  };
+  footer?: {
+    logoUrl?: string;
+    text?: string;
   };
   pageImages?: PageImagesConfig;
   adminPath?: string;

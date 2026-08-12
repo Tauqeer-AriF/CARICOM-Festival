@@ -1385,7 +1385,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             }`}
             style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
           >
-            <Palette className="w-4 h-4" /> Customizer Studio
+            <Palette className="w-4 h-4" /> Customiser Studio
           </button>
 
           <button
@@ -2628,7 +2628,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     <span className="text-neutral-600 text-[10px]">•</span>
                     <span className="text-neutral-400 text-[10px] font-mono">v2.4 Production Engine</span>
                   </div>
-                  <h2 className="text-2xl font-black text-white font-serif tracking-tight">Customizer Studio</h2>
+                  <h2 className="text-2xl font-black text-white font-serif tracking-tight">Customiser Studio</h2>
                   <p className="text-xs text-neutral-400 max-w-2xl leading-relaxed">
                     Tailor your festival website identity in real time. Manage homepage background slideshow photos, typography, announcement alerts, and social links.
                   </p>
@@ -2735,7 +2735,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                         <div>
                           <h3 className="font-bold text-base text-white font-serif">Application Name, Logo & Branding</h3>
                           <p className="text-xs text-neutral-400">
-                            Customize the public branding, header logo, festival title, and taglines displayed across the entire website.
+                            Customise the public branding, header logo, festival title, and taglines displayed across the entire website.
                           </p>
                         </div>
                       </div>
@@ -3967,7 +3967,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                         </div>
 
                         <div>
-                          <label className="block text-xs uppercase font-bold text-neutral-300 mb-1.5">Banner Background Color</label>
+                          <label className="block text-xs uppercase font-bold text-neutral-300 mb-1.5">Banner Background Colour</label>
                           <div className="flex items-center gap-3">
                             <div className="flex gap-2 flex-1">
                               {[
@@ -4310,10 +4310,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                               </div>
 
                               <div className="pt-3 flex items-center gap-1.5 border-t border-neutral-900 mt-2 z-10 relative">
-                                <span className="text-[9px] font-mono text-neutral-500">Colors:</span>
+                                <span className="text-[9px] font-mono text-neutral-500">Colours:</span>
                                 <div className="flex gap-1">
-                                  <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: preset.primaryColor }} title="Primary color" />
-                                  <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: preset.secondaryColor }} title="Secondary color" />
+                                  <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: preset.primaryColor }} title="Primary colour" />
+                                  <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: preset.secondaryColor }} title="Secondary colour" />
                                   <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ 
                                     backgroundColor: 
                                       preset.bgTone === 'deep-midnight' ? '#02040A' :
@@ -4418,7 +4418,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                               <span className="font-mono text-white font-bold">{siteConfig.branding.bodyFont}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Active Primary Color:</span>
+                              <span>Active Primary Colour:</span>
                               <span className="font-mono font-bold flex items-center gap-1" style={{ color: siteConfig.branding.primaryColor }}>
                                 <span className="w-2.5 h-2.5 rounded-full border border-white/20 inline-block" style={{ backgroundColor: siteConfig.branding.primaryColor }} />
                                 {siteConfig.branding.primaryColor}
@@ -4451,7 +4451,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </div>
               )}
 
-              {/* SUB-TAB 7: UI ELEMENTS CUSTOMIZER */}
+              {/* SUB-TAB 7: UI ELEMENTS CUSTOMISER */}
               {customizerSubTab === 'elements' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -4462,7 +4462,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                         <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold uppercase tracking-widest">
                           <Settings className="w-3.5 h-3.5" /> UI Component Architecture
                         </div>
-                        <h3 className="text-lg font-bold text-white">Button & Card Elements Customizer</h3>
+                        <h3 className="text-lg font-bold text-white">Button & Card Elements Customiser</h3>
                         <p className="text-xs text-neutral-400 leading-relaxed">
                           As Senior Architects, we want to give you visual control of layout physics. Tune component curvature, card material presets, glass transparency level, and atmospheric glows.
                         </p>
@@ -4495,7 +4495,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                             {
                               id: 'glow',
                               name: 'Ambient Neon Glow',
-                              desc: 'Produces a glowing neon light colored after the main primary.'
+                              desc: 'Produces a glowing neon light coloured after the main primary.'
                             }
                           ].map((style) => {
                             const isSelected = (siteConfig.branding.cardStyle || 'glassy') === style.id;
@@ -4982,7 +4982,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-bold text-white font-serif">About Grenada Page Imagery</h3>
-                    <p className="text-xs text-neutral-400">Customize nature photos and attraction cards on the Grenada island guide page.</p>
+                    <p className="text-xs text-neutral-400">Customise nature photos and attraction cards on the Grenada island guide page.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -5463,7 +5463,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 events: events.filter(e => e.location.toLowerCase().includes('airport') || e.location.toLowerCase().includes('welcome') || e.location.toLowerCase().includes('arrival') || e.location.toLowerCase().includes('landing')),
                 hotels: hotels.filter(h => h.location.toLowerCase().includes('royalton') || h.location.toLowerCase().includes('sandals') || h.location.toLowerCase().includes('salines')),
                 visitorsCount: getLocVisitors('Point Salines (Airport)'),
-                desc: 'Maurice Bishop International Airport entry point. Dedicated VIP lounge suite, shuttle dispatch centers, and welcoming guest coordinators.',
+                desc: 'Maurice Bishop International Airport entry point. Dedicated VIP lounge suite, shuttle dispatch centres, and welcoming guest coordinators.',
                 icon: 'plane'
               }
             };
@@ -6332,7 +6332,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       </div>
 
                       <div className="pt-1.5 border-t border-neutral-900 flex justify-between items-center text-[11px] font-mono">
-                        <span className="text-neutral-400">Total Program:</span>
+                        <span className="text-neutral-400">Total Programme:</span>
                         <span className="text-white font-extrabold">{totalEventsCount} scheduled</span>
                       </div>
                     </div>
@@ -7810,7 +7810,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   <h3 className="font-bold text-sm text-white font-serif">Dashboard Access & Credentials</h3>
                 </div>
                 <p className="text-xs text-neutral-400 leading-relaxed">
-                  Protect and secure your backend workspace. You can customize the secret URL path and access passcode. Keep these saved somewhere private to avoid losing access.
+                  Protect and secure your backend workspace. You can customise the secret URL path and access passcode. Keep these saved somewhere private to avoid losing access.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
