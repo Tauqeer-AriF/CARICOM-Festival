@@ -60,11 +60,170 @@ const staggerContainer = {
   }
 };
 
+// Distinct, highly dramatic liquid & optical glass transition modes per background slide
+const HERO_SLIDE_MODES = [
+  {
+    type: 'glass-cascade',
+    slices: 5,
+    getSliceVariants: (i: number, total: number, dir: number) => ({
+      initial: {
+        y: dir > 0 ? (i % 2 === 0 ? '-100%' : '100%') : (i % 2 === 0 ? '100%' : '-100%'),
+        opacity: 0,
+        scaleY: 1.4,
+        rotateY: dir > 0 ? (i - 2) * 12 : (2 - i) * 12,
+        filter: 'brightness(2.2) blur(12px) saturate(2.0)',
+      },
+      animate: {
+        y: '0%',
+        opacity: 1,
+        scaleY: 1,
+        rotateY: 0,
+        filter: 'brightness(1) blur(0px) saturate(1.0)',
+        transition: {
+          y: { duration: 1.1, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] },
+          opacity: { duration: 0.8, delay: i * 0.07, ease: 'easeOut' },
+          scaleY: { duration: 1.2, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] },
+          rotateY: { duration: 1.3, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] },
+          filter: { duration: 1.0, delay: i * 0.07, ease: 'easeOut' },
+        }
+      },
+      exit: {
+        y: dir > 0 ? (i % 2 === 0 ? '80%' : '-80%') : (i % 2 === 0 ? '-80%' : '80%'),
+        opacity: 0,
+        scaleY: 0.8,
+        rotateY: (i - 2) * -15,
+        filter: 'brightness(0.2) blur(16px)',
+        transition: {
+          duration: 0.7,
+          delay: (total - 1 - i) * 0.04,
+          ease: [0.7, 0, 0.84, 0]
+        }
+      }
+    })
+  },
+  {
+    type: 'radial-prism',
+    slices: 5,
+    getSliceVariants: (i: number, total: number, dir: number) => ({
+      initial: {
+        scale: 1.6,
+        rotate: dir > 0 ? (i + 1) * 6 : -(i + 1) * 6,
+        opacity: 0,
+        filter: 'contrast(1.8) blur(18px) saturate(2.5)',
+      },
+      animate: {
+        scale: 1,
+        rotate: 0,
+        opacity: 1,
+        filter: 'contrast(1.06) blur(0px) saturate(1.0)',
+        transition: {
+          duration: 1.3,
+          delay: i * 0.06,
+          ease: [0.16, 1, 0.3, 1]
+        }
+      },
+      exit: {
+        scale: 0.75,
+        rotate: dir > 0 ? -(i + 1) * 8 : (i + 1) * 8,
+        opacity: 0,
+        filter: 'brightness(0.1) blur(14px)',
+        transition: {
+          duration: 0.8,
+          ease: [0.7, 0, 0.84, 0]
+        }
+      }
+    })
+  },
+  {
+    type: '3D-shutter',
+    slices: 5,
+    getSliceVariants: (i: number, total: number, dir: number) => ({
+      initial: {
+        rotateY: dir > 0 ? 90 : -90,
+        z: -300,
+        opacity: 0,
+        filter: 'brightness(2.5) blur(10px)',
+      },
+      animate: {
+        rotateY: 0,
+        z: 0,
+        opacity: 1,
+        filter: 'brightness(1) blur(0px)',
+        transition: {
+          duration: 1.2,
+          delay: i * 0.09,
+          ease: [0.16, 1, 0.3, 1]
+        }
+      },
+      exit: {
+        rotateY: dir > 0 ? -90 : 90,
+        z: -300,
+        opacity: 0,
+        filter: 'brightness(0.2) blur(12px)',
+        transition: {
+          duration: 0.7,
+          delay: (total - 1 - i) * 0.05,
+          ease: 'easeInOut'
+        }
+      }
+    })
+  },
+  {
+    type: 'liquid-ripple',
+    slices: 5,
+    getSliceVariants: (i: number, total: number, dir: number) => ({
+      initial: {
+        scaleX: 1.5,
+        scaleY: 0.2,
+        opacity: 0,
+        filter: 'brightness(3.0) blur(20px) saturate(3.0)',
+      },
+      animate: {
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 1,
+        filter: 'brightness(1) blur(0px) saturate(1.0)',
+        transition: {
+          duration: 1.4,
+          delay: Math.abs(i - 2) * 0.1,
+          ease: [0.16, 1, 0.3, 1]
+        }
+      },
+      exit: {
+        scaleX: 0.2,
+        scaleY: 1.5,
+        opacity: 0,
+        filter: 'brightness(0.1) blur(15px)',
+        transition: {
+          duration: 0.8,
+          ease: [0.7, 0, 0.84, 0]
+        }
+      }
+    })
+  }
+];
+
 export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart }) => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
+  const handlePrevSlide = () => {
+    setDirection(-1);
+    setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length);
+  };
+
+  const handleNextSlide = () => {
+    setDirection(1);
+    setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length);
+  };
+
+  const handleDotClick = (idx: number) => {
+    setDirection(idx > currentImageIndex ? 1 : -1);
+    setCurrentImageIndex(idx);
+  };
 
   useEffect(() => {
     const handleConfigUpdate = (e: any) => {
@@ -125,6 +284,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
     if (activeHeroImages.length <= 1 || isPaused) return;
     const intervalMs = Math.max(2, siteConfig.hero?.autoplayInterval || 4) * 1000;
     const timer = setInterval(() => {
+      setDirection(1);
       setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length);
     }, intervalMs);
     return () => clearInterval(timer);
@@ -140,42 +300,86 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         variants={fadeInUp}
         className="relative rounded-3xl overflow-hidden min-h-[580px] sm:min-h-[660px] flex flex-col justify-between items-center border border-amber-500/20 shadow-2xl group pt-8 sm:pt-12 pb-8 sm:pb-20"
       >
-        {/* Background Slideshow - Hardware Accelerated Layer Crossfade */}
-        <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-950">
-          {activeHeroImages.map((imgItem, idx) => {
-            const isActive = idx === currentImageIndex;
-            const isBroken = failedImages[imgItem.url];
-            const srcUrl = isBroken ? FESTIVAL_IMAGES.hero : (imgItem.url || FESTIVAL_IMAGES.hero);
+        {/* Background Slideshow - Multi-Slice Optical Glass Cascading Engine */}
+        <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-950 perspective-[1200px]">
+          {/* SVG Optical Refraction Filter for Liquid Transitions */}
+          <svg className="hidden">
+            <defs>
+              <filter id="liquid-refraction">
+                <feTurbulence type="fractalNoise" baseFrequency="0.015 0.04" numOctaves="2" result="noise">
+                  <animate attributeName="baseFrequency" values="0.015 0.04;0.04 0.08;0.015 0.04" dur="8s" repeatCount="indefinite" />
+                </feTurbulence>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+          </svg>
 
-            return (
-              <motion.div
-                key={`${imgItem.url}-${idx}`}
-                initial={false}
-                animate={{
-                  opacity: isActive ? 1 : 0,
-                  scale: isActive ? 1.05 : 1.0,
-                }}
-                transition={{
-                  opacity: { duration: 1.2, ease: [0.25, 1, 0.5, 1] },
-                  scale: { duration: (siteConfig.hero?.autoplayInterval || 4) + 1, ease: 'linear' }
-                }}
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ zIndex: isActive ? 1 : 0 }}
-              >
-                <img
-                  src={srcUrl}
-                  alt={imgItem.alt || "Grenada CARICOM Festival Background"}
-                  referrerPolicy="no-referrer"
-                  onError={() => {
-                    setFailedImages((prev) => ({ ...prev, [imgItem.url]: true }));
-                  }}
-                  className="w-full h-full object-cover object-center filter brightness-[0.68] contrast-[1.06]"
-                />
-              </motion.div>
-            );
-          })}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/60 to-[#07090D]/30 z-[2]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent z-[2]" />
+          <AnimatePresence initial={false} custom={direction}>
+            {activeHeroImages.map((imgItem, idx) => {
+              if (idx !== currentImageIndex) return null;
+
+              const isBroken = failedImages[imgItem.url];
+              const srcUrl = isBroken ? FESTIVAL_IMAGES.hero : (imgItem.url || FESTIVAL_IMAGES.hero);
+              const mode = HERO_SLIDE_MODES[idx % HERO_SLIDE_MODES.length];
+              const sliceCount = mode.slices;
+
+              return (
+                <div key={`${imgItem.url}-${idx}`} className="absolute inset-0 w-full h-full pointer-events-none z-[1]">
+                  {Array.from({ length: sliceCount }).map((_, i) => {
+                    const sliceWidthPercent = 100 / sliceCount;
+                    const sliceLeftPercent = i * sliceWidthPercent;
+
+                    return (
+                      <motion.div
+                        key={i}
+                        custom={direction}
+                        variants={mode.getSliceVariants(i, sliceCount, direction)}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        className="absolute top-0 bottom-0 overflow-hidden transform-gpu"
+                        style={{
+                          left: `${sliceLeftPercent}%`,
+                          width: `${sliceWidthPercent + 0.2}%`, // slight 0.2% overlap to prevent subpixel seams
+                        }}
+                      >
+                        <img
+                          src={srcUrl}
+                          alt={imgItem.alt || "Grenada CARICOM Festival Background"}
+                          referrerPolicy="no-referrer"
+                          onError={() => {
+                            setFailedImages((prev) => ({ ...prev, [imgItem.url]: true }));
+                          }}
+                          className="absolute top-0 bottom-0 h-full max-w-none object-cover object-center filter brightness-[0.72] contrast-[1.08] transform-gpu"
+                          style={{
+                            width: `${sliceCount * 100}%`,
+                            left: `-${i * 100}%`,
+                          }}
+                        />
+                        {/* Shimmer Prism Edge Highlight on Slices */}
+                        <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-amber-300/30 via-white/20 to-transparent pointer-events-none" />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </AnimatePresence>
+
+          {/* Anamorphic Gold Light Sweep Beam */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`light-flare-${currentImageIndex}`}
+              initial={{ x: '-120%', opacity: 0.9 }}
+              animate={{ x: '280%', opacity: 0 }}
+              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-amber-300/25 to-transparent -skew-x-20 pointer-events-none z-[3]"
+            />
+          </AnimatePresence>
+
+          {/* Ambient Lighting Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#07090D] via-[#07090D]/50 to-[#07090D]/20 z-[2] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/12 via-transparent to-transparent z-[2] pointer-events-none" />
         </div>
 
         {/* Content Box */}
@@ -232,7 +436,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           <>
             {/* Desktop Left Carousel Control */}
             <button
-              onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
+              onClick={handlePrevSlide}
               className="group absolute left-4 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-neutral-900/85 hover:bg-neutral-900 border border-amber-500/40 hover:border-amber-400 backdrop-blur-xl text-amber-400 hover:text-amber-300 transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)] hidden lg:flex items-center justify-center overflow-hidden"
               title="Previous Slide"
               aria-label="Previous Slide"
@@ -243,7 +447,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
 
             {/* Desktop Right Carousel Control */}
             <button
-              onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
+              onClick={handleNextSlide}
               className="group absolute right-4 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-neutral-900/85 hover:bg-neutral-900 border border-amber-500/40 hover:border-amber-400 backdrop-blur-xl text-amber-400 hover:text-amber-300 transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)] hidden lg:flex items-center justify-center overflow-hidden"
               title="Next Slide"
               aria-label="Next Slide"
@@ -257,7 +461,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
               <div className="flex items-center gap-2 sm:gap-3 bg-neutral-950/85 backdrop-blur-xl px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-amber-500/40 hover:border-amber-400/80 shadow-[0_15px_35px_rgba(0,0,0,0.8)] transition-all">
                 {/* Mobile Left Arrow */}
                 <button
-                  onClick={() => setCurrentImageIndex((prev) => (prev - 1 + activeHeroImages.length) % activeHeroImages.length)}
+                  onClick={handlePrevSlide}
                   className="p-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 hover:text-amber-300 border border-amber-500/30 transition-all cursor-pointer flex items-center justify-center lg:hidden active:scale-90"
                   title="Previous Slide"
                 >
@@ -274,13 +478,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
                   {activeHeroImages.map((imgItem, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setCurrentImageIndex(idx)}
+                      onClick={() => handleDotClick(idx)}
                       className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                         currentImageIndex === idx 
                           ? 'w-6 sm:w-7 bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]' 
                           : 'w-2 bg-white/20 hover:bg-white/50'
                       }`}
-                      title={imgItem.alt || `Slide ${idx + 1}`}
+                      title={imgItem.alt || `Go to slide ${idx + 1}`}
                       aria-label={`Go to slide ${idx + 1}`}
                     />
                   ))}
@@ -297,7 +501,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
 
                 {/* Mobile Right Arrow */}
                 <button
-                  onClick={() => setCurrentImageIndex((prev) => (prev + 1) % activeHeroImages.length)}
+                  onClick={handleNextSlide}
                   className="p-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 hover:text-amber-300 border border-amber-500/30 transition-all cursor-pointer flex items-center justify-center lg:hidden active:scale-90"
                   title="Next Slide"
                 >
