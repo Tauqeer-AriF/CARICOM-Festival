@@ -23,10 +23,27 @@ export async function getDb(): Promise<any> {
     
     let fileBuffer: Buffer | undefined;
     if (fs.existsSync(dbPath)) {
-      fileBuffer = fs.readFileSync(dbPath);
+      try {
+        fileBuffer = fs.readFileSync(dbPath);
+      } catch (err) {
+        console.error('[DATABASE ENGINE] Failed to read database file from disk:', err);
+      }
     }
 
-    const db = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();
+    let db: any;
+    try {
+      db = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();
+    } catch (err) {
+      console.error('[DATABASE ENGINE] Database file on disk is malformed or corrupt. Re-creating a fresh database...', err);
+      if (fs.existsSync(dbPath)) {
+        try {
+          fs.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+        } catch (renameErr) {
+          console.error('[DATABASE ENGINE] Failed to rename corrupt database:', renameErr);
+        }
+      }
+      db = new SQL.Database();
+    }
 
     const saveToDisk = () => {
       try {

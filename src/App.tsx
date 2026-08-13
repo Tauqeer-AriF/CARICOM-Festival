@@ -6,7 +6,7 @@ import { WhatsAppFloating } from './components/WhatsAppFloating';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { CartDrawer } from './components/CartDrawer';
 import { LuxurySkeletonOverlay } from './components/LuxurySkeletonOverlay';
-import { getSiteConfig, getEvents, getGalleryItems, getHotels, getPasses } from './services/submissionService';
+import { getSiteConfig, getEvents, getGalleryItems, getHotels, getPasses, getTestimonials } from './services/submissionService';
 
 import { HomeView } from './views/HomeView';
 import { EventListingView } from './views/EventListingView';
@@ -104,6 +104,7 @@ export default function App() {
   const [galleryItems, setGalleryItems] = useState(() => getGalleryItems());
   const [hotels, setHotels] = useState(() => getHotels());
   const [passes, setPasses] = useState(() => getPasses());
+  const [testimonials, setTestimonials] = useState(() => getTestimonials());
 
   // Listen for data updates from executive panel
   useEffect(() => {
@@ -111,17 +112,20 @@ export default function App() {
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
     const handleHotelsUpdate = () => setHotels(getHotels());
     const handlePassesUpdate = () => setPasses(getPasses());
+    const handleTestimonialsUpdate = () => setTestimonials(getTestimonials());
 
     window.addEventListener('events_updated', handleEventsUpdate);
     window.addEventListener('gallery_updated', handleGalleryUpdate);
     window.addEventListener('hotels_updated', handleHotelsUpdate);
     window.addEventListener('passes_updated', handlePassesUpdate);
+    window.addEventListener('testimonials_updated', handleTestimonialsUpdate);
 
     return () => {
       window.removeEventListener('events_updated', handleEventsUpdate);
       window.removeEventListener('gallery_updated', handleGalleryUpdate);
       window.removeEventListener('hotels_updated', handleHotelsUpdate);
       window.removeEventListener('passes_updated', handlePassesUpdate);
+      window.removeEventListener('testimonials_updated', handleTestimonialsUpdate);
     };
   }, []);
 
@@ -757,7 +761,7 @@ export default function App() {
             )}
 
             {activeTab === 'testimonials' && (
-              <TestimonialsView setActiveTab={setActiveTab} />
+              <TestimonialsView setActiveTab={setActiveTab} testimonials={testimonials} />
             )}
 
             {activeTab === 'shop' && (
