@@ -4,7 +4,6 @@ import fs from 'fs';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
 import sharp from 'sharp';
-import nodemailer from 'nodemailer';
 import { createServer as createViteServer } from 'vite';
 import { getDb } from './src/db/database';
 
@@ -1132,108 +1131,6 @@ async function startServer() {
     }
   });
 
-  // Push snapshot to secure cloud vault anonymously and securely
-  app.post('/api/admin/backup/push-to-vault', async (req, res) => {
-    try {
-      const { filename } = req.body;
-      if (!filename) {
-        return res.status(400).json({ error: 'Filename parameter is required.' });
-      }
-      
-      const filePath = path.join(backupsDir, filename);
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Target backup file was not found on server local disk.' });
-      }
-
-      console.log(`[VAULT PUSH] Reading snapshot package: ${filename}`);
-      const fileBuffer = fs.readFileSync(filePath);
-      
-      console.log(`[VAULT PUSH] Submitting to remote file.io securely...`);
-      const formData = new FormData();
-      const fileBlob = new Blob([fileBuffer], { type: 'application/zip' });
-      formData.append('file', fileBlob, filename);
-      formData.append('expires', '1d');
-
-      let uploadResultUrl = '';
-      let expiryLabel = '24 Hours (or until first download)';
-      let succeeded = false;
-
-      try {
-        const response = await fetch('https://file.io/', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().startsWith('{')) {
-            const uploadResult = JSON.parse(text);
-            if (uploadResult.success) {
-              uploadResultUrl = uploadResult.link;
-              succeeded = true;
-              console.log(`[VAULT PUSH SUCCESS] File uploaded successfully to file.io: ${uploadResultUrl}`);
-            }
-          } else {
-            console.warn('[VAULT PUSH WARNING] file.io returned non-JSON text starting with:', text.substring(0, 100));
-          }
-        } else {
-          console.warn(`[VAULT PUSH WARNING] file.io returned non-ok status: ${response.status}`);
-        }
-      } catch (fileIoErr: any) {
-        console.warn(`[VAULT PUSH WARNING] file.io upload attempt failed: ${fileIoErr.message}`);
-      }
-
-      // If file.io fails, trigger fallback to tmpfiles.org immediately
-      if (!succeeded) {
-        console.log(`[VAULT PUSH] Activating high-reliability fallback to tmpfiles.org with 24-hour retention...`);
-        const fallbackFormData = new FormData();
-        const fallbackFileBlob = new Blob([fileBuffer], { type: 'application/zip' });
-        fallbackFormData.append('file', fallbackFileBlob, filename);
-        // Force the anonymous fallback vault to remain active for exactly 24 hours (86400 seconds)
-        fallbackFormData.append('expire', '86400');
-
-        const response = await fetch('https://tmpfiles.org/api/v1/upload', {
-          method: 'POST',
-          body: fallbackFormData
-        });
-
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().startsWith('{')) {
-            const fallbackResult = JSON.parse(text);
-            if (fallbackResult.status === 'success' && fallbackResult.data && fallbackResult.data.url) {
-              // Convert view URL to direct download link: e.g. https://tmpfiles.org/12345/file -> https://tmpfiles.org/dl/12345/file
-              let rawUrl = fallbackResult.data.url;
-              uploadResultUrl = rawUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
-              expiryLabel = '24 Hours (Anonymous temporary vault)';
-              succeeded = true;
-              console.log(`[VAULT PUSH SUCCESS] File uploaded successfully to tmpfiles.org: ${uploadResultUrl}`);
-            } else {
-              throw new Error(fallbackResult.message || 'tmpfiles.org rejected upload');
-            }
-          } else {
-            throw new Error(`tmpfiles.org returned non-JSON text starting with: ${text.substring(0, 100)}`);
-          }
-        } else {
-          throw new Error(`tmpfiles.org returned status ${response.status}`);
-        }
-      }
-
-      if (succeeded && uploadResultUrl) {
-        res.json({
-          success: true,
-          url: uploadResultUrl,
-          expiry: expiryLabel
-        });
-      } else {
-        throw new Error('All remote cloud vault destinations rejected the upload.');
-      }
-    } catch (e: any) {
-      console.error('[VAULT PUSH ERROR] Failed to send backup to remote cloud:', e);
-      res.status(500).json({ error: e.message });
-    }
-  });
-
   // Get current automatic backup schedule configuration
   app.get('/api/admin/backup/schedule', async (req, res) => {
     try {
@@ -1288,283 +1185,505 @@ async function startServer() {
     }
   });
 
-  // Helper to fetch SMTP settings from system database or environment fallbacks
-  async function getSMTPSettings() {
-    const hostRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_host'");
-    const portRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_port'");
-    const userRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_user'");
-    const passRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_pass'");
-    const toRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_to'");
-    const enabledRow = await db.get("SELECT value FROM system_meta WHERE key = 'smtp_enabled'");
+  // ==========================================
+  // GOOGLE DRIVE CLOUD AUTO-BACKUP ENDPOINTS
+  // ==========================================
 
-    const host = hostRow ? hostRow.value : (process.env.SMTP_HOST || '');
-    const port = portRow ? parseInt(portRow.value) : (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587);
-    const user = userRow ? userRow.value : (process.env.SMTP_USER || '');
-    const pass = passRow ? passRow.value : (process.env.SMTP_PASS || '');
-    const to = toRow ? toRow.value : (process.env.SMTP_TO || 'admin@example.com');
-    // Enabled defaults to true if we have dynamic settings or fallback secrets configured
-    const enabled = enabledRow ? enabledRow.value === 'true' : (host ? true : false);
+  // Get current Google Drive settings and sync state
+  app.get('/api/admin/backup/drive/settings', async (req, res) => {
+    try {
+      const autoRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_auto_upload_enabled'");
+      const folderIdRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_id'");
+      const folderNameRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_name'");
+      const folderLinkRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_link'");
+      const lastSyncRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_last_sync_time'");
+      const userEmailRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_user_email'");
+      const syncedRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_synced_snapshots'");
 
-    return { host, port, user, pass, to, enabled };
+      let syncedSnapshotNames: string[] = [];
+      try {
+        if (syncedRow && syncedRow.value) {
+          syncedSnapshotNames = JSON.parse(syncedRow.value);
+        }
+      } catch {}
+
+      res.json({
+        autoUploadEnabled: autoRow ? autoRow.value === 'true' : false,
+        folderId: folderIdRow ? folderIdRow.value : undefined,
+        folderName: folderNameRow ? folderNameRow.value : 'Grenada CARICOM Festival Backups 2027',
+        folderWebViewLink: folderLinkRow ? folderLinkRow.value : undefined,
+        lastSyncTime: lastSyncRow ? lastSyncRow.value : undefined,
+        userEmail: userEmailRow ? userEmailRow.value : undefined,
+        syncedSnapshotNames
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Save Google Drive sync settings
+  app.post('/api/admin/backup/drive/settings', async (req, res) => {
+    try {
+      const { autoUploadEnabled, folderId, folderName, folderWebViewLink, userEmail } = req.body;
+
+      if (autoUploadEnabled !== undefined) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_auto_upload_enabled', ?)", autoUploadEnabled ? 'true' : 'false');
+      }
+      if (folderId !== undefined) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_id', ?)", String(folderId));
+      }
+      if (folderName !== undefined) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_name', ?)", String(folderName));
+      }
+      if (folderWebViewLink !== undefined) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_link', ?)", String(folderWebViewLink));
+      }
+      if (userEmail !== undefined) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_user_email', ?)", String(userEmail));
+      }
+
+      broadcast('gdrive_settings_updated');
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Ensure dedicated Google Drive folder exists
+  app.post('/api/admin/backup/drive/ensure-folder', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
+      }
+      const token = authHeader.split(' ')[1];
+      const targetFolderName = 'Grenada CARICOM Festival Backups 2027';
+
+      // 1. Check if folder already exists in user's Drive
+      const query = encodeURIComponent(`name = '${targetFolderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`);
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!searchRes.ok) {
+        const errText = await searchRes.text();
+        console.error('[GDRIVE FOLDER SEARCH ERROR]', errText);
+        return res.status(searchRes.status).json({ error: 'Failed to access Google Drive: ' + errText });
+      }
+
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        const folder = searchData.files[0];
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_id', ?)", folder.id);
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_name', ?)", folder.name);
+        if (folder.webViewLink) {
+          await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_link', ?)", folder.webViewLink);
+        }
+        return res.json({ folderId: folder.id, folderName: folder.name, webViewLink: folder.webViewLink });
+      }
+
+      // 2. Create new folder
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: targetFolderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          description: 'Automated and manual backup snapshots for Grenada CARICOM Festival 2027'
+        })
+      });
+
+      if (!createRes.ok) {
+        const errText = await createRes.text();
+        console.error('[GDRIVE CREATE FOLDER ERROR]', errText);
+        return res.status(createRes.status).json({ error: 'Failed to create Google Drive folder: ' + errText });
+      }
+
+      const newFolder = await createRes.json();
+      await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_id', ?)", newFolder.id);
+      await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_name', ?)", newFolder.name);
+      if (newFolder.webViewLink) {
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_folder_link', ?)", newFolder.webViewLink);
+      }
+
+      return res.json({ folderId: newFolder.id, folderName: newFolder.name, webViewLink: newFolder.webViewLink });
+    } catch (e: any) {
+      console.error('[GDRIVE ENSURE FOLDER EXCEPTION]', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // List all backup files in Google Drive folder
+  app.get('/api/admin/backup/drive/list', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
+      }
+      const token = authHeader.split(' ')[1];
+
+      let folderId = req.query.folderId as string;
+      if (!folderId) {
+        const folderIdRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_id'");
+        if (folderIdRow) folderId = folderIdRow.value;
+      }
+
+      const query = folderId
+        ? encodeURIComponent(`'${folderId}' in parents and trashed = false`)
+        : encodeURIComponent(`name contains 'snapshot' or name contains 'backup' or mimeType = 'application/zip' and trashed = false`);
+
+      const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,size,createdTime,webViewLink,webContentLink,description)&orderBy=createdTime%20desc`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!listRes.ok) {
+        const errText = await listRes.text();
+        return res.status(listRes.status).json({ error: 'Failed to list files from Google Drive: ' + errText });
+      }
+
+      const listData = await listRes.json();
+      const files = (listData.files || []).map((f: any) => {
+        let sizeFormatted = 'Unknown';
+        if (f.size) {
+          const bytes = parseInt(f.size, 10);
+          if (bytes < 1024) sizeFormatted = `${bytes} B`;
+          else if (bytes < 1024 * 1024) sizeFormatted = `${(bytes / 1024).toFixed(1)} KB`;
+          else sizeFormatted = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        }
+        return {
+          ...f,
+          sizeFormatted
+        };
+      });
+
+      res.json({ files });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Helper function to upload buffer to Google Drive
+  async function uploadBufferToGoogleDrive(token: string, filename: string, buffer: Buffer, folderId?: string, description?: string) {
+    const boundary = '-------314159265358979323846' + Date.now();
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
+    const metadata: any = {
+      name: filename,
+      mimeType: 'application/zip',
+      description: description || `Festival system backup snapshot archive uploaded on ${new Date().toLocaleString()}`
+    };
+
+    if (folderId) {
+      metadata.parents = [folderId];
+    }
+
+    const multipartRequestBody = Buffer.concat([
+      Buffer.from(delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n'),
+      Buffer.from(delimiter + 'Content-Type: application/zip\r\n\r\n'),
+      buffer,
+      Buffer.from(close_delim)
+    ]);
+
+    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,createdTime,webViewLink,webContentLink,description', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+        'Content-Length': String(multipartRequestBody.length)
+      },
+      body: multipartRequestBody
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error(`Google Drive upload error (${uploadRes.status}): ${errText}`);
+    }
+
+    return await uploadRes.json();
   }
 
-  // Get current administrator SMTP configuration
-  app.get('/api/admin/backup/smtp', async (req, res) => {
+  // Upload an existing local snapshot to Google Drive
+  app.post('/api/admin/backup/drive/upload', async (req, res) => {
     try {
-      const config = await getSMTPSettings();
-      // Mask password for security before sending to client
-      const maskedConfig = {
-        ...config,
-        pass: config.pass ? '••••••••' : ''
-      };
-      res.json(maskedConfig);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // Save new SMTP configuration
-  app.post('/api/admin/backup/smtp', async (req, res) => {
-    try {
-      const { host, port, user, pass, to, enabled } = req.body;
-      
-      if (host !== undefined) await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_host', ?)", String(host).trim());
-      if (port !== undefined) await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_port', ?)", String(port).trim());
-      if (user !== undefined) await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_user', ?)", String(user).trim());
-      
-      // Update password only if the user didn't leave it as our secure masked placeholder
-      if (pass !== undefined && pass !== '••••••••' && pass.trim() !== '') {
-        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_pass', ?)", String(pass).trim());
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
       }
-      
-      if (to !== undefined) await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_to', ?)", String(to).trim());
-      if (enabled !== undefined) {
-        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('smtp_enabled', ?)", enabled ? 'true' : 'false');
-      }
-      
-      broadcast('smtp_config_updated');
-      res.json({ success: true, message: 'SMTP configurations updated successfully!' });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
+      const token = authHeader.split(' ')[1];
+      const { snapshotFilename, folderId } = req.body;
 
-  // Test dynamic SMTP settings
-  app.post('/api/admin/backup/smtp/test', async (req, res) => {
-    try {
-      const { host, port, user, pass, to } = req.body;
-      
-      let testHost = host;
-      let testPort = parseInt(port) || 587;
-      let testUser = user;
-      let testPass = pass;
-      let testTo = to || 'admin@example.com';
-
-      // Read current config if password is masked or omitted
-      const currentConfig = await getSMTPSettings();
-      if (testPass === '••••••••' || !testPass) {
-        testPass = currentConfig.pass;
-      }
-      if (!testHost) testHost = currentConfig.host;
-      if (!testUser) testUser = currentConfig.user;
-
-      if (!testHost || !testUser || !testPass) {
-        return res.status(400).json({ error: 'SMTP host, username, and password are required to test connection.' });
+      if (!snapshotFilename) {
+        return res.status(400).json({ error: 'snapshotFilename is required' });
       }
 
-      console.log(`[SMTP MANUAL TEST] Dispensing test email to ${testTo}...`);
-      const transporter = nodemailer.createTransport({
-        host: testHost,
-        port: testPort,
-        secure: testPort === 465,
-        auth: {
-          user: testUser,
-          pass: testPass
-        }
-      });
-
-      await transporter.sendMail({
-        from: `"Grenada CARICOM System SMTP Test" <${testUser}>`,
-        to: testTo,
-        subject: `🧪 CARICOM Festival Portal: SMTP Verification Success!`,
-        text: `Success! Your administrator SMTP configurations are fully functional and ready to dispatch cloud backups automatically.\n\n` +
-              `Time of Test: ${new Date().toLocaleString()}\n` +
-              `Host: ${testHost}\n` +
-              `Port: ${testPort}\n\n` +
-              `Thank you,\nGrenada CARICOM Festival System Agent\n`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 25px; border: 2px solid #10b981; border-radius: 12px; background-color: #f0fdf4;">
-            <h2 style="color: #047857; margin-top: 0; border-bottom: 2px solid #10b981; padding-bottom: 8px;">🧪 SMTP Connection Successful!</h2>
-            <p style="font-size: 14px; color: #065f46; line-height: 1.6;">
-              Congratulations! Your SMTP outgoing mail configurations are fully functional. The system can now deliver remote cloud vault recovery keys directly to your inbox.
-            </p>
-            <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; border: 1px solid #a7f3d0; margin-top: 15px;">
-              <b>Host:</b> ${testHost}<br/>
-              <b>Port:</b> ${testPort}<br/>
-              <b>Sender User:</b> ${testUser}<br/>
-              <b>Recipient inbox:</b> ${testTo}<br/>
-              <b>Timestamp:</b> ${new Date().toLocaleString()}
-            </div>
-          </div>
-        `
-      });
-
-      res.json({ success: true, message: `Connection verification success! Email delivered to ${testTo}.` });
-    } catch (e: any) {
-      console.error('[SMTP MANUAL TEST ERROR] Failed to deliver test email:', e);
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // Helper to deploy backup to cloud and optionally notify via email automatically
-  async function deployBackupToCloudAndNotify(filename: string) {
-    try {
-      const filePath = path.join(backupsDir, filename);
+      const filePath = path.join(backupsDir, snapshotFilename);
       if (!fs.existsSync(filePath)) {
-        console.error(`[AUTO BACKUP DEPLOY] Backup file ${filename} not found.`);
-        return;
+        return res.status(404).json({ error: 'Snapshot file not found on local disk' });
+      }
+
+      // Check folder ID if not passed
+      let targetFolderId = folderId;
+      if (!targetFolderId) {
+        const folderRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_id'");
+        if (folderRow) targetFolderId = folderRow.value;
       }
 
       const fileBuffer = fs.readFileSync(filePath);
-      const formData = new FormData();
-      const fileBlob = new Blob([fileBuffer], { type: 'application/zip' });
-      formData.append('file', fileBlob, filename);
-      formData.append('expires', '1d');
+      const driveFile = await uploadBufferToGoogleDrive(token, snapshotFilename, fileBuffer, targetFolderId);
 
-      let uploadResultUrl = '';
-      let expiryLabel = '24 Hours (or until first download)';
-      let succeeded = false;
+      // Record in synced snapshot history
+      const nowIso = new Date().toISOString();
+      await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_last_sync_time', ?)", nowIso);
 
-      // 1. Try file.io
+      const syncedRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_synced_snapshots'");
+      let syncedList: string[] = [];
       try {
-        console.log(`[AUTO BACKUP DEPLOY] Automatically uploading ${filename} to file.io...`);
-        const response = await fetch('https://file.io/', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().startsWith('{')) {
-            const uploadResult = JSON.parse(text);
-            if (uploadResult.success) {
-              uploadResultUrl = uploadResult.link;
-              succeeded = true;
-              console.log(`[AUTO BACKUP DEPLOY SUCCESS] Uploaded successfully to file.io: ${uploadResultUrl}`);
-            }
-          }
-        }
-      } catch (fileIoErr: any) {
-        console.warn(`[AUTO BACKUP DEPLOY WARNING] file.io failed: ${fileIoErr.message}`);
+        if (syncedRow && syncedRow.value) syncedList = JSON.parse(syncedRow.value);
+      } catch {}
+      if (!syncedList.includes(snapshotFilename)) {
+        syncedList.push(snapshotFilename);
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_synced_snapshots', ?)", JSON.stringify(syncedList));
       }
 
-      // 2. Fallback to tmpfiles.org
-      if (!succeeded) {
-        try {
-          console.log(`[AUTO BACKUP DEPLOY] Fallback: uploading ${filename} to tmpfiles.org with 24-hour retention...`);
-          const fallbackFormData = new FormData();
-          const fallbackFileBlob = new Blob([fileBuffer], { type: 'application/zip' });
-          fallbackFormData.append('file', fallbackFileBlob, filename);
-          // Force the anonymous fallback vault to remain active for exactly 24 hours (86400 seconds)
-          fallbackFormData.append('expire', '86400');
+      broadcast('gdrive_sync_completed');
 
-          const response = await fetch('https://tmpfiles.org/api/v1/upload', {
-            method: 'POST',
-            body: fallbackFormData
-          });
-
-          if (response.ok) {
-            const text = await response.text();
-            if (text.trim().startsWith('{')) {
-              const fallbackResult = JSON.parse(text);
-              if (fallbackResult.status === 'success' && fallbackResult.data && fallbackResult.data.url) {
-                let rawUrl = fallbackResult.data.url;
-                uploadResultUrl = rawUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
-                expiryLabel = '24 Hours (Anonymous temporary vault)';
-                succeeded = true;
-                console.log(`[AUTO BACKUP DEPLOY SUCCESS] Uploaded successfully to tmpfiles.org: ${uploadResultUrl}`);
-              }
-            }
-          }
-        } catch (tmpErr: any) {
-          console.error(`[AUTO BACKUP DEPLOY ERROR] Fallback tmpfiles.org failed: ${tmpErr.message}`);
-        }
+      let sizeFormatted = 'Unknown';
+      if (driveFile.size) {
+        const bytes = parseInt(driveFile.size, 10);
+        if (bytes < 1024) sizeFormatted = `${bytes} B`;
+        else if (bytes < 1024 * 1024) sizeFormatted = `${(bytes / 1024).toFixed(1)} KB`;
+        else sizeFormatted = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
       }
 
-      if (succeeded && uploadResultUrl) {
-        const smtpSettings = await getSMTPSettings();
-
-        if (smtpSettings.enabled && smtpSettings.host && smtpSettings.user && smtpSettings.pass) {
-          console.log(`[AUTO BACKUP EMAIL] Initiating dynamic automatic email dispatch to ${smtpSettings.to} via ${smtpSettings.host}...`);
-          
-          const transporter = nodemailer.createTransport({
-            host: smtpSettings.host,
-            port: smtpSettings.port,
-            secure: smtpSettings.port === 465,
-            auth: {
-              user: smtpSettings.user,
-              pass: smtpSettings.pass
-            }
-          });
-
-          const mailOptions = {
-            from: `"Grenada CARICOM Festival Auto-Backup" <${smtpSettings.user}>`,
-            to: smtpSettings.to,
-            subject: `🚨 Automated Cloud Vault Backup: ${filename}`,
-            text: `Grenada CARICOM 2027 Festival Portal\nAutomated System Backup & Secure Vault Transfer\n\n` +
-                  `Your system successfully performed an automatic point-of-time backup and uploaded the encrypted archive safely to the cloud vault.\n\n` +
-                  `📦 Backup Filename: ${filename}\n` +
-                  `⏳ Retrieval Link Expiry: ${expiryLabel}\n` +
-                  `🔗 Secure Cloud Retrieval Link: ${uploadResultUrl}\n\n` +
-                  `To restore this state, copy the Link URL above, open the Festival Admin Dashboard under "Backups", and paste the cloud vault link into the manual recovery loader.\n\n` +
-                  `Best regards,\nGrenada CARICOM Festival System Agent\n`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fcfcfc;">
-                <h2 style="color: #d97706; margin-top: 0; font-size: 20px; border-bottom: 2px solid #f59e0b; padding-bottom: 10px;">🚨 System Auto-Backup Completed</h2>
-                <p style="font-size: 14px; color: #374151; line-height: 1.6;">
-                  The CARICOM Festival portal completed an automatic snapshot archive and uploaded the encrypted ZIP container safely to our high-reliability remote cloud vaults.
-                </p>
-                
-                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
-                  <table style="width: 100%; font-size: 13px; color: #4b5563; border-collapse: collapse;">
-                    <tr>
-                      <td style="padding: 4px 0; font-weight: bold; width: 130px;">Archive File:</td>
-                      <td style="padding: 4px 0; font-family: monospace; color: #1f2937;">${filename}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 4px 0; font-weight: bold;">Vault Lifespan:</td>
-                      <td style="padding: 4px 0; color: #d97706; font-weight: bold;">${expiryLabel}</td>
-                    </tr>
-                  </table>
-                </div>
-
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${uploadResultUrl}" style="background-color: #f59e0b; color: #000; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; display: inline-block;">
-                    📥 Access Cloud Vault Snapshot
-                  </a>
-                </div>
-
-                <p style="font-size: 11px; color: #6b7280; line-height: 1.5; border-top: 1px solid #f3f4f6; padding-top: 15px; margin-top: 25px;">
-                  You can download the archive or restore your database records directly in the administrator settings by pasting this URL into the remote backup restore card.
-                </p>
-              </div>
-            `
-          };
-          
-          await transporter.sendMail(mailOptions);
-          console.log(`[AUTO BACKUP EMAIL SUCCESS] Dispatch complete! Auto backup link emailed to ${smtpSettings.to}`);
-        } else {
-          console.log(`\n=============================================================`);
-          console.log(`[AUTO BACKUP CLOUD SUCCESS] Secure Link Generated: ${uploadResultUrl}`);
-          console.log(`[AUTO BACKUP CONFIG] Note: To send this email automatically to ${smtpSettings.to || 'your inbox'},`);
-          console.log(`please specify your SMTP configurations in your admin backups dashboard.`);
-          console.log(`=============================================================\n`);
-        }
-      }
-    } catch (err: any) {
-      console.error(`[AUTO BACKUP DEPLOY ERROR] Automatic deployment flow failed:`, err);
+      res.json({
+        success: true,
+        file: { ...driveFile, sizeFormatted },
+        message: `Successfully uploaded ${snapshotFilename} to Google Drive`
+      });
+    } catch (e: any) {
+      console.error('[GDRIVE UPLOAD ERROR]', e);
+      res.status(500).json({ error: e.message });
     }
-  }
+  });
+
+  // Create on-demand snapshot and upload immediately to Google Drive
+  app.post('/api/admin/backup/drive/create-and-upload', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
+      }
+      const token = authHeader.split(' ')[1];
+      const { label, folderId } = req.body;
+
+      const filename = await createSystemBackupSnapshot(label ? `Cloud: ${label}` : 'Manual Cloud Backup');
+      const filePath = path.join(backupsDir, filename);
+      const fileBuffer = fs.readFileSync(filePath);
+
+      let targetFolderId = folderId;
+      if (!targetFolderId) {
+        const folderRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_folder_id'");
+        if (folderRow) targetFolderId = folderRow.value;
+      }
+
+      const driveFile = await uploadBufferToGoogleDrive(token, filename, fileBuffer, targetFolderId);
+
+      const nowIso = new Date().toISOString();
+      await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_last_sync_time', ?)", nowIso);
+
+      const syncedRow = await db.get("SELECT value FROM system_meta WHERE key = 'gdrive_synced_snapshots'");
+      let syncedList: string[] = [];
+      try {
+        if (syncedRow && syncedRow.value) syncedList = JSON.parse(syncedRow.value);
+      } catch {}
+      if (!syncedList.includes(filename)) {
+        syncedList.push(filename);
+        await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('gdrive_synced_snapshots', ?)", JSON.stringify(syncedList));
+      }
+
+      broadcast('snapshots');
+      broadcast('gdrive_sync_completed');
+
+      let sizeFormatted = 'Unknown';
+      if (driveFile.size) {
+        const bytes = parseInt(driveFile.size, 10);
+        if (bytes < 1024) sizeFormatted = `${bytes} B`;
+        else if (bytes < 1024 * 1024) sizeFormatted = `${(bytes / 1024).toFixed(1)} KB`;
+        else sizeFormatted = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      res.json({
+        success: true,
+        filename,
+        driveFile: { ...driveFile, sizeFormatted }
+      });
+    } catch (e: any) {
+      console.error('[GDRIVE CREATE AND UPLOAD ERROR]', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Restore directly from a Google Drive file ID
+  app.post('/api/admin/backup/drive/restore', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
+      }
+      const token = authHeader.split(' ')[1];
+      const { driveFileId } = req.body;
+
+      if (!driveFileId) {
+        return res.status(400).json({ error: 'driveFileId is required' });
+      }
+
+      // Download file stream from Google Drive
+      const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}?alt=media`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!downloadRes.ok) {
+        const errText = await downloadRes.text();
+        return res.status(downloadRes.status).json({ error: 'Failed to download file from Google Drive: ' + errText });
+      }
+
+      const arrayBuf = await downloadRes.arrayBuffer();
+      const zipBuffer = Buffer.from(arrayBuf);
+
+      const zip = new AdmZip(zipBuffer);
+      const zipEntries = zip.getEntries();
+
+      // Look for database.json
+      const dbEntry = zipEntries.find(e => e.entryName === 'database.json');
+      if (!dbEntry) {
+        return res.status(400).json({ error: 'Invalid backup package in Google Drive. Missing database.json.' });
+      }
+
+      const databaseContent = dbEntry.getData().toString('utf8');
+      const backupData = JSON.parse(databaseContent);
+
+      if (!backupData.tables) {
+        return res.status(400).json({ error: 'Invalid backup format in database.json.' });
+      }
+
+      // Extract media binaries to /uploads
+      let restoredMediaFiles = 0;
+      for (const entry of zipEntries) {
+        if (entry.entryName.startsWith('uploads/') && !entry.isDirectory) {
+          const fileName = path.basename(entry.entryName);
+          const targetPath = path.join(uploadsDir, fileName);
+          fs.writeFileSync(targetPath, entry.getData());
+          restoredMediaFiles++;
+        }
+      }
+
+      // Restore SQLite tables
+      const { tables } = backupData;
+      let totalRecordsRestored = 0;
+
+      if (tables.site_config) {
+        await db.run('DELETE FROM site_config');
+        for (const item of tables.site_config) {
+          await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.submissions) {
+        await db.run('DELETE FROM submissions');
+        for (const item of tables.submissions) {
+          await db.run('INSERT INTO submissions (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.events) {
+        await db.run('DELETE FROM events');
+        for (const item of tables.events) {
+          await db.run('INSERT INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.gallery) {
+        await db.run('DELETE FROM gallery');
+        for (const item of tables.gallery) {
+          await db.run('INSERT INTO gallery (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.hotels) {
+        await db.run('DELETE FROM hotels');
+        for (const item of tables.hotels) {
+          await db.run('INSERT INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.passes) {
+        await db.run('DELETE FROM passes');
+        for (const item of tables.passes) {
+          await db.run('INSERT INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.testimonials) {
+        await db.run('DELETE FROM testimonials');
+        for (const item of tables.testimonials) {
+          await db.run('INSERT INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+      if (tables.media) {
+        await db.run('DELETE FROM media');
+        for (const item of tables.media) {
+          await db.run('INSERT INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          totalRecordsRestored++;
+        }
+      }
+
+      broadcast('system_restored');
+
+      res.json({
+        success: true,
+        message: 'System restored successfully from Google Drive backup.',
+        summary: {
+          totalRecordsRestored,
+          restoredMediaFiles,
+          systemVersion: backupData.version || '2027.1.0'
+        }
+      });
+    } catch (e: any) {
+      console.error('[GDRIVE RESTORE ERROR]', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Delete a backup from Google Drive
+  app.delete('/api/admin/backup/drive/file/:fileId', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header with Bearer token is required' });
+      }
+      const token = authHeader.split(' ')[1];
+      const { fileId } = req.params;
+
+      const delRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!delRes.ok) {
+        const errText = await delRes.text();
+        return res.status(delRes.status).json({ error: 'Failed to delete from Google Drive: ' + errText });
+      }
+
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // Background Automatic Backup Scheduler Loop
   function startAutomaticBackupScheduler() {
@@ -1593,21 +1712,17 @@ async function startServer() {
           console.log(`[AUTO BACKUP] Auto-backup interval elapsed (${intervalHours}h). Executing automatic backup...`);
           
           let label = `Auto-Backup (${intervalHours}h)`;
-          if (intervalHours === 0.0167) {
-            label = 'Auto-Backup (1m Test)';
-          } else if (intervalHours === 0.0833) {
-            label = 'Auto-Backup (5m Test)';
+          if (intervalHours < 1) {
+            const mins = Math.round(intervalHours * 60);
+            label = `Auto-Backup (${mins}m)`;
+          } else if (intervalHours >= 24 && intervalHours % 24 === 0) {
+            label = `Auto-Backup (${intervalHours / 24}d)`;
           }
           
           const filename = await createSystemBackupSnapshot(label);
           console.log(`[AUTO BACKUP] Automatically created backup snapshot: ${filename}`);
           
           await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('last_backup_time', ?)", new Date().toISOString());
-          
-          // Trigger asynchronous background cloud vault deployment and email notification
-          deployBackupToCloudAndNotify(filename).catch(deployErr => {
-            console.error('[AUTO BACKUP] Failed to deploy and notify in background:', deployErr);
-          });
           
           // Broadcast to connected admin tabs to refresh state
           broadcast('snapshots');

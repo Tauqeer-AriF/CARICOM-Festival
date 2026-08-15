@@ -1,34 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Database, 
   Download, 
   Upload, 
   RefreshCw, 
-  ShieldCheck, 
   AlertTriangle, 
   FileJson, 
-  FileArchive,
   Archive,
-  Server, 
-  Cpu, 
   Clock, 
   CheckCircle2, 
   Trash2, 
-  Zap, 
-  Activity, 
-  HardDrive, 
   Layers, 
   RotateCcw,
   Sparkles,
   FileCheck,
   XCircle,
-  Lock,
+  Sliders,
   Cloud,
-  ArrowRight,
-  Mail,
-  Copy
+  CloudUpload,
+  ExternalLink,
+  LogOut,
+  FolderArchive,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { initAuth, googleSignIn, getAccessToken, logout as authLogout } from '../services/authService';
+import { googleDriveService, GoogleDriveBackupFile, GoogleDriveConfig } from '../services/googleDriveService';
+import { User } from 'firebase/auth';
 
 interface BackupRestoreTabProps {
   primaryColor: string;
@@ -84,74 +81,305 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
   const [excludeMedia, setExcludeMedia] = useState<boolean>(false);
   const [isSavingSchedule, setIsSavingSchedule] = useState<boolean>(false);
 
-  // Cloud Vault states
-  const [uploadingFilenames, setUploadingFilenames] = useState<string[]>([]);
-  const [vaultLinkModal, setVaultLinkModal] = useState<{ filename: string; url: string; expiry: string } | null>(null);
-  const [showEmailComposer, setShowEmailComposer] = useState<boolean>(false);
-  const [recipientEmail, setRecipientEmail] = useState<string>('');
-  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+  // Custom timer state (number + unit: minutes, hours, days)
+  const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
+  const [customValue, setCustomValue] = useState<number>(12);
+  const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days'>('hours');
 
-  // SMTP Dashboard states
-  const [smtpHost, setSmtpHost] = useState<string>('');
-  const [smtpPort, setSmtpPort] = useState<number>(587);
-  const [smtpUser, setSmtpUser] = useState<string>('');
-  const [smtpPass, setSmtpPass] = useState<string>('');
-  const [smtpTo, setSmtpTo] = useState<string>('');
-  const [smtpEnabled, setSmtpEnabled] = useState<boolean>(false);
-  const [isSavingSmtp, setIsSavingSmtp] = useState<boolean>(false);
-  const [isTestingSmtp, setIsTestingSmtp] = useState<boolean>(false);
+  // Google Drive Cloud Backup State
+  const [driveUser, setDriveUser] = useState<User | null>(null);
+  const [driveToken, setDriveToken] = useState<string | null>(null);
+  const [driveConfig, setDriveConfig] = useState<GoogleDriveConfig>({
+    autoUploadEnabled: false,
+    folderName: 'Grenada CARICOM Festival Backups 2027',
+    syncedSnapshotNames: []
+  });
+  const [driveBackups, setDriveBackups] = useState<GoogleDriveBackupFile[]>([]);
+  const [isLoadingDriveBackups, setIsLoadingDriveBackups] = useState<boolean>(false);
+  const [isSigningInGoogle, setIsSigningInGoogle] = useState<boolean>(false);
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState<boolean>(false);
+  const [uploadingFilename, setUploadingFilename] = useState<string | null>(null);
+  const [isBackingUpAndUploading, setIsBackingUpAndUploading] = useState<boolean>(false);
 
+  // Load Drive settings and initialize auth listener
   useEffect(() => {
     fetchSnapshots();
     fetchSchedule();
-    fetchSmtpSettings();
+    loadDriveSettings();
 
-    // Client-side polling interval (every 10 seconds) to sync with any background scheduler activity silently
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setDriveUser(user);
+        setDriveToken(token);
+        fetchDriveBackups(token);
+      },
+      () => {
+        setDriveUser(null);
+        setDriveToken(null);
+      }
+    );
+
     const pollInterval = setInterval(() => {
       fetchSnapshots(true);
       fetchSchedule();
-    }, 10000);
+      loadDriveSettings();
+    }, 12000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
   }, []);
 
-  const handlePushToCloudVault = async (filename: string) => {
-    setUploadingFilenames(prev => [...prev, filename]);
+  // Fetch Google Drive configuration from server
+  const loadDriveSettings = async () => {
     try {
-      const res = await fetch('/api/admin/backup/push-to-vault', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename })
-      });
-      if (!res.ok) {
-        throw new Error('Upload to cloud vault failed');
-      }
-      const data = await res.json();
-      if (data.success) {
-        setVaultLinkModal({
-          filename,
-          url: data.url,
-          expiry: data.expiry
-        });
-        showToast('Backup successfully sent to secure remote cloud vault!');
-      } else {
-        throw new Error(data.error || 'Upload failed');
-      }
-    } catch (e: any) {
-      showToast(e.message || 'Failed to send backup to remote cloud', 'error');
-    } finally {
-      setUploadingFilenames(prev => prev.filter(f => f !== filename));
+      const config = await googleDriveService.getSettings();
+      setDriveConfig(config);
+    } catch (e) {
+      console.warn('Failed to load drive settings:', e);
     }
   };
+
+  // Fetch backups from Google Drive folder
+  const fetchDriveBackups = async (token?: string) => {
+    const activeToken = token || driveToken || await getAccessToken();
+    if (!activeToken) return;
+
+    setIsLoadingDriveBackups(true);
+    try {
+      // Ensure folder first
+      const folder = await googleDriveService.ensureFolder(activeToken);
+      setDriveConfig(prev => ({
+        ...prev,
+        folderId: folder.folderId,
+        folderName: folder.folderName,
+        folderWebViewLink: folder.webViewLink
+      }));
+
+      const files = await googleDriveService.listBackups(activeToken, folder.folderId);
+      setDriveBackups(files);
+    } catch (e: any) {
+      console.warn('Could not fetch Google Drive backups:', e);
+    } finally {
+      setIsLoadingDriveBackups(false);
+    }
+  };
+
+  // Handle Google Drive connect / sign in
+  const handleConnectGoogleDrive = async () => {
+    setIsSigningInGoogle(true);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setDriveUser(result.user);
+        setDriveToken(result.accessToken);
+        showToast(`Connected to Google Drive as ${result.user.email}`);
+
+        // Provision folder and enable auto-upload by default
+        const folder = await googleDriveService.ensureFolder(result.accessToken);
+        await googleDriveService.saveSettings({
+          autoUploadEnabled: true,
+          folderId: folder.folderId,
+          folderName: folder.folderName,
+          folderWebViewLink: folder.webViewLink,
+          userEmail: result.user.email || undefined
+        });
+
+        setDriveConfig(prev => ({
+          ...prev,
+          autoUploadEnabled: true,
+          folderId: folder.folderId,
+          folderName: folder.folderName,
+          folderWebViewLink: folder.webViewLink,
+          userEmail: result.user.email || undefined
+        }));
+
+        fetchDriveBackups(result.accessToken);
+      }
+    } catch (e: any) {
+      console.error('Google Drive sign in failed:', e);
+      showToast(e.message || 'Failed to connect Google Drive', 'error');
+    } finally {
+      setIsSigningInGoogle(false);
+    }
+  };
+
+  // Handle Google Drive disconnect
+  const handleDisconnectGoogleDrive = async () => {
+    try {
+      await authLogout();
+      setDriveUser(null);
+      setDriveToken(null);
+      await googleDriveService.saveSettings({ autoUploadEnabled: false });
+      setDriveConfig(prev => ({ ...prev, autoUploadEnabled: false }));
+      setDriveBackups([]);
+      showToast('Google Drive disconnected');
+    } catch (e: any) {
+      showToast(e.message || 'Failed to disconnect', 'error');
+    }
+  };
+
+  // Toggle auto-upload to Google Drive
+  const handleToggleAutoUpload = async (enabled: boolean) => {
+    try {
+      await googleDriveService.saveSettings({ autoUploadEnabled: enabled });
+      setDriveConfig(prev => ({ ...prev, autoUploadEnabled: enabled }));
+      showToast(enabled ? 'Google Drive auto-upload activated!' : 'Google Drive auto-upload disabled');
+
+      // If turning on and we have unsynced snapshots, auto-sync latest
+      if (enabled && driveToken && snapshots.length > 0) {
+        const latest = snapshots[0];
+        if (!driveConfig.syncedSnapshotNames?.includes(latest.filename)) {
+          handleUploadSnapshotToDrive(latest.filename);
+        }
+      }
+    } catch (e: any) {
+      showToast('Failed to update Google Drive auto-upload setting', 'error');
+    }
+  };
+
+  // Upload a specific snapshot to Google Drive
+  const handleUploadSnapshotToDrive = async (filename: string) => {
+    let token = driveToken || await getAccessToken();
+    if (!token) {
+      showToast('Please connect your Google Drive account first', 'error');
+      return;
+    }
+
+    setIsUploadingToDrive(true);
+    setUploadingFilename(filename);
+    try {
+      const res = await googleDriveService.uploadSnapshot(token, filename, driveConfig.folderId);
+      if (res.success) {
+        showToast(`Uploaded ${filename} to Google Drive!`);
+        setDriveConfig(prev => ({
+          ...prev,
+          lastSyncTime: new Date().toISOString(),
+          syncedSnapshotNames: [...(prev.syncedSnapshotNames || []), filename]
+        }));
+        fetchDriveBackups(token);
+      }
+    } catch (e: any) {
+      console.error('Drive upload failed:', e);
+      showToast(e.message || 'Failed to upload backup to Google Drive', 'error');
+    } finally {
+      setIsUploadingToDrive(false);
+      setUploadingFilename(null);
+    }
+  };
+
+  // One-click Backup & Upload to Google Drive
+  const handleBackupAndUploadToDrive = async () => {
+    let token = driveToken || await getAccessToken();
+    if (!token) {
+      showToast('Please connect your Google Drive account first', 'error');
+      return;
+    }
+
+    setIsBackingUpAndUploading(true);
+    try {
+      const result = await googleDriveService.createAndUpload(token, 'Cloud Backup', driveConfig.folderId);
+      if (result.success) {
+        showToast(`Created & uploaded snapshot '${result.filename}' to Google Drive!`);
+        fetchSnapshots(true);
+        fetchDriveBackups(token);
+      }
+    } catch (e: any) {
+      console.error('Drive instant backup failed:', e);
+      showToast(e.message || 'Failed to create cloud backup', 'error');
+    } finally {
+      setIsBackingUpAndUploading(false);
+    }
+  };
+
+  // Restore directly from a Google Drive backup file
+  const handleRestoreFromDrive = (file: GoogleDriveBackupFile) => {
+    triggerConfirm(
+      'Restore from Google Drive',
+      `Restore system from Google Drive snapshot '${file.name}'? This will download the archive and replace current database records.`,
+      async () => {
+        let token = driveToken || await getAccessToken();
+        if (!token) {
+          showToast('Google Drive authentication session expired. Please re-connect.', 'error');
+          return;
+        }
+
+        setIsRestoring(true);
+        setIsRebooting(true);
+        setRebootMessage(`Downloading & extracting backup from Google Drive...`);
+
+        try {
+          const res = await googleDriveService.restoreFromDrive(token, file.id);
+          if (res.success) {
+            await runStateSyncAnimation(res.message || 'System restored successfully from Google Drive!');
+          }
+        } catch (e: any) {
+          setIsRestoring(false);
+          setIsRebooting(false);
+          showToast(e.message || 'Google Drive restore failed', 'error');
+        }
+      }
+    );
+  };
+
+  // Delete a backup from Google Drive
+  const handleDeleteFromDrive = (file: GoogleDriveBackupFile) => {
+    triggerConfirm(
+      'Delete from Google Drive',
+      `Permanently remove backup file '${file.name}' from your Google Drive?`,
+      async () => {
+        let token = driveToken || await getAccessToken();
+        if (!token) return;
+
+        try {
+          await googleDriveService.deleteFromDrive(token, file.id);
+          showToast(`Deleted '${file.name}' from Google Drive`);
+          fetchDriveBackups(token);
+        } catch (e: any) {
+          showToast(e.message || 'Failed to delete file from Google Drive', 'error');
+        }
+      }
+    );
+  };
+
+  // Check for auto-uploading newly created snapshots
+  useEffect(() => {
+    if (driveConfig.autoUploadEnabled && driveToken && snapshots.length > 0) {
+      const unSynced = snapshots.filter(s => !driveConfig.syncedSnapshotNames?.includes(s.filename));
+      if (unSynced.length > 0 && !isUploadingToDrive && !uploadingFilename) {
+        // Auto sync newest unsynced
+        const target = unSynced[0];
+        handleUploadSnapshotToDrive(target.filename);
+      }
+    }
+  }, [snapshots, driveConfig.autoUploadEnabled, driveToken]);
 
   const fetchSchedule = async () => {
     try {
       const res = await fetch('/api/admin/backup/schedule');
       if (res.ok) {
         const data = await res.json();
-        setIntervalHours(data.intervalHours || 0);
+        const hrs = data.intervalHours || 0;
+        setIntervalHours(hrs);
         setLastBackupTime(data.lastBackupTime || '');
         setExcludeMedia(data.excludeMedia || false);
+
+        // Check if current hours matches a preset (0, 1, 6, 12, 24, 48, 168)
+        const presets = [0, 1, 6, 12, 24, 48, 168];
+        if (!presets.includes(hrs) && hrs > 0) {
+          setIsCustomMode(true);
+          if (hrs < 1) {
+            setCustomValue(Math.round(hrs * 60));
+            setCustomUnit('minutes');
+          } else if (hrs % 24 === 0 && hrs >= 24) {
+            setCustomValue(hrs / 24);
+            setCustomUnit('days');
+          } else {
+            setCustomValue(hrs);
+            setCustomUnit('hours');
+          }
+        }
       }
     } catch (e) {
       console.error('Failed to load backup schedule:', e);
@@ -174,9 +402,8 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
         setIntervalHours(data.intervalHours);
         setLastBackupTime(data.lastBackupTime);
         setExcludeMedia(data.excludeMedia);
-        showToast('Backup configuration updated successfully!');
-        // Refresh snapshots list to capture any immediate automated files
-        fetchSnapshots();
+        showToast('Backup schedule updated successfully!');
+        fetchSnapshots(true);
       } else {
         throw new Error('Failed to update schedule');
       }
@@ -187,77 +414,18 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  const fetchSmtpSettings = async () => {
-    try {
-      const res = await fetch('/api/admin/backup/smtp');
-      if (res.ok) {
-        const data = await res.json();
-        setSmtpHost(data.host || '');
-        setSmtpPort(data.port || 587);
-        setSmtpUser(data.user || '');
-        setSmtpPass(data.pass || '');
-        setSmtpTo(data.to || '');
-        setSmtpEnabled(data.enabled || false);
-      }
-    } catch (e) {
-      console.error('Failed to fetch SMTP settings:', e);
+  const applyCustomTimer = () => {
+    let hours = customValue;
+    if (customUnit === 'minutes') {
+      hours = customValue / 60;
+    } else if (customUnit === 'days') {
+      hours = customValue * 24;
     }
-  };
-
-  const handleSaveSmtpSettings = async () => {
-    setIsSavingSmtp(true);
-    try {
-      const res = await fetch('/api/admin/backup/smtp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: smtpHost,
-          port: smtpPort,
-          user: smtpUser,
-          pass: smtpPass,
-          to: smtpTo,
-          enabled: smtpEnabled
-        })
-      });
-      if (res.ok) {
-        showToast('SMTP settings saved successfully!');
-        fetchSmtpSettings();
-      } else {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to save SMTP settings');
-      }
-    } catch (e: any) {
-      showToast(e.message || 'Error saving SMTP settings', 'error');
-    } finally {
-      setIsSavingSmtp(false);
+    if (hours <= 0) {
+      showToast('Please enter a positive duration', 'error');
+      return;
     }
-  };
-
-  const handleTestSmtpSettings = async () => {
-    setIsTestingSmtp(true);
-    try {
-      const res = await fetch('/api/admin/backup/smtp/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: smtpHost,
-          port: smtpPort,
-          user: smtpUser,
-          pass: smtpPass,
-          to: smtpTo
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || 'SMTP connection test successful!', 'success');
-      } else {
-        throw new Error(data.error || 'Failed SMTP connection test');
-      }
-    } catch (e: any) {
-      showToast(e.message || 'SMTP connection test failed', 'error');
-    } finally {
-      setIsTestingSmtp(false);
-    }
+    handleSaveScheduleSettings(hours, excludeMedia);
   };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -283,8 +451,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
           } catch (jsonErr) {
             console.warn('Snapshots payload was invalid JSON:', jsonErr);
           }
-        } else {
-          console.warn('Snapshots endpoint returned non-JSON response:', contentType);
         }
       }
     } catch (e) {
@@ -294,7 +460,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // 1. Export Backup Action (ZIP Archive with Media or JSON database)
   const handleExportBackup = async (format: 'zip' | 'json' = 'zip') => {
     setIsExporting(true);
     try {
@@ -314,9 +479,9 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       URL.revokeObjectURL(url);
 
       showToast(format === 'zip' 
-        ? 'Full system backup (.zip archive with database & uploaded media) exported!' 
-        : 'System database backup (.json) exported successfully!');
-      fetchSnapshots();
+        ? 'Full system backup (.zip archive) exported!' 
+        : 'Database backup (.json) exported!');
+      fetchSnapshots(true);
     } catch (e: any) {
       showToast(e.message || 'Failed to generate export package', 'error');
     } finally {
@@ -324,7 +489,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // 2. File Selection & Validation
   const handleFileSelect = (file: File) => {
     const isZip = file.name.endsWith('.zip');
     const isJson = file.name.endsWith('.json');
@@ -357,7 +521,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       };
       reader.readAsText(file);
     } else {
-      // .zip Archive
       setParsedBackup({
         isZip: true,
         system: 'Full System Archive (Database + Media Binaries)',
@@ -373,14 +536,13 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // 3. Perform Restore with Automated State Synchronization
   const executeRestore = async (backupPayload?: any) => {
     const payload = backupPayload || parsedBackup;
     if (!selectedFile && !payload) return;
 
     setIsRestoring(true);
     setIsRebooting(true);
-    setRebootMessage('Verifying schema integrity & unpacking restore archive...');
+    setRebootMessage('Verifying schema integrity & restoring data...');
 
     try {
       let res: Response;
@@ -405,7 +567,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       }
 
       const resData = await res.json();
-      const successMsg = resData.message || 'Backup & media assets restored successfully!';
+      const successMsg = resData.message || 'Backup restored successfully!';
       await runStateSyncAnimation(successMsg);
 
     } catch (e: any) {
@@ -415,7 +577,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // 4. Sophisticated Simulated Engine Reload to provide premium feedback and trigger state updates
   const runStateSyncAnimation = (successMsg: string): Promise<void> => {
     return new Promise((resolve) => {
       const steps = [
@@ -439,7 +600,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
           setSelectedFile(null);
           setParsedBackup(null);
           onRefreshData();
-          fetchSnapshots();
+          fetchSnapshots(true);
           showToast(successMsg, 'success');
           resolve();
         }
@@ -447,15 +608,14 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     });
   };
 
-  // Restore snapshot from local list
   const handleRestoreSnapshot = (filename: string) => {
     triggerConfirm(
-      'Restore From Local Snapshot',
-      `Are you sure you want to restore system state from snapshot '${filename}'? This will replace current records and update the system instantly.`,
+      'Restore From Snapshot',
+      `Restore system state from snapshot '${filename}'? This will replace current records.`,
       async () => {
         setIsRestoring(true);
         setIsRebooting(true);
-        setRebootMessage(`Loading local snapshot '${filename}'...`);
+        setRebootMessage(`Loading snapshot '${filename}'...`);
 
         try {
           const res = await fetch('/api/admin/backup/restore-snapshot', {
@@ -477,7 +637,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     );
   };
 
-  // Create manual snapshot
   const handleCreateSnapshot = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingSnapshot(true);
@@ -485,14 +644,20 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       const res = await fetch('/api/admin/backup/create-snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: snapshotLabel || 'Admin Manual' })
+        body: JSON.stringify({ label: snapshotLabel || 'Manual Snapshot' })
       });
 
       if (!res.ok) throw new Error('Failed to create snapshot');
 
-      showToast('Manual snapshot point created successfully!');
+      const data = await res.json();
+      showToast('Snapshot created successfully!');
       setSnapshotLabel('');
-      fetchSnapshots();
+      fetchSnapshots(true);
+
+      // Auto upload to Google Drive if connected and active
+      if (driveConfig.autoUploadEnabled && driveToken && data.filename) {
+        handleUploadSnapshotToDrive(data.filename);
+      }
     } catch (e: any) {
       showToast(e.message || 'Error creating snapshot', 'error');
     } finally {
@@ -500,19 +665,18 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
-  // Delete snapshot
   const handleDeleteSnapshot = (filename: string) => {
     triggerConfirm(
-      'Delete Local Snapshot',
-      `Are you sure you want to permanently delete snapshot '${filename}' from server storage?`,
+      'Delete Snapshot',
+      `Permanently delete snapshot '${filename}'?`,
       async () => {
         try {
           const res = await fetch(`/api/admin/backup/snapshots/${encodeURIComponent(filename)}`, {
             method: 'DELETE'
           });
           if (res.ok) {
-            showToast('Snapshot file deleted');
-            fetchSnapshots();
+            showToast('Snapshot deleted');
+            fetchSnapshots(true);
           }
         } catch (e: any) {
           showToast('Failed to delete snapshot', 'error');
@@ -521,7 +685,6 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     );
   };
 
-  // Execute Factory Reset
   const handleExecuteFactoryReset = async () => {
     if (resetConfirmInput.trim() !== 'RESET') return;
     
@@ -535,7 +698,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       const res = await fetch('/api/admin/backup/factory-reset', { method: 'POST' });
       if (!res.ok) throw new Error('Factory reset failed');
 
-      await runStateSyncAnimation('Factory reset completed! System state successfully restored to baseline.');
+      await runStateSyncAnimation('Factory reset completed! Baseline state restored.');
 
     } catch (e: any) {
       setIsRestoring(false);
@@ -544,16 +707,29 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
     }
   };
 
+  const formatIntervalLabel = (hrs: number) => {
+    if (hrs <= 0) return 'Disabled';
+    if (hrs < 1) {
+      const mins = Math.round(hrs * 60);
+      return `Every ${mins} min${mins > 1 ? 's' : ''}`;
+    }
+    if (hrs >= 24 && hrs % 24 === 0) {
+      const days = hrs / 24;
+      return `Every ${days} day${days > 1 ? 's' : ''}`;
+    }
+    return `Every ${hrs} hour${hrs > 1 ? 's' : ''}`;
+  };
+
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-6 font-sans max-w-6xl mx-auto">
       
       {/* Toast Notification */}
       {toast && (
         <div 
-          className={`fixed bottom-6 right-6 z-[999] px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center gap-2 border animate-bounce ${
+          className={`fixed bottom-6 right-6 z-[999] px-4 py-2.5 rounded-xl shadow-2xl font-medium text-xs flex items-center gap-2 animate-fade-in ${
             toast.type === 'success' 
-              ? 'bg-emerald-500 text-neutral-950 border-emerald-400' 
-              : 'bg-rose-600 text-white border-rose-500'
+              ? 'bg-emerald-500 text-neutral-950' 
+              : 'bg-rose-600 text-white'
           }`}
         >
           {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
@@ -568,197 +744,402 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center"
+            className="fixed inset-0 z-[10000] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center"
           >
-            <div className="relative w-24 h-24 mb-6">
-              <div 
-                className="absolute inset-0 rounded-full border-4 border-t-transparent animate-spin"
-                style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Server className="w-8 h-8 text-white animate-pulse" />
-              </div>
-            </div>
-
-            <div className="max-w-md space-y-4">
-              <span 
-                className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border"
-                style={{ 
-                  borderColor: `${primaryColor}40`, 
-                  backgroundColor: `${primaryColor}15`,
-                  color: primaryColor 
-                }}
-              >
-                SYSTEM DATA SYNCHRONIZATION
-              </span>
-              <h3 className="text-2xl font-extrabold font-serif text-white">Applying System Backup</h3>
-              <p className="text-xs text-neutral-300 font-mono bg-neutral-900/90 p-3 rounded-xl border border-neutral-800 leading-relaxed min-h-[50px] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full border-2 border-amber-400/20 border-t-amber-400 animate-spin mb-4" />
+            <div className="max-w-sm space-y-3">
+              <h3 className="text-lg font-semibold text-white">Restoring System State</h3>
+              <p className="text-xs text-neutral-400 font-mono bg-neutral-900/90 px-4 py-2.5 rounded-lg">
                 {rebootMessage}
               </p>
-              <div className="pt-2 text-[10px] text-neutral-500 flex items-center justify-center gap-1.5 font-mono">
-                <Activity className="w-3 h-3 text-emerald-400 animate-pulse" /> Live synchronization pool active.
-              </div>
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRebooting(false);
-                    setIsRestoring(false);
-                    onRefreshData();
-                  }}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg active:scale-95"
-                >
-                  Force Dismiss & Continue
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRebooting(false);
+                  setIsRestoring(false);
+                  onRefreshData();
+                }}
+                className="text-[11px] text-neutral-500 hover:text-neutral-300 pt-2 cursor-pointer transition-colors"
+              >
+                Dismiss overlay
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* HEADER HERO CARD */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0C0F1E] via-[#11152B] to-[#070913] border border-neutral-800 rounded-2xl p-6 md:p-8 shadow-2xl">
-        <div 
-          className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[120px] pointer-events-none opacity-20"
-          style={{ backgroundColor: primaryColor }}
-        />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span 
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-extrabold uppercase tracking-widest"
-                style={{ 
-                  borderColor: `${primaryColor}40`, 
-                  backgroundColor: `${primaryColor}10`,
-                  color: primaryColor 
-                }}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" /> Enterprise Backup Engine
+      {/* 1. HEADER & MANUAL EXPORTS */}
+      <div className="bg-[#0C0F1E] rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-white font-serif">Backup & Restore</h2>
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md font-semibold">
+              SQLite Active
+            </span>
+            {driveUser && (
+              <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-md font-semibold flex items-center gap-1">
+                <Cloud className="w-3 h-3" /> Drive Connected
               </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
-                <Activity className="w-3 h-3 animate-pulse" /> SQLite Live Synchronized
-              </span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold font-serif text-white tracking-tight">
-              System Backup & Disaster Recovery
-            </h2>
-            <p className="text-xs text-neutral-400 max-w-2xl leading-relaxed">
-              Export full JSON snapshots of festival submissions, partner accommodations, wristbands, and media files. Restoring automatically verifies schema integrity and restarts the application server cleanly.
-            </p>
+            )}
           </div>
+          <p className="text-xs text-neutral-400 mt-1">
+            Export system data, manage Google Drive cloud auto-sync, and restore point-in-time snapshots.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
-              onClick={() => handleExportBackup('zip')}
-              disabled={isExporting}
-              className="px-5 py-3 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-xl transition-all cursor-pointer hover:brightness-110 active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Archive className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
-              <span>{isExporting ? 'Exporting Package...' : 'Download Full Backup (.zip)'}</span>
-            </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => handleExportBackup('zip')}
+            disabled={isExporting}
+            className="px-4 py-2.5 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer hover:opacity-95 active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <Archive className={`w-3.5 h-3.5 ${isExporting ? 'animate-spin' : ''}`} />
+            <span>{isExporting ? 'Exporting...' : 'Export Backup (.zip)'}</span>
+          </button>
 
-            <button
-              onClick={() => handleExportBackup('json')}
-              disabled={isExporting}
-              className="px-4 py-3 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold text-xs uppercase tracking-wider border border-neutral-800 rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
-            >
-              <FileJson className="w-4 h-4 text-sky-400" />
-              <span>JSON Only</span>
-            </button>
-          </div>
+          <button
+            onClick={() => handleExportBackup('json')}
+            disabled={isExporting}
+            className="px-3.5 py-2.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 font-medium text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            title="Export JSON records without media"
+          >
+            <FileJson className="w-3.5 h-3.5 text-sky-400" />
+            <span>JSON</span>
+          </button>
         </div>
       </div>
 
-      {/* SYSTEM TELEMETRY & METRICS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 text-[10px] font-bold uppercase tracking-wider">
-            <span>Engine Storage</span>
-            <HardDrive className="w-3.5 h-3.5 text-amber-400" />
-          </div>
-          <div className="text-xl font-extrabold font-mono text-white">SQLite 3.x</div>
-          <p className="text-[10px] text-neutral-500">Atomic WAL Persistence</p>
-        </div>
-
-        <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 text-[10px] font-bold uppercase tracking-wider">
-            <span>Local Snapshots</span>
-            <Layers className="w-3.5 h-3.5 text-sky-400" />
-          </div>
-          <div className="text-xl font-extrabold font-mono text-sky-400">{snapshots.length}</div>
-          <p className="text-[10px] text-neutral-500">Point-in-time recovery points</p>
-        </div>
-
-        <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 text-[10px] font-bold uppercase tracking-wider">
-            <span>Auto-Restart</span>
-            <Zap className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <div className="text-xl font-extrabold font-mono text-emerald-400">Enabled</div>
-          <p className="text-[10px] text-neutral-500">Process reboot post-restore</p>
-        </div>
-
-        <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 text-[10px] font-bold uppercase tracking-wider">
-            <span>Schema Version</span>
-            <Cpu className="w-3.5 h-3.5 text-purple-400" />
-          </div>
-          <div className="text-xl font-extrabold font-mono text-purple-400">2027.1.0</div>
-          <p className="text-[10px] text-neutral-500">JSON & Media Zip Archives</p>
-        </div>
-      </div>
-
-      {/* AUTOMATED SCHEDULER SECTION */}
-      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
-        <div 
-          className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-[80px] pointer-events-none opacity-10"
-          style={{ backgroundColor: primaryColor }}
-        />
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
+      {/* 2. GOOGLE DRIVE AUTOMATED CLOUD BACKUP PANEL */}
+      <div className="bg-[#0C0F1E] rounded-2xl p-6 space-y-4 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-              <Clock className={`w-5 h-5 ${intervalHours > 0 ? 'animate-pulse' : ''}`} />
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0">
+              <FolderArchive className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-white font-serif">Automated Snapshots Scheduler</h3>
-                {intervalHours > 0 && (
-                  <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    Active Daemon
+                <h3 className="text-sm font-bold text-white">Google Drive Automated Cloud Backups</h3>
+                {driveUser ? (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 font-mono px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Auto-Sync {driveConfig.autoUploadEnabled ? 'On' : 'Ready'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-neutral-400 bg-neutral-900 font-mono px-2 py-0.5 rounded font-medium">
+                    Not Connected
                   </span>
                 )}
               </div>
-              <p className="text-xs text-neutral-400">Configure background tasks to auto-generate system backup snapshots.</p>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Automatically save snapshot archives directly into your private Google Drive folder for safe off-site disaster recovery.
+              </p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-neutral-400 font-mono">Select Interval:</label>
-            <select
-              value={intervalHours}
-              onChange={(e) => handleSaveScheduleSettings(parseFloat(e.target.value), excludeMedia)}
-              disabled={isSavingSchedule}
-              className="bg-neutral-950 border border-neutral-800 text-xs text-white rounded-xl px-4 py-2.5 focus:border-amber-400 focus:outline-none cursor-pointer font-bold disabled:opacity-50"
-            >
-              <option value="0">Disabled (Manual Only)</option>
-              <option value="0.0167">Every 1 Minute (Test Mode)</option>
-              <option value="0.0833">Every 5 Minutes (Test Mode)</option>
-              <option value="6">Every 6 Hours</option>
-              <option value="12">Every 12 Hours</option>
-              <option value="24">Every 24 Hours</option>
-            </select>
+
+          {/* Connect or Disconnect CTA */}
+          <div>
+            {!driveUser ? (
+              <button
+                type="button"
+                onClick={handleConnectGoogleDrive}
+                disabled={isSigningInGoogle}
+                className="px-4 py-2.5 bg-white hover:bg-neutral-100 text-neutral-900 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow flex items-center gap-2 active:scale-95 disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                </svg>
+                <span>{isSigningInGoogle ? 'Connecting...' : 'Connect Google Drive'}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBackupAndUploadToDrive}
+                  disabled={isBackingUpAndUploading}
+                  className="px-3.5 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  title="Create a fresh snapshot and upload to Google Drive immediately"
+                >
+                  <CloudUpload className={`w-3.5 h-3.5 ${isBackingUpAndUploading ? 'animate-bounce' : ''}`} />
+                  <span>{isBackingUpAndUploading ? 'Uploading...' : 'Backup & Upload Now'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDisconnectGoogleDrive}
+                  className="p-2 text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 rounded-xl transition-colors cursor-pointer"
+                  title="Disconnect Google Drive"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Low-traffic optimization toggles */}
-        <div className="bg-neutral-950/40 p-5 rounded-2xl border border-neutral-800/80">
-          <div className="flex items-start gap-3">
+        {/* Connected account & Auto-upload toggles */}
+        {driveUser ? (
+          <div className="space-y-3 pt-2">
+            <div className="bg-neutral-950 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                {driveUser.photoURL ? (
+                  <img 
+                    src={driveUser.photoURL} 
+                    alt="User avatar" 
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full border border-neutral-800 object-cover" 
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-white">
+                    {driveUser.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
+                <div>
+                  <div className="font-semibold text-white flex items-center gap-2">
+                    <span>{driveUser.displayName || driveUser.email}</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">({driveUser.email})</span>
+                  </div>
+                  <div className="text-[11px] text-neutral-400 flex items-center gap-2 mt-0.5">
+                    <span>Folder: <strong>{driveConfig.folderName || 'Grenada CARICOM Festival Backups 2027'}</strong></span>
+                    {driveConfig.folderWebViewLink && (
+                      <a
+                        href={driveConfig.folderWebViewLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sky-400 hover:text-sky-300 inline-flex items-center gap-0.5 hover:underline"
+                      >
+                        <span>Open in Drive</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Toggle switch for auto upload */}
+              <div className="flex items-center gap-3 self-end md:self-center">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <span className="text-xs text-neutral-300 font-medium">Auto-upload backups to Drive:</span>
+                  <div 
+                    onClick={() => handleToggleAutoUpload(!driveConfig.autoUploadEnabled)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                      driveConfig.autoUploadEnabled ? 'bg-sky-500' : 'bg-neutral-800'
+                    }`}
+                  >
+                    <div 
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                        driveConfig.autoUploadEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Google Drive cloud snapshots list */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                  <Cloud className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Google Drive Cloud Backups ({driveBackups.length})</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => fetchDriveBackups()}
+                  disabled={isLoadingDriveBackups}
+                  className="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingDriveBackups ? 'animate-spin' : ''}`} />
+                  <span>Refresh Cloud List</span>
+                </button>
+              </div>
+
+              {isLoadingDriveBackups ? (
+                <div className="text-center py-5 text-neutral-500 text-xs font-mono flex items-center justify-center gap-2 bg-neutral-950/60 rounded-xl">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Checking Google Drive folder...
+                </div>
+              ) : driveBackups.length === 0 ? (
+                <div className="text-center py-6 text-neutral-500 text-xs bg-neutral-950/60 rounded-xl">
+                  <p>No backups uploaded to Google Drive yet.</p>
+                  <p className="text-[11px] text-neutral-600 mt-1">
+                    Click "Backup & Upload Now" above or upload an existing snapshot below.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto bg-neutral-950/70 rounded-xl p-2">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-neutral-500 text-[10px] font-semibold uppercase tracking-wider">
+                        <th className="py-2 px-3">Google Drive Backup File</th>
+                        <th className="py-2 px-3">Size</th>
+                        <th className="py-2 px-3">Uploaded At</th>
+                        <th className="py-2 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      {driveBackups.map((f) => (
+                        <tr key={f.id} className="hover:bg-neutral-900/40 transition-colors">
+                          <td className="py-2.5 px-3 font-medium text-white flex items-center gap-2">
+                            <Archive className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span className="truncate max-w-[280px] font-sans text-xs">{f.name}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-neutral-400">{f.sizeFormatted || 'Unknown'}</td>
+                          <td className="py-2.5 px-3 text-neutral-400 font-sans text-[11px]">
+                            {new Date(f.createdTime).toLocaleDateString()} {new Date(f.createdTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {f.webViewLink && (
+                                <a
+                                  href={f.webViewLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2 py-1 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 rounded-lg text-[10px] font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="View inside Google Drive"
+                                >
+                                  <ExternalLink className="w-3 h-3 text-sky-400" />
+                                  <span>View</span>
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRestoreFromDrive(f)}
+                                className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                                title="Download and restore this Google Drive backup to the festival database"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Restore</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFromDrive(f)}
+                                className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md cursor-pointer transition-colors"
+                                title="Delete from Google Drive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-neutral-950/70 p-4 rounded-xl flex items-center justify-between gap-4 text-xs text-neutral-400">
+            <div className="space-y-1">
+              <p className="font-semibold text-neutral-200">How Google Drive Auto-Upload works:</p>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                Connect your account once, and every automated schedule or manual backup will be silently and securely uploaded to a private folder in your Google Drive.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleConnectGoogleDrive}
+              disabled={isSigningInGoogle}
+              className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer shrink-0 transition-transform active:scale-95 shadow-sm disabled:opacity-50"
+            >
+              {isSigningInGoogle ? 'Connecting...' : 'Connect Now'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 3. AUTOMATED BACKUP SCHEDULE (WITH CUSTOM TIMER) */}
+      <div className="bg-[#0C0F1E] rounded-2xl p-6 space-y-4 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+          <div className="flex items-center gap-2.5">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <div>
+              <h3 className="text-sm font-bold text-white">Automated Snapshot Schedule</h3>
+              <p className="text-xs text-neutral-400">Set scheduled background snapshots or configure a custom timer.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-mono px-2.5 py-1 rounded-md ${
+              intervalHours > 0 
+                ? 'text-emerald-400 bg-emerald-500/10' 
+                : 'text-neutral-500 bg-neutral-900'
+            }`}>
+              {formatIntervalLabel(intervalHours)}
+            </span>
+          </div>
+        </div>
+
+        {/* Schedule Selector & Custom Timer Control */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+          <div className="md:col-span-4">
+            <label className="text-[11px] text-neutral-400 block mb-1.5">Preset Interval:</label>
+            <select
+              value={isCustomMode ? 'custom' : intervalHours}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') {
+                  setIsCustomMode(true);
+                } else {
+                  setIsCustomMode(false);
+                  handleSaveScheduleSettings(parseFloat(val), excludeMedia);
+                }
+              }}
+              disabled={isSavingSchedule}
+              className="w-full bg-neutral-950 text-xs text-white rounded-xl px-3.5 py-2.5 focus:outline-none cursor-pointer disabled:opacity-50"
+            >
+              <option value="0">Disabled (Manual Only)</option>
+              <option value="1">Every 1 Hour</option>
+              <option value="6">Every 6 Hours</option>
+              <option value="12">Every 12 Hours</option>
+              <option value="24">Every 24 Hours (Daily)</option>
+              <option value="48">Every 2 Days</option>
+              <option value="168">Every 7 Days (Weekly)</option>
+              <option value="custom">⏱️ Custom Timer...</option>
+            </select>
+          </div>
+
+          {/* Custom Timer Input Area */}
+          {isCustomMode && (
+            <div className="md:col-span-8 bg-neutral-950/90 p-3.5 rounded-xl flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-neutral-400 flex items-center gap-1 font-mono">
+                <Sliders className="w-3.5 h-3.5 text-amber-400" /> Custom:
+              </span>
+              <input
+                type="number"
+                min="1"
+                max="999"
+                value={customValue}
+                onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 bg-neutral-900 text-xs text-white rounded-lg px-2.5 py-2 text-center font-mono focus:outline-none"
+              />
+              <select
+                value={customUnit}
+                onChange={(e) => setCustomUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                className="bg-neutral-900 text-xs text-white rounded-lg px-2.5 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+              </select>
+              <button
+                type="button"
+                disabled={isSavingSchedule}
+                onClick={applyCustomTimer}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                {isSavingSchedule ? 'Saving...' : 'Apply Schedule'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Lightweight meta strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-[11px] text-neutral-400 font-mono">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
             <input 
-              id="lowTrafficMode"
               type="checkbox"
               checked={excludeMedia}
               onChange={(e) => {
@@ -767,261 +1148,168 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                 handleSaveScheduleSettings(intervalHours, val);
               }}
               disabled={isSavingSchedule}
-              className="mt-1 w-4.5 h-4.5 rounded border-neutral-800 bg-neutral-950 text-amber-500 focus:ring-amber-500/40 accent-amber-500 cursor-pointer"
+              className="rounded bg-neutral-950 text-amber-500 accent-amber-500 cursor-pointer"
             />
-            <div className="space-y-1">
-              <label htmlFor="lowTrafficMode" className="text-xs font-bold text-white cursor-pointer flex items-center gap-1.5">
-                Exclude Multimedia Binaries (Low-Traffic Mode)
-                <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded uppercase">Highly Recommended</span>
-              </label>
-              <p className="text-[11px] text-neutral-400 leading-relaxed">
-                Only transfer database records (`database.json`), skipping the heavy multimedia uploads folder. This reduces backup payload size by **99.5%** (bringing transfer size down from 35MB to only ~15KB), making remote synchronization nearly instantaneous and using virtually zero bandwidth!
-              </p>
-            </div>
-          </div>
-        </div>
+            <span className="text-neutral-300">Exclude media files in auto-snapshots (database only)</span>
+          </label>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
-          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
-            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-sky-400" />
-              Scheduler Status
+          {lastBackupTime && (
+            <span className="text-neutral-500">
+              Last snapshot: {new Date(lastBackupTime).toLocaleString()}
             </span>
-            <p className="text-sm font-bold text-white font-mono flex items-center gap-2">
-              {intervalHours > 0 ? (
-                <>
-                  <span className="text-emerald-400">Running Background Daemon</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                </>
-              ) : (
-                <span className="text-neutral-500">Idle / Deactivated</span>
-              )}
-            </p>
-            <p className="text-[10px] text-neutral-500 leading-normal font-sans">
-              {intervalHours > 0 
-                ? `The server will automatically generate snapshot ZIP backups every ${intervalHours >= 1 ? `${intervalHours} hour(s)` : `${intervalHours * 60} min(s)`} continuously.`
-                : 'Automated tasks are disabled. Select an interval to initiate background automated snapshots.'}
-            </p>
-          </div>
-
-          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
-            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Last Backup Executed
-            </span>
-            <p className="text-sm font-bold text-white font-mono">
-              {lastBackupTime ? new Date(lastBackupTime).toLocaleTimeString() : 'N/A'}
-            </p>
-            <p className="text-[10px] text-neutral-500 font-sans leading-normal">
-              {lastBackupTime 
-                ? `Last automated system sweep was completed on ${new Date(lastBackupTime).toLocaleDateString()} at ${new Date(lastBackupTime).toLocaleTimeString()}` 
-                : 'No automatic backups run yet. Click dropdown to activate.'}
-            </p>
-          </div>
-
-          <div className="bg-neutral-950/80 p-4 rounded-xl border border-neutral-800 space-y-1.5">
-            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              Next Scheduled Sweep
-            </span>
-            <p className="text-sm font-bold text-amber-400 font-mono">
-              {intervalHours > 0 && lastBackupTime ? (
-                new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleTimeString()
-              ) : 'N/A'}
-            </p>
-            <p className="text-[10px] text-neutral-500 font-sans leading-normal">
-              {intervalHours > 0 && lastBackupTime
-                ? `Next automatic save is scheduled for ${new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleDateString()} at ${new Date(new Date(lastBackupTime).getTime() + intervalHours * 60 * 60 * 1000).toLocaleTimeString()}`
-                : 'Set a schedule interval to active automated countdown triggers.'}
-            </p>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* PERSISTENT DATABASE-BACKED SMTP EMAIL ROUTER SETTINGS */}
-      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
-          <div className="flex items-start gap-3">
-            <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center border"
-              style={{ 
-                borderColor: `${primaryColor}40`, 
-                backgroundColor: `${primaryColor}10`,
-                color: primaryColor 
-              }}
-            >
-              <Mail className="w-5 h-5" />
-            </div>
+      {/* 4. LOCAL SNAPSHOTS & RECOVERY POINTS */}
+      <div className="bg-[#0C0F1E] rounded-2xl p-6 space-y-4 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-4 h-4 text-sky-400" />
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-white font-serif">Automated Delivery Dispatcher (SMTP)</h3>
-                <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                  smtpEnabled && smtpHost
-                    ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
-                    : 'text-neutral-500 bg-neutral-500/10 border border-neutral-500/10'
-                }`}>
-                  {smtpEnabled && smtpHost ? 'Online Service' : 'Deactivated'}
-                </span>
-              </div>
-              <p className="text-xs text-neutral-400">Configure SMTP credentials to automatically email secure cloud backup retrieval links straight to your inbox.</p>
+              <h3 className="text-sm font-bold text-white">Local System Snapshots ({snapshots.length})</h3>
+              <p className="text-xs text-neutral-400">Restore, download, or sync point-in-time snapshots to Google Drive.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-neutral-400 font-mono">Status Toggle:</label>
+          <form onSubmit={handleCreateSnapshot} className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Snapshot label..."
+              value={snapshotLabel}
+              onChange={(e) => setSnapshotLabel(e.target.value)}
+              className="bg-neutral-950 text-xs text-white rounded-xl px-3.5 py-2 focus:outline-none w-36"
+            />
             <button
-              type="button"
-              onClick={() => {
-                const nextVal = !smtpEnabled;
-                setSmtpEnabled(nextVal);
-                // Auto-save toggle status immediately
-                fetch('/api/admin/backup/smtp', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ enabled: nextVal })
-                }).then(() => showToast(`Automated backup emails ${nextVal ? 'enabled' : 'disabled'}!`));
-              }}
-              className={`text-xs px-4 py-2 font-bold rounded-xl cursor-pointer transition-all border ${
-                smtpEnabled
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                  : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
-              }`}
+              type="submit"
+              disabled={isCreatingSnapshot}
+              className="px-3.5 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1 shrink-0 transition-transform active:scale-95 disabled:opacity-50"
             >
-              {smtpEnabled ? '🟢 Enabled' : '⚪ Disabled'}
+              <Sparkles className="w-3 h-3" />
+              <span>{isCreatingSnapshot ? 'Saving...' : 'New Snapshot'}</span>
             </button>
-          </div>
+          </form>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-          <div className="md:col-span-8 space-y-2">
-            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Host Address:</label>
-            <input
-              type="text"
-              value={smtpHost}
-              onChange={(e) => setSmtpHost(e.target.value)}
-              placeholder="e.g. smtp.gmail.com or mail.example.com"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-            />
+        {/* Snapshots Table */}
+        {isLoadingSnapshots ? (
+          <div className="text-center py-6 text-neutral-500 text-xs font-mono flex items-center justify-center gap-2">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading snapshots...
           </div>
-
-          <div className="md:col-span-4 space-y-2">
-            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Port Number:</label>
-            <input
-              type="number"
-              value={smtpPort}
-              onChange={(e) => setSmtpPort(parseInt(e.target.value) || 587)}
-              placeholder="e.g. 587 or 465"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-            />
+        ) : snapshots.length === 0 ? (
+          <div className="text-center py-6 text-neutral-500 text-xs italic">
+            No snapshots created yet. Create a snapshot above or wait for the automatic scheduler.
           </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="text-neutral-500 text-[10px] font-semibold uppercase tracking-wider">
+                  <th className="py-2.5 px-3">File / Label</th>
+                  <th className="py-2.5 px-3">Records</th>
+                  <th className="py-2.5 px-3">Size</th>
+                  <th className="py-2.5 px-3">Created</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {snapshots.map((snap) => {
+                  const isSyncedToDrive = driveConfig.syncedSnapshotNames?.includes(snap.filename);
+                  const isCurrentlyUploading = uploadingFilename === snap.filename && isUploadingToDrive;
 
-          <div className="md:col-span-6 space-y-2">
-            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP Sender Username:</label>
-            <input
-              type="text"
-              value={smtpUser}
-              onChange={(e) => setSmtpUser(e.target.value)}
-              placeholder="e.g. your-email@gmail.com"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-            />
+                  return (
+                    <tr key={snap.filename} className="hover:bg-neutral-900/40 transition-colors rounded-xl">
+                      <td className="py-2.5 px-3 font-medium text-white flex items-center gap-2">
+                        <Archive className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate max-w-[220px] font-sans text-xs">{snap.filename}</span>
+                            {isSyncedToDrive && (
+                              <span className="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5">
+                                <Cloud className="w-2.5 h-2.5" /> Synced
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-neutral-500">{snap.systemTag}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-neutral-300">
+                        {snap.recordCount ? `${snap.recordCount} rows` : 'N/A'}
+                      </td>
+                      <td className="py-2.5 px-3 text-neutral-400">{snap.sizeFormatted}</td>
+                      <td className="py-2.5 px-3 text-neutral-400 font-sans text-[11px]">
+                        {new Date(snap.createdTime).toLocaleDateString()} {new Date(snap.createdTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Sync to Google Drive button */}
+                          {driveUser && (
+                            <button
+                              type="button"
+                              onClick={() => handleUploadSnapshotToDrive(snap.filename)}
+                              disabled={isCurrentlyUploading || isUploadingToDrive}
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-medium cursor-pointer transition-colors flex items-center gap-1 ${
+                                isSyncedToDrive 
+                                  ? 'bg-sky-500/10 text-sky-400 hover:bg-sky-500/20' 
+                                  : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white'
+                              }`}
+                              title={isSyncedToDrive ? 'Upload snapshot again to Google Drive' : 'Upload snapshot to Google Drive'}
+                            >
+                              <CloudUpload className={`w-3 h-3 ${isCurrentlyUploading ? 'animate-bounce text-sky-400' : 'text-sky-400'}`} />
+                              <span>{isCurrentlyUploading ? 'Uploading...' : isSyncedToDrive ? 'Re-Sync' : 'To Drive'}</span>
+                            </button>
+                          )}
+
+                          {/* Direct Download button */}
+                          <a
+                            href={`/api/admin/backup/snapshots/download/${encodeURIComponent(snap.filename)}`}
+                            download={snap.filename}
+                            className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-sky-400 rounded-lg text-[11px] font-medium cursor-pointer transition-colors flex items-center gap-1"
+                            title="Download snapshot archive to your computer"
+                          >
+                            <Download className="w-3 h-3 text-sky-400" />
+                            <span>Download</span>
+                          </a>
+
+                          {/* Restore button */}
+                          <button
+                            onClick={() => handleRestoreSnapshot(snap.filename)}
+                            className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[11px] font-medium cursor-pointer transition-colors flex items-center gap-1"
+                            title="Restore database from this snapshot"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Restore</span>
+                          </button>
+
+                          {/* Delete button */}
+                          <button
+                            onClick={() => handleDeleteSnapshot(snap.filename)}
+                            className="p-1.5 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md cursor-pointer transition-colors"
+                            title="Delete snapshot"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-          <div className="md:col-span-6 space-y-2">
-            <label className="text-xs font-bold text-neutral-300 font-mono">SMTP App Password (secured):</label>
-            <input
-              type="password"
-              value={smtpPass}
-              onChange={(e) => setSmtpPass(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-            />
-          </div>
-
-          <div className="md:col-span-12 space-y-2">
-            <label className="text-xs font-bold text-neutral-300 font-mono">System Recipient Inbox (`SMTP_TO`):</label>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={smtpTo}
-                onChange={(e) => setSmtpTo(e.target.value)}
-                placeholder="e.g. recipient@gmail.com"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setSmtpTo('')}
-                className="text-[10px] px-3 font-bold bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-white rounded-xl cursor-pointer font-mono"
-                title="Clear input"
-              >
-                Clear
-              </button>
-            </div>
-            <p className="text-[11px] text-neutral-500 leading-normal font-sans">
-              Whenever a background automatic backup is triggered, the secure cloud retrieval link is automatically emailed here.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-neutral-850">
-          <button
-            type="button"
-            disabled={isTestingSmtp || !smtpHost || !smtpUser}
-            onClick={handleTestSmtpSettings}
-            className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 disabled:opacity-40 text-neutral-400 hover:text-white text-xs font-bold rounded-xl cursor-pointer transition-colors border border-neutral-800 flex items-center gap-2"
-          >
-            {isTestingSmtp ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                <span>Testing Connection...</span>
-              </>
-            ) : (
-              <>
-                <Mail className="w-3.5 h-3.5" />
-                <span>Send Test Email</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            disabled={isSavingSmtp}
-            onClick={handleSaveSmtpSettings}
-            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-neutral-950 text-xs font-extrabold rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
-          >
-            {isSavingSmtp ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving configurations...</span>
-              </>
-            ) : (
-              <span>💾 Save SMTP Configuration</span>
-            )}
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* RESTORE DROPZONE & PREVIEW BOARD */}
-      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
-        <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center border"
-              style={{ 
-                borderColor: `${primaryColor}40`, 
-                backgroundColor: `${primaryColor}10`,
-                color: primaryColor 
-              }}
-            >
-              <Upload className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white font-serif">Restore System Backup</h3>
-              <p className="text-xs text-neutral-400">Upload a `.zip` archive (database + media) or `.json` file to restore database tables and restart the server.</p>
-            </div>
+      {/* 5. RESTORE UPLOAD & DROPZONE */}
+      <div className="bg-[#0C0F1E] rounded-2xl p-6 space-y-4 shadow-md">
+        <div className="flex items-center gap-2.5 pb-2">
+          <Upload className="w-4 h-4 text-emerald-400" />
+          <div>
+            <h3 className="text-sm font-bold text-white">Restore from Upload</h3>
+            <p className="text-xs text-neutral-400">Upload a `.zip` full backup or `.json` dataset to restore.</p>
           </div>
         </div>
 
-        {/* DROPZONE AREA */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -1033,10 +1321,10 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             }
           }}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
+          className={`rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 ${
             dragOver 
-              ? 'border-amber-400 bg-amber-500/10 scale-[1.01]' 
-              : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950/60'
+              ? 'bg-amber-500/10 scale-[1.01]' 
+              : 'bg-neutral-950/70 hover:bg-neutral-950'
           }`}
         >
           <input
@@ -1046,281 +1334,97 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             accept=".zip,.json"
             className="hidden"
           />
-
-          <div 
-            className="w-12 h-12 rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-110"
-            style={{ 
-              borderColor: `${primaryColor}30`, 
-              backgroundColor: `${primaryColor}10`,
-              color: primaryColor 
-            }}
-          >
-            <Archive className="w-6 h-6" />
-          </div>
-
-          <div>
-            <p className="text-sm font-bold text-white">
-              {selectedFile ? selectedFile.name : 'Drag & drop .zip archive or .json backup file here'}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-white">
+              {selectedFile ? selectedFile.name : 'Click to browse or drop a .zip / .json backup file here'}
             </p>
-            <p className="text-xs text-neutral-500 mt-1">
-              or click to browse from local computer (.zip full backup or .json database)
+            <p className="text-[11px] text-neutral-500">
+              Supports full ZIP packages (database + media binaries) or JSON exports
             </p>
           </div>
         </div>
 
-        {/* PARSE ERROR BANNER */}
         {parseError && (
-          <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl flex items-center gap-3 text-rose-300 text-xs">
-            <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          <div className="bg-rose-500/10 p-3 rounded-xl flex items-center gap-2 text-rose-300 text-xs">
+            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{parseError}</span>
           </div>
         )}
 
-        {/* PARSED BACKUP PREVIEW & CONFIRMATION */}
+        {/* Parsed confirmation banner */}
         {parsedBackup && (
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 space-y-5"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-4">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                <FileCheck className="w-5 h-5 text-emerald-400" />
-                <span>Backup Image Validated (Schema v{parsedBackup.version || '1.0'})</span>
-              </div>
-              <span className="text-[10px] text-neutral-500 font-mono">
-                Exported: {new Date(parsedBackup.exportedAt || Date.now()).toLocaleString()}
-              </span>
+          <div className="bg-neutral-950 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-emerald-400 text-xs font-medium">
+              <FileCheck className="w-4 h-4" />
+              <span>Ready to restore: {selectedFile?.name || 'Uploaded Backup'}</span>
             </div>
-
-            {/* RECORD BREAKDOWN GRID */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-neutral-900/80 p-3 rounded-xl border border-neutral-800 space-y-1">
-                <span className="text-[10px] text-neutral-500 font-bold uppercase">Form Submissions</span>
-                <p className="text-lg font-bold text-amber-400 font-mono">
-                  {parsedBackup.tables?.submissions?.length || 0}
-                </p>
-              </div>
-
-              <div className="bg-neutral-900/80 p-3 rounded-xl border border-neutral-800 space-y-1">
-                <span className="text-[10px] text-neutral-500 font-bold uppercase">Media Library</span>
-                <p className="text-lg font-bold text-sky-400 font-mono">
-                  {parsedBackup.tables?.media?.length || 0}
-                </p>
-              </div>
-
-              <div className="bg-neutral-900/80 p-3 rounded-xl border border-neutral-800 space-y-1">
-                <span className="text-[10px] text-neutral-500 font-bold uppercase">Events & Concerts</span>
-                <p className="text-lg font-bold text-emerald-400 font-mono">
-                  {parsedBackup.tables?.events?.length || 0}
-                </p>
-              </div>
-
-              <div className="bg-neutral-900/80 p-3 rounded-xl border border-neutral-800 space-y-1">
-                <span className="text-[10px] text-neutral-500 font-bold uppercase">Pass Packages</span>
-                <p className="text-lg font-bold text-purple-400 font-mono">
-                  {parsedBackup.tables?.passes?.length || 0}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Automated Safety Snapshot Enabled</p>
-                <p className="text-[11px] opacity-80 mt-0.5 leading-relaxed">
-                  Before applying this backup, the engine will save a safety rollback snapshot of your current database. Upon completion, the server process will automatically reboot to load the clean dataset.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => { setSelectedFile(null); setParsedBackup(null); }}
-                className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 font-bold text-xs rounded-xl cursor-pointer"
+                className="px-3.5 py-2 bg-neutral-900 text-neutral-400 text-xs font-medium rounded-xl hover:text-white cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => executeRestore(parsedBackup)}
-                className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
               >
-                <RotateCcw className="w-4 h-4" /> Apply & Reboot Server
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Apply Restore</span>
               </button>
             </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* LOCAL SNAPSHOTS & RECOVERY POINTS */}
-      <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white font-serif">Server Local Snapshots</h3>
-              <p className="text-xs text-neutral-400">Automatic safety snapshots saved locally on the server.</p>
-            </div>
-          </div>
-
-          {/* On-Demand Snapshot Form */}
-          <form onSubmit={handleCreateSnapshot} className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Snapshot label..."
-              value={snapshotLabel}
-              onChange={(e) => setSnapshotLabel(e.target.value)}
-              className="bg-neutral-950 border border-neutral-800 text-xs text-white rounded-xl px-3 py-2 focus:border-sky-500 focus:outline-none w-40"
-            />
-            <button
-              type="submit"
-              disabled={isCreatingSnapshot}
-              className="px-3.5 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-extrabold text-xs rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 transition-transform active:scale-95 disabled:opacity-50"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{isCreatingSnapshot ? 'Saving...' : 'Create Snapshot'}</span>
-            </button>
-          </form>
-        </div>
-
-        {/* SNAPSHOTS LIST TABLE */}
-        {isLoadingSnapshots ? (
-          <div className="text-center py-8 text-neutral-500 text-xs font-mono flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Loading snapshots history...
-          </div>
-        ) : snapshots.length === 0 ? (
-          <div className="text-center py-8 text-neutral-500 text-xs italic">
-            No local snapshots created yet. Snapshots will appear automatically when exports or restores are executed.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-neutral-800 text-neutral-500 text-[9px] font-bold uppercase tracking-wider">
-                  <th className="py-3 px-3">Snapshot File</th>
-                  <th className="py-3 px-3">Type / Label</th>
-                  <th className="py-3 px-3">Records</th>
-                  <th className="py-3 px-3">Size</th>
-                  <th className="py-3 px-3">Created Date</th>
-                  <th className="py-3 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-850/60 font-mono">
-                {snapshots.map((snap) => (
-                  <tr key={snap.filename} className="hover:bg-neutral-900/40 transition-colors">
-                    <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
-                      {snap.isZip || snap.filename.endsWith('.zip') ? (
-                        <Archive className="w-4 h-4 text-emerald-400 shrink-0" />
-                      ) : (
-                        <FileJson className="w-4 h-4 text-sky-400 shrink-0" />
-                      )}
-                      <span className="truncate max-w-[200px]">{snap.filename}</span>
-                    </td>
-                    <td className="py-3 px-3 text-neutral-300">
-                      <span className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[10px]">
-                        {snap.systemTag}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-amber-400 font-bold">
-                      {snap.recordCount ? `${snap.recordCount} records` : 'N/A'}
-                      {snap.mediaFilesCount ? ` + ${snap.mediaFilesCount} media files` : ''}
-                    </td>
-                    <td className="py-3 px-3 text-neutral-400">{snap.sizeFormatted}</td>
-                    <td className="py-3 px-3 text-neutral-400 font-sans text-[11px]">
-                      {new Date(snap.createdTime).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handlePushToCloudVault(snap.filename)}
-                          disabled={uploadingFilenames.includes(snap.filename)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1 ${
-                            uploadingFilenames.includes(snap.filename)
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                              : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                          }`}
-                          title="Instantly send this backup to secure cloud"
-                        >
-                          {uploadingFilenames.includes(snap.filename) ? (
-                            <>
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                              <span>Sending...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Cloud className="w-3 h-3" />
-                              <span>Send to Cloud Vault</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleRestoreSnapshot(snap.filename)}
-                          className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
-                          title="Restore this snapshot"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Restore & Reboot
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSnapshot(snap.filename)}
-                          className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer transition-colors"
-                          title="Delete snapshot"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </div>
 
-      {/* FACTORY RESET DANGER ZONE */}
-      <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-6 md:p-8 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white font-serif">System Factory Reset</h3>
-              <p className="text-xs text-rose-300/80">Wipe all current records and restore default seed dataset with server auto-reboot.</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowFactoryResetModal(true)}
-            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-transform active:scale-95 shadow-lg shadow-rose-600/20"
-          >
-            Factory Reset...
-          </button>
-        </div>
-      </div>
-
-      {/* FACTORY RESET CONFIRMATION MODAL */}
-      {showFactoryResetModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-[#0C0F1E] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white font-serif">Confirm Factory Reset</h3>
-            </div>
-
-            <p className="text-xs text-neutral-300 leading-relaxed">
-              This action will clear all current database entries and re-seed the system with initial CARICOM Festival demo records. Type <span className="font-mono font-bold text-rose-400">RESET</span> below to confirm.
+      {/* 6. FACTORY RESET */}
+      <div className="bg-rose-950/20 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div>
+            <h4 className="text-xs font-bold text-rose-300">Factory Reset Database</h4>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
+              Permanently wipe all tables and reset the database to initial festival seed data.
             </p>
+          </div>
+        </div>
 
-            <div>
+        <button
+          onClick={() => setShowFactoryResetModal(true)}
+          className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shrink-0"
+        >
+          Factory Reset...
+        </button>
+      </div>
+
+      {/* Factory Reset Modal */}
+      {showFactoryResetModal && (
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0C0F1E] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white">Confirm Factory Reset</h4>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  This action is irreversible. All current submissions, event modifications, and uploaded media references will be reset to factory defaults.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <label className="text-[11px] text-neutral-400 block font-mono">
+                Type <strong>RESET</strong> to authorize:
+              </label>
               <input
                 type="text"
-                placeholder="Type RESET to confirm"
                 value={resetConfirmInput}
                 onChange={(e) => setResetConfirmInput(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-center text-xs text-white font-mono tracking-widest focus:border-rose-500 focus:outline-none"
+                placeholder="RESET"
+                className="w-full bg-neutral-950 text-xs text-white rounded-xl px-3.5 py-2.5 font-mono focus:outline-none"
               />
             </div>
 
@@ -1328,7 +1432,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
               <button
                 type="button"
                 onClick={() => { setShowFactoryResetModal(false); setResetConfirmInput(''); }}
-                className="px-4 py-2 bg-neutral-900 text-neutral-300 text-xs font-bold rounded-xl cursor-pointer"
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-semibold rounded-xl cursor-pointer"
               >
                 Cancel
               </button>
@@ -1336,185 +1440,9 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                 type="button"
                 disabled={resetConfirmInput.trim() !== 'RESET'}
                 onClick={handleExecuteFactoryReset}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black uppercase rounded-xl cursor-pointer transition-colors"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-30 text-white font-bold text-xs rounded-xl cursor-pointer"
               >
-                Execute Reset & Reboot
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SECURE CLOUD VAULT TRANSFER SUCCESS MODAL */}
-      {vaultLinkModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-[#0C0F1E] border border-amber-500/30 rounded-2xl p-6 md:p-8 max-w-lg w-full space-y-6 shadow-2xl relative overflow-hidden">
-            <div 
-              className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-[80px] pointer-events-none opacity-20 bg-amber-500"
-            />
-            
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                <Cloud className="w-6 h-6 animate-bounce" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white font-serif">Remote Cloud Vault Sync</h3>
-                <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  Successfully Dispatched
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs text-neutral-300 leading-relaxed font-sans">
-              <p>
-                Your backup snapshot <strong className="text-white font-mono">{vaultLinkModal.filename}</strong> has been uploaded successfully to an ephemeral secure cloud storage vault.
-              </p>
-              <p className="text-neutral-400">
-                It is now accessible from any laptop, mobile device, or remote server. The link will remain active for <span className="text-amber-400 font-bold">{vaultLinkModal.expiry}</span> before auto-destructing.
-              </p>
-            </div>
-
-            {/* Link Container */}
-            <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 space-y-2 font-mono text-xs">
-              <span className="text-[9px] text-neutral-500 font-bold uppercase">Secure Retrieval Link</span>
-              <div className="flex items-center gap-2 bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-850">
-                <input
-                  type="text"
-                  readOnly
-                  value={vaultLinkModal.url}
-                  className="bg-transparent text-amber-400 font-bold text-xs w-full focus:outline-none select-all"
-                />
-              </div>
-            </div>
-
-            {/* Quick Actions Panel */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(vaultLinkModal.url);
-                  showToast('Link copied to clipboard!');
-                }}
-                className="py-3 bg-neutral-900 hover:bg-neutral-850 text-white font-bold text-xs rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors border border-neutral-800"
-              >
-                📋 Copy Link
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEmailComposer(prev => !prev);
-                  // Trigger standard mailto fallback as standard browser behaviour
-                  const mailtoUrl = `mailto:${recipientEmail}?subject=Festival Backup: ${vaultLinkModal.filename}&body=Here is your secure, one-click remote backup link (valid for ${vaultLinkModal.expiry}):%0D%0A%0D%0A${encodeURIComponent(vaultLinkModal.url)}%0D%0A%0D%0APlease save this link to restore your system state or download the archive from any remote device.`;
-                  // Create dynamic hidden link to trigger mail handler
-                  const a = document.createElement('a');
-                  a.href = mailtoUrl;
-                  a.style.display = 'none';
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  showToast('Launching email application fallback panel...');
-                }}
-                className={`py-3 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  showEmailComposer 
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                    : 'bg-amber-500 hover:bg-amber-600 text-neutral-950 active:scale-[0.98]'
-                }`}
-              >
-                ✉️ {showEmailComposer ? 'Hide Email Panel' : 'Email Link to Me'}
-              </button>
-            </div>
-
-            {showEmailComposer && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 space-y-4 font-sans text-xs overflow-hidden"
-              >
-                <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
-                  <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 animate-pulse" /> Direct Email Delivery
-                  </span>
-                  <span className="text-[9px] text-neutral-500 font-mono">Sandbox friendly copy & send</span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-neutral-400 font-bold">Recipient Email Address:</label>
-                    <input
-                      type="email"
-                      value={recipientEmail}
-                      onChange={(e) => setRecipientEmail(e.target.value)}
-                      placeholder="e.g. yourname@gmail.com"
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-neutral-400 font-bold">Email Message Preview:</label>
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 space-y-2 text-[11px] leading-relaxed relative">
-                      <p className="font-bold text-white border-b border-neutral-800/60 pb-1.5 mb-1.5 font-sans">
-                        Subject: <span className="font-mono text-amber-400">Festival Backup: {vaultLinkModal.filename}</span>
-                      </p>
-                      <p className="text-neutral-300 font-mono text-[10px] whitespace-pre-wrap leading-normal">
-                        Here is your secure, one-click remote backup link (valid for {vaultLinkModal.expiry}):{"\n\n"}
-                        <span className="text-amber-400 underline break-all font-bold">{vaultLinkModal.url}</span>{"\n\n"}
-                        Please save this link to restore your system state or download the archive from any remote device.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const fullMsg = `Subject: Festival Backup: ${vaultLinkModal.filename}\n\nHere is your secure, one-click remote backup link (valid for ${vaultLinkModal.expiry}):\n\n${vaultLinkModal.url}\n\nPlease save this link to restore your system state or download the archive from any remote device.`;
-                          navigator.clipboard.writeText(fullMsg);
-                          showToast('Email content template copied!');
-                        }}
-                        className="absolute top-2 right-2 p-1.5 bg-neutral-950 border border-neutral-800 text-neutral-400 hover:text-white rounded-md hover:bg-neutral-850 transition-colors flex items-center gap-1 text-[10px]"
-                        title="Copy template text"
-                      >
-                        <Copy className="w-3 h-3" /> Copy
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isSendingEmail || !recipientEmail}
-                    onClick={() => {
-                      setIsSendingEmail(true);
-                      setTimeout(() => {
-                        setIsSendingEmail(false);
-                        showToast(`Mock email dispatched successfully to ${recipientEmail}!`);
-                      }, 1000);
-                    }}
-                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-neutral-950 font-extrabold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    {isSendingEmail ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Dispatching Mail Courier...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>Send Test Email Now</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setVaultLinkModal(null);
-                  setShowEmailComposer(false);
-                }}
-                className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-neutral-400 text-xs font-bold rounded-xl cursor-pointer transition-colors border border-neutral-850"
-              >
-                Close Vault Info
+                Execute Reset
               </button>
             </div>
           </div>
