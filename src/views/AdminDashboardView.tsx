@@ -13,6 +13,7 @@ import {
   getSubmissions, 
   updateSubmissionStatus, 
   deleteSubmission, 
+  updateSubmission,
   addSubmission, 
   resetSubmissionsToDemo, 
   getSiteConfig, 
@@ -47,6 +48,7 @@ import {
   AlertCircle, 
   RefreshCw, 
   Plus, 
+  Pencil,
   Mail, 
   Phone, 
   User, 
@@ -103,6 +105,14 @@ import { MediaSelectorModal } from '../components/MediaSelectorModal';
 import { MediaLibraryTab } from '../components/MediaLibraryTab';
 import { BackupRestoreTab } from '../components/BackupRestoreTab';
 import { PassBadgePdfModal, parseSubmissionItems } from '../components/PassBadgePdfModal';
+import { ImportCsvModal } from '../components/ImportCsvModal';
+import { EditSubmissionModal } from '../components/EditSubmissionModal';
+import { 
+  SubmissionTypeBadge, 
+  SubmissionStatusBadge, 
+  ALL_SUBMISSION_TYPE_TAGS, 
+  ALL_SUBMISSION_STATUS_TAGS 
+} from '../utils/submissionTags';
 
 interface AdminDashboardViewProps {
   setActiveTab: (tab: any) => void;
@@ -170,7 +180,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [hotelsPage, setHotelsPage] = useState<number>(1);
   const [testimonialsPage, setTestimonialsPage] = useState<number>(1);
   const [previewPdfSub, setPreviewPdfSub] = useState<FormSubmissionItem | null>(null);
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [editingSubmission, setEditingSubmission] = useState<FormSubmissionItem | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | number | null>(null);
   const selectedPassOrder = submissions.find(s => s.id === selectedOrderId) || null;
 
   const setReplyingSub = (sub: FormSubmissionItem | null) => {
@@ -182,6 +193,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
   // New Manual Submission Modal
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showImportCsvModal, setShowImportCsvModal] = useState<boolean>(false);
   const [newSubForm, setNewSubForm] = useState({
     name: '',
     email: '',
@@ -279,6 +291,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [selectedPasses, setSelectedPasses] = useState<string[]>([]);
   const [selectedHotels, setSelectedHotels] = useState<string[]>([]);
   const [selectedTestimonials, setSelectedTestimonials] = useState<string[]>([]);
+  const [selectedPassOrders, setSelectedPassOrders] = useState<string[]>([]);
 
   // Interactive Live Sandbox slide index & rotation timer
   const [sandboxSlideIndex, setSandboxSlideIndex] = useState<number>(0);
@@ -299,6 +312,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     setSelectedPasses([]);
     setSelectedHotels([]);
     setSelectedTestimonials([]);
+    setSelectedPassOrders([]);
   }, [activeAdminTab]);
 
   // Custom Confirm Modal State
@@ -632,6 +646,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const handleStatusChange = (id: string, newStatus: 'new' | 'in-review' | 'resolved') => {
     updateSubmissionStatus(id, newStatus);
     loadData();
+  };
+
+  const handleSaveEditedSubmission = (updatedItem: FormSubmissionItem) => {
+    const result = updateSubmission(updatedItem.id, updatedItem);
+    if (result) {
+      loadData();
+      setEditingSubmission(null);
+      setSaveToast(`Successfully updated record for "${updatedItem.name || updatedItem.id}"!`);
+      setTimeout(() => setSaveToast(null), 3500);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -991,6 +1015,51 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   };
 
   // --- BULK OPERATIONS HANDLERS ---
+  const handleBulkOrderStatusChange = (status: FormSubmissionItem['status']) => {
+    if (selectedPassOrders.length === 0) return;
+    const statusLabel = status === 'resolved' ? 'Confirmed / Resolved' : status === 'in-review' ? 'In Review' : 'New';
+    triggerConfirm(
+      'Update Status for Multiple Pass Orders',
+      `Are you sure you want to change the status of ${selectedPassOrders.length} selected pass order(s) to '${statusLabel}'?`,
+      () => {
+        selectedPassOrders.forEach(id => {
+          updateSubmissionStatus(id, status);
+        });
+        const count = selectedPassOrders.length;
+        setSelectedPassOrders([]);
+        loadData();
+        setSaveToast(`Successfully updated ${count} pass order(s) to '${statusLabel}'!`);
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  const handleBulkDeletePassOrders = () => {
+    if (selectedPassOrders.length === 0) return;
+    triggerConfirm(
+      'Bulk Delete Pass Orders',
+      `Are you sure you want to permanently delete the ${selectedPassOrders.length} selected pass order(s)? This will remove them and their transaction records permanently.`,
+      () => {
+        selectedPassOrders.forEach(id => {
+          deleteSubmission(id);
+        });
+        const count = selectedPassOrders.length;
+        setSelectedPassOrders([]);
+        loadData();
+        setSaveToast(`Permanently deleted ${count} pass order(s)!`);
+        setTimeout(() => setSaveToast(null), 3000);
+      }
+    );
+  };
+
+  const handleBulkExportSelectedPassOrders = () => {
+    if (selectedPassOrders.length === 0) return;
+    const selectedItems = submissions.filter(s => selectedPassOrders.includes(s.id));
+    exportSubmissionsCSV(selectedItems, 'Grenada_Festival_Selected_Pass_Orders');
+    setSaveToast(`Exported ${selectedItems.length} selected pass order(s) to CSV!`);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
   const handleBulkStatusChange = (status: FormSubmissionItem['status']) => {
     if (selectedSubmissions.length === 0) return;
     triggerConfirm(
@@ -1141,29 +1210,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const totalRevenueGBP = submissions.reduce((sum, s) => sum + (s.amountGBP || 0), 0);
 
   const getTypeBadge = (type: FormSubmissionItem['type']) => {
-    switch (type) {
-      case 'contact':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><MessageSquare className="w-3 h-3 shrink-0" /> Contact</span>;
-      case 'flight-registration':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold"><Plane className="w-3 h-3 shrink-0" /> Flight Log</span>;
-      case 'pass-order':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold"><Ticket className="w-3 h-3 shrink-0" /> Pass Order</span>;
-      case 'transport-request':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[11px] font-semibold"><Truck className="w-3 h-3 shrink-0" /> Shuttle</span>;
-      case 'newsletter':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[11px] font-semibold"><Mail className="w-3 h-3 shrink-0" /> VIP Newsletter</span>;
-    }
+    return <SubmissionTypeBadge type={type} />;
   };
 
   const getStatusBadge = (status: FormSubmissionItem['status']) => {
-    switch (status) {
-      case 'new':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold uppercase tracking-wider"><AlertCircle className="w-3 h-3 text-rose-400" /> New</span>;
-      case 'in-review':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold uppercase tracking-wider"><Clock className="w-3 h-3 text-amber-400" /> In Review</span>;
-      case 'resolved':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-bold uppercase tracking-wider"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> Resolved</span>;
-    }
+    return <SubmissionStatusBadge status={status} />;
   };
 
   // Lock Screen
@@ -1575,48 +1626,72 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             </span>
           </div>
 
-          {(activeAdminTab === 'submissions' || activeAdminTab === 'orders') && (
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => exportSubmissionsCSV(submissions.filter(s => activeAdminTab === 'orders' ? s.type === 'pass-order' : true))}
-                className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5"
-                title="Download spreadsheet"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> Export CSV
-              </button>
+          {/* ALL ACTION BUTTONS & SYNC CONTROLLER ALIGNED TO THE RIGHT */}
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
+            {(activeAdminTab === 'submissions' || activeAdminTab === 'orders') && (
+              <div className="flex items-center gap-2">
+                {/* 1. Export CSV */}
+                <button
+                  onClick={() => {
+                    const isOrders = activeAdminTab === 'orders';
+                    const targetSubmissions = submissions.filter(s => isOrders ? s.type === 'pass-order' : true);
+                    exportSubmissionsCSV(targetSubmissions, isOrders ? 'Grenada_Festival_Pass_Orders' : 'Grenada_Festival_Received_Forms');
+                  }}
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  title="Download CSV spreadsheet"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="sm:hidden">Export</span>
+                </button>
 
+                {/* 2. Import CSV */}
+                <button
+                  onClick={() => setShowImportCsvModal(true)}
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  title="Bulk import submissions or orders from CSV"
+                >
+                  <Upload className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">Import CSV</span>
+                  <span className="sm:hidden">Import</span>
+                </button>
+
+                {/* 3. New Record / Pass Order */}
+                <button
+                  onClick={() => {
+                    if (activeAdminTab === 'orders') {
+                      setNewSubForm(prev => ({ ...prev, type: 'pass-order' }));
+                    }
+                    setShowAddModal(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-transform active:scale-[0.98] cursor-pointer flex items-center gap-1 shadow-sm"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{activeAdminTab === 'orders' ? 'New Pass Order' : 'New Record'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Persistent Real-Time Sync Controller */}
+            <div className="flex items-center gap-2 bg-neutral-950/60 border border-neutral-800/80 px-3 py-1.5 rounded-xl text-xs">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span className="hidden md:inline text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest font-mono">
+                Live DB
+              </span>
               <button
-                onClick={() => {
-                  if (activeAdminTab === 'orders') {
-                    setNewSubForm(prev => ({ ...prev, type: 'pass-order' }));
-                  }
-                  setShowAddModal(true);
-                }}
-                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-transform active:scale-[0.98] cursor-pointer flex items-center gap-1"
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                title="Force sync entire application state with server"
               >
-                <Plus className="w-3.5 h-3.5" /> {activeAdminTab === 'orders' ? 'New Pass Order' : 'New Record'}
+                <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
               </button>
             </div>
-          )}
-
-          {/* Persistent Real-Time Sync Controller */}
-          <div className="flex items-center gap-2 bg-neutral-950/60 border border-neutral-800/80 px-3 py-1.5 rounded-xl text-xs">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-            <span className="hidden md:inline text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest font-mono">
-              Live DB
-            </span>
-            <button
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
-              title="Force sync entire application state with server"
-            >
-              <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
-            </button>
           </div>
         </header>
 
@@ -1916,6 +1991,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                     <td className="py-3 px-5 text-right" onClick={(e) => e.stopPropagation()}>
                                       <div className="flex items-center justify-end gap-1.5">
                                         <button
+                                          onClick={() => setEditingSubmission(sub)}
+                                          className="px-2 py-1 text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                                          title="Edit Form Submission Record"
+                                        >
+                                          <Pencil className="w-3 h-3 text-sky-400" /> Edit
+                                        </button>
+                                        <button
                                           onClick={() => setPreviewPdfSub(sub)}
                                           className="px-2 py-1 text-[10px] font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                                           title="Print / Export Pass & Wristband Badge PDF"
@@ -2079,6 +2161,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                             
                                             <div className="flex items-center gap-2">
                                               <button
+                                                onClick={() => setEditingSubmission(sub)}
+                                                className="px-3.5 py-1.5 text-xs font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                                                title="Edit record details and parameters"
+                                              >
+                                                <Pencil className="w-3.5 h-3.5 text-sky-400" /> Edit Record
+                                              </button>
+                                              <button
                                                 onClick={() => setReplyingSub(sub)}
                                                 className="px-3.5 py-1.5 text-xs font-bold text-neutral-950 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 hover:brightness-110 shadow-sm"
                                                 style={{ backgroundColor: primaryColor }}
@@ -2171,6 +2260,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                 </div>
 
                                 <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => setEditingSubmission(sub)}
+                                    className="p-1 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded cursor-pointer"
+                                    title="Edit Form Record"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5 text-sky-400" />
+                                  </button>
                                   <button
                                     onClick={() => setPreviewPdfSub(sub)}
                                     className="p-1 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded cursor-pointer"
@@ -2292,13 +2388,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                       </div>
                                     </div>
                                     
-                                    <button
-                                      onClick={() => setReplyingSub(sub)}
-                                      className="w-full py-1.5 text-[10px] font-bold text-neutral-950 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 hover:brightness-110"
-                                      style={{ backgroundColor: primaryColor }}
-                                    >
-                                      <Send className="w-3 h-3" /> Reply to Guest
-                                    </button>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => setEditingSubmission(sub)}
+                                        className="flex-1 py-1.5 text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1"
+                                      >
+                                        <Pencil className="w-3 h-3 text-sky-400" /> Edit Form
+                                      </button>
+                                      <button
+                                        onClick={() => setReplyingSub(sub)}
+                                        className="flex-1 py-1.5 text-[10px] font-bold text-neutral-950 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 hover:brightness-110"
+                                        style={{ backgroundColor: primaryColor }}
+                                      >
+                                        <Send className="w-3 h-3" /> Reply
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -2468,12 +2572,99 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                 return (
                   <div className="space-y-4">
+                    {/* Bulk Actions for Pass Orders */}
+                    {selectedPassOrders.length > 0 && (
+                      <div className="bg-[#12162E] border border-amber-500/30 p-3 px-4 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-[0_4px_20px_rgba(var(--primary-rgb),0.05)]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-amber-400 font-mono">
+                            {selectedPassOrders.length} pass order{selectedPassOrders.length > 1 ? 's' : ''} selected
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPassOrders([])}
+                            className="text-[10px] text-neutral-400 hover:text-white underline ml-2 cursor-pointer font-semibold"
+                          >
+                            Deselect All
+                          </button>
+                          {selectedPassOrders.length < passOrdersList.length && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPassOrders(passOrdersList.map(o => o.id))}
+                              className="text-[10px] text-amber-400/80 hover:text-amber-300 ml-1 cursor-pointer font-semibold"
+                            >
+                              (Select all {passOrdersList.length})
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Mark Status:</span>
+                          <button
+                            onClick={() => handleBulkOrderStatusChange('resolved')}
+                            className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            title="Mark selected as Confirmed / Paid"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Confirmed
+                          </button>
+                          <button
+                            onClick={() => handleBulkOrderStatusChange('in-review')}
+                            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            title="Mark selected as In Review"
+                          >
+                            <Clock className="w-3 h-3 text-amber-400" /> In Review
+                          </button>
+                          <button
+                            onClick={() => handleBulkOrderStatusChange('new')}
+                            className="px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            title="Mark selected as New"
+                          >
+                            <AlertCircle className="w-3 h-3 text-sky-400" /> New
+                          </button>
+                          <div className="h-4 w-px bg-neutral-800 mx-1 hidden sm:block" />
+                          <button
+                            onClick={handleBulkExportSelectedPassOrders}
+                            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-slate-200 border border-neutral-700 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                            title="Export selected pass orders to CSV"
+                          >
+                            <FileSpreadsheet className="w-3 h-3 text-emerald-400" /> Export CSV ({selectedPassOrders.length})
+                          </button>
+                          <button
+                            onClick={handleBulkDeletePassOrders}
+                            className="px-2.5 py-1 bg-rose-950/20 hover:bg-rose-900/30 text-rose-400 border border-rose-500/30 rounded text-[10px] font-black cursor-pointer transition-colors flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3 h-3" /> Bulk Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Minimal Desktop Table */}
                     <div className="hidden md:block overflow-hidden bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl shadow-md">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-neutral-850 bg-neutral-950/50 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                            <th className="p-4 pl-6">Reference</th>
+                            <th className="p-4 pl-5 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                checked={passOrdersList.length > 0 && passOrdersList.every(o => selectedPassOrders.includes(o.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedPassOrders(prev => {
+                                      const newSelections = [...prev];
+                                      passOrdersList.forEach(order => {
+                                        if (!newSelections.includes(order.id)) newSelections.push(order.id);
+                                      });
+                                      return newSelections;
+                                    });
+                                  } else {
+                                    const filteredIds = passOrdersList.map(o => o.id);
+                                    setSelectedPassOrders(prev => prev.filter(id => !filteredIds.includes(id)));
+                                  }
+                                }}
+                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer"
+                                title="Select all pass orders"
+                              />
+                            </th>
+                            <th className="p-4">Reference</th>
                             <th className="p-4">Guest</th>
                             <th className="p-4">Pass / Package</th>
                             <th className="p-4 text-right">Amount</th>
@@ -2485,13 +2676,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                           {paginatedOrders.map((order) => {
                             const ref = order.extraDetails?.OrderRef || order.extraDetails?.Reference || `ORDER-${order.id}`;
                             const isConfirmed = order.status === 'resolved';
+                            const isSelected = selectedPassOrders.includes(order.id);
                             return (
                               <tr 
                                 key={order.id}
                                 onClick={() => setSelectedOrderId(order.id)}
-                                className="hover:bg-neutral-900/30 transition-colors cursor-pointer group"
+                                className={`transition-colors cursor-pointer group ${
+                                  isSelected 
+                                    ? 'bg-amber-500/10 hover:bg-amber-500/15' 
+                                    : 'hover:bg-neutral-900/40'
+                                }`}
                               >
-                                <td className="p-4 pl-6 font-mono font-bold text-amber-400">
+                                <td className="p-4 pl-5 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPassOrders(prev => 
+                                        prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]
+                                      );
+                                    }}
+                                    className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="p-4 font-mono font-bold text-amber-400">
                                   {ref}
                                 </td>
                                 <td className="p-4">
@@ -2519,16 +2728,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                                     {isConfirmed ? 'CONFIRMED' : order.status.toUpperCase()}
                                   </span>
                                 </td>
-                                <td className="p-4 pr-6 text-right">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedOrderId(order.id);
-                                    }}
-                                    className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-neutral-950 font-extrabold text-[10px] uppercase tracking-wider rounded-lg border border-amber-500/20 transition-all cursor-pointer"
-                                  >
-                                    View Dossier
-                                  </button>
+                                <td className="p-4 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingSubmission(order);
+                                      }}
+                                      className="px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-[10px] uppercase tracking-wider rounded-lg border border-sky-500/30 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                                      title="Edit Pass Order"
+                                    >
+                                      <Pencil className="w-3 h-3 text-sky-400" /> Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedOrderId(order.id);
+                                      }}
+                                      className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-neutral-950 font-extrabold text-[10px] uppercase tracking-wider rounded-lg border border-amber-500/20 transition-all cursor-pointer"
+                                    >
+                                      View Dossier
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -2542,23 +2765,56 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       {paginatedOrders.map((order) => {
                         const ref = order.extraDetails?.OrderRef || order.extraDetails?.Reference || `ORDER-${order.id}`;
                         const isConfirmed = order.status === 'resolved';
+                        const isSelected = selectedPassOrders.includes(order.id);
                         return (
                           <div
                             key={order.id}
                             onClick={() => setSelectedOrderId(order.id)}
-                            className="bg-[#0C0F1E] border border-neutral-800/80 hover:border-amber-500/30 rounded-xl p-4 space-y-3 cursor-pointer transition-all active:scale-[0.99]"
+                            className={`bg-[#0C0F1E] border rounded-xl p-4 space-y-3 cursor-pointer transition-all active:scale-[0.99] ${
+                              isSelected 
+                                ? 'border-amber-500/50 bg-amber-500/5 shadow-md shadow-amber-500/5' 
+                                : 'border-neutral-800/80 hover:border-amber-500/30'
+                            }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black uppercase font-mono text-amber-400">
-                                {ref}
-                              </span>
-                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full font-mono ${
-                                isConfirmed ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                order.status === 'in-review' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                'bg-sky-500/10 text-sky-400 border border-sky-500/20'
-                              }`}>
-                                {isConfirmed ? 'CONFIRMED' : order.status.toUpperCase()}
-                              </span>
+                              <div className="flex items-center gap-2.5">
+                                <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPassOrders(prev => 
+                                        prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]
+                                      );
+                                    }}
+                                    className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer"
+                                  />
+                                </div>
+                                <span className="text-[10px] font-black uppercase font-mono text-amber-400">
+                                  {ref}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSubmission(order);
+                                  }}
+                                  className="px-2 py-0.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-[9px] uppercase tracking-wider rounded border border-sky-500/30 flex items-center gap-1 cursor-pointer"
+                                  title="Edit Pass Order"
+                                >
+                                  <Pencil className="w-2.5 h-2.5 text-sky-400" /> Edit
+                                </button>
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                                  isConfirmed ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                  order.status === 'in-review' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                  'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                                }`}>
+                                  {isConfirmed ? 'CONFIRMED' : order.status.toUpperCase()}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="space-y-0.5">
@@ -2619,7 +2875,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 space-y-8 shadow-xl font-sans">
               
               {/* Studio Top Header */}
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-6 border-b border-neutral-800/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-800/80">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider">
@@ -2634,92 +2890,98 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-[10px] uppercase font-black tracking-wider select-none">
+                <div className="flex items-center justify-end gap-2.5 sm:ml-auto shrink-0 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-[10px] uppercase font-black tracking-wider select-none shrink-0">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                     <span>Live Sync Active</span>
                   </div>
 
                   <button
                     onClick={handleSaveConfig}
-                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 shrink-0"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Save Configuration
                   </button>
                 </div>
               </div>
 
-              {/* Sub-Tab Navigation Bar */}
-              <div className="flex flex-wrap items-center gap-2 bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800/80">
-                {[
-                  {
-                    id: 'identity',
-                    label: 'App Name & Logo',
-                    icon: Palmtree,
-                    badge: siteConfig.appLogoUrl ? 'Custom Logo' : 'Icon Logo'
-                  },
-                  {
-                    id: 'hero',
-                    label: 'Hero Backgrounds',
-                    icon: Image,
-                    badge: `${Math.min(siteConfig.hero?.displayCount || 5, siteConfig.hero?.images?.length || 5)} Active`
-                  },
-                  {
-                    id: 'brand',
-                    label: 'Fonts',
-                    icon: Type,
-                    badge: 'Typography'
-                  },
-                  {
-                    id: 'banner',
-                    label: 'Announcement Banner',
-                    icon: Sparkles,
-                    badge: siteConfig.banner?.enabled ? 'ON' : 'OFF'
-                  },
-                  {
-                    id: 'social',
-                    label: 'Socials & Helplines',
-                    icon: Share2,
-                    badge: 'Links'
-                  },
-                  {
-                    id: 'presets',
-                    label: 'Theme Presets',
-                    icon: Palette,
-                    badge: 'Instant Looks'
-                  },
-                  {
-                    id: 'elements',
-                    label: 'UI Elements Style',
-                    icon: Settings,
-                    badge: `${siteConfig.branding.buttonStyle || 'rounded'} / ${siteConfig.branding.cardStyle || 'glassy'}`
-                  }
-                ].map((tab) => {
-                  const IconComp = tab.icon;
-                  const isActive = customizerSubTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setCustomizerSubTab(tab.id as any)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
-                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80'
-                      }`}
-                    >
-                      <IconComp className={`w-4 h-4 ${isActive ? 'text-neutral-950' : 'text-amber-400'}`} />
-                      <span>{tab.label}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
-                        isActive
-                          ? 'bg-neutral-950/20 text-neutral-950'
-                          : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
-                      }`}>
-                        {tab.badge}
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* Sub-Tab Navigation Bar - Minimal Single Row Design */}
+              <div className="w-full bg-[#080B16] p-1.5 rounded-xl border border-neutral-800/80 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1.5 min-w-max">
+                  {[
+                    {
+                      id: 'identity',
+                      label: 'Name & Logo',
+                      icon: Palmtree,
+                      badge: siteConfig.appLogoUrl ? 'Custom' : undefined
+                    },
+                    {
+                      id: 'hero',
+                      label: 'Hero Slides',
+                      icon: Image,
+                      badge: `${Math.min(siteConfig.hero?.displayCount || 5, siteConfig.hero?.images?.length || 5)}`
+                    },
+                    {
+                      id: 'brand',
+                      label: 'Typography',
+                      icon: Type,
+                      badge: undefined
+                    },
+                    {
+                      id: 'banner',
+                      label: 'Announcement',
+                      icon: Sparkles,
+                      badge: siteConfig.banner?.enabled ? 'ON' : 'OFF'
+                    },
+                    {
+                      id: 'social',
+                      label: 'Socials & Links',
+                      icon: Share2,
+                      badge: undefined
+                    },
+                    {
+                      id: 'presets',
+                      label: 'Theme Presets',
+                      icon: Palette,
+                      badge: undefined
+                    },
+                    {
+                      id: 'elements',
+                      label: 'UI Elements',
+                      icon: Settings,
+                      badge: undefined
+                    }
+                  ].map((tab) => {
+                    const IconComp = tab.icon;
+                    const isActive = customizerSubTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setCustomizerSubTab(tab.id as any)}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                          isActive
+                            ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                            : 'text-neutral-400 hover:text-white hover:bg-neutral-900/90'
+                        }`}
+                      >
+                        <IconComp className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-neutral-950' : 'text-amber-400'}`} />
+                        <span>{tab.label}</span>
+                        {tab.badge && (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black leading-none shrink-0 ${
+                            isActive
+                              ? 'bg-neutral-950/25 text-neutral-950'
+                              : tab.badge === 'ON'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                          }`}>
+                            {tab.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* SUB-TAB 0: APP IDENTITY & LOGO MANAGER */}
@@ -7773,13 +8035,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3">
-                  <FileSpreadsheet className="w-7 h-7 text-emerald-400" />
-                  <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Export Submissions to Spreadsheet</h4>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    Instantly package and download a formatted `.csv` spreadsheet file with every received guest ticket request, phone, and flight details.
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <FileSpreadsheet className="w-7 h-7 text-emerald-400" />
+                    <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Export Submissions to Spreadsheet</h4>
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      Instantly package and download a formatted `.csv` spreadsheet file with every received guest ticket request, phone, and flight details.
+                    </p>
+                  </div>
                   <button
                     onClick={() => exportSubmissionsCSV(submissions)}
                     className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg transition-all active:scale-[0.98] cursor-pointer"
@@ -7788,12 +8052,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   </button>
                 </div>
 
-                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3">
-                  <RefreshCw className="w-7 h-7 text-amber-400" />
-                  <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Restock Demo Sample Log Database</h4>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    Clear current state logs and populate realistic sample carnival and travel VIP bookings to demonstrate admin features.
-                  </p>
+                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <Upload className="w-7 h-7 text-sky-400" />
+                    <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Import Records from CSV</h4>
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      Bulk upload and synchronize guest reservations, pass orders, or form submissions with automatic validation and preview.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowImportCsvModal(true)}
+                    className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Import CSV
+                  </button>
+                </div>
+
+                <div className="p-5 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <RefreshCw className="w-7 h-7 text-amber-400" />
+                    <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Restock Demo Sample Log Database</h4>
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      Clear current state logs and populate realistic sample carnival and travel VIP bookings to demonstrate admin features.
+                    </p>
+                  </div>
                   <button
                     onClick={handleResetDemo}
                     className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-lg transition-all active:scale-[0.98] cursor-pointer"
@@ -8422,6 +8704,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             <div className="px-6 py-5 border-t border-white/5 bg-neutral-950/40 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubmission(selectedPassOrder);
+                  }}
+                  className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  title="Edit Pass Order Details & Metadata"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-sky-400" /> Edit Order
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setPreviewPdfSub(selectedPassOrder);
                   }}
@@ -8432,6 +8726,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setReplyingSub(selectedPassOrder);
                   }}
@@ -8864,6 +9159,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
             setAttachPassPdf(true);
             setReplyingSub(previewPdfSub);
           }}
+        />
+      )}
+
+      {/* CSV Bulk Import Modal */}
+      <ImportCsvModal
+        isOpen={showImportCsvModal}
+        onClose={() => setShowImportCsvModal(false)}
+        defaultType={activeAdminTab === 'orders' ? 'pass-order' : undefined}
+        primaryColor={primaryColor}
+        onSuccess={(count) => {
+          loadData();
+          setSaveToast(`Successfully imported and synchronized ${count} record(s) from CSV!`);
+          setTimeout(() => setSaveToast(null), 3500);
+        }}
+      />
+
+      {/* Edit Submission Modal */}
+      {editingSubmission && (
+        <EditSubmissionModal
+          submission={editingSubmission}
+          isOpen={!!editingSubmission}
+          onClose={() => setEditingSubmission(null)}
+          onSave={handleSaveEditedSubmission}
+          primaryColor={primaryColor}
         />
       )}
 

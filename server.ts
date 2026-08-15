@@ -394,6 +394,53 @@ async function startServer() {
     }
   });
 
+  app.post('/api/submissions/batch', async (req, res) => {
+    try {
+      const items = Array.isArray(req.body) ? req.body : req.body.items;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: 'Expected an array of submissions in request body or items field' });
+      }
+
+      await db.run('BEGIN TRANSACTION');
+      for (const item of items) {
+        const sub = {
+          ...item,
+          id: item.id || `sub-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          submittedAt: item.submittedAt || new Date().toISOString(),
+          status: item.status || 'new'
+        };
+        await db.run('INSERT OR REPLACE INTO submissions (id, data_json) VALUES (?, ?)', sub.id, JSON.stringify(sub));
+      }
+      await db.run('COMMIT');
+
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
+      res.json({ success: true, count: items.length });
+    } catch (e: any) {
+      try { await db.run('ROLLBACK'); } catch {}
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put('/api/submissions/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const row = await db.get('SELECT data_json FROM submissions WHERE id = ?', id);
+      if (!row) {
+        return res.status(404).json({ error: 'Submission not found' });
+      }
+      const existing = JSON.parse(row.data_json);
+      const merged = { ...existing, ...updatedData, id };
+      await db.run('UPDATE submissions SET data_json = ? WHERE id = ?', JSON.stringify(merged), id);
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('submissions', senderId);
+      res.json(merged);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.put('/api/submissions/:id/status', async (req, res) => {
     try {
       const { id } = req.params;

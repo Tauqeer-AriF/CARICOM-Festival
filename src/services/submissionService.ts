@@ -1,6 +1,12 @@
 import { FormSubmissionItem, SubmissionReply, SiteConfig, EventItem, HotelItem, PassItem, GalleryItem, MediaItem, TestimonialItem } from '../types';
 import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES } from '../data/festivalData';
 import { GALLERY_ITEMS } from '../data/galleryData';
+import { 
+  ALL_SUBMISSION_TYPE_TAGS, 
+  ALL_SUBMISSION_STATUS_TAGS, 
+  normalizeTypeTag, 
+  normalizeStatusTag 
+} from '../utils/submissionTags';
 
 const SUBMISSIONS_KEY = 'grenada_caricom_submissions_v1';
 const SITE_CONFIG_KEY = 'grenada_caricom_site_config_v1';
@@ -658,6 +664,44 @@ export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt'
   return newSub;
 };
 
+export const updateSubmission = (
+  id: string,
+  updatedData: Partial<FormSubmissionItem>
+): FormSubmissionItem | null => {
+  const current = getSubmissions();
+  let updatedItem: FormSubmissionItem | null = null;
+  const updated = current.map((item) => {
+    if (item.id === id) {
+      updatedItem = {
+        ...item,
+        ...updatedData,
+        id, // preserve immutable ID
+      };
+      return updatedItem;
+    }
+    return item;
+  });
+
+  if (!updatedItem) return null;
+
+  saveSubmissions(updated);
+
+  // Sync to backend SQLite
+  safeApiCall(`/api/submissions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updatedItem)
+  }).catch(() => {
+    safeApiCall('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedItem)
+    });
+  });
+
+  return updatedItem;
+};
+
 export const updateSubmissionStatus = (id: string, status: 'new' | 'in-review' | 'resolved'): void => {
   const current = getSubmissions();
   const updated = current.map(item => item.id === id ? { ...item, status } : item);
@@ -829,27 +873,435 @@ export const saveSiteConfig = (config: SiteConfig): void => {
   }
 };
 
-export const exportSubmissionsCSV = (submissions: FormSubmissionItem[]): void => {
-  const headers = ['ID', 'Type', 'Name', 'Email', 'Phone', 'Topic/Pass', 'Status', 'Submitted At', 'Amount (GBP)', 'Details/Message'];
-  const rows = submissions.map(s => [
-    s.id,
-    s.type,
-    `"${(s.name || '').replace(/"/g, '""')}"`,
-    `"${(s.email || '').replace(/"/g, '""')}"`,
-    `"${(s.phone || '').replace(/"/g, '""')}"`,
-    `"${(s.topicOrPass || '').replace(/"/g, '""')}"`,
-    s.status,
-    new Date(s.submittedAt).toLocaleString(),
-    s.amountGBP ?? 0,
-    `"${(s.messageOrDetails || '').replace(/"/g, '""')}"`
-  ]);
+export const exportSubmissionsCSV = (
+  submissions: FormSubmissionItem[], 
+  filenamePrefix: string = 'Grenada_Festival_Form_Submissions'
+): void => {
+  const headers = [
+    'ID',
+    'Type Code',
+    'Category Tag',
+    'Status Code',
+    'Status Tag',
+    'Guest Name',
+    'Email',
+    'Phone',
+    'Topic / Pass Package',
+    'Amount (GBP)',
+    'Submitted Date (ISO)',
+    'Submitted At (Formatted)',
+    'Details / Message',
+    'Metadata & Extra Tags'
+  ];
+
+  const rows = submissions.map(s => {
+    const typeMeta = ALL_SUBMISSION_TYPE_TAGS[s.type] || ALL_SUBMISSION_TYPE_TAGS['contact'];
+    const statusMeta = ALL_SUBMISSION_STATUS_TAGS[s.status] || ALL_SUBMISSION_STATUS_TAGS['new'];
+    
+    // Format metadata tags if present
+    const metaString = s.extraDetails ? JSON.stringify(s.extraDetails) : '';
+
+    return [
+      s.id,
+      s.type,
+      `"${typeMeta.label.replace(/"/g, '""')}"`,
+      s.status,
+      `"${statusMeta.label.replace(/"/g, '""')}"`,
+      `"${(s.name || '').replace(/"/g, '""')}"`,
+      `"${(s.email || '').replace(/"/g, '""')}"`,
+      `"${(s.phone || '').replace(/"/g, '""')}"`,
+      `"${(s.topicOrPass || '').replace(/"/g, '""')}"`,
+      (s.amountGBP ?? 0).toFixed(2),
+      s.submittedAt || new Date().toISOString(),
+      `"${new Date(s.submittedAt).toLocaleString('en-GB').replace(/"/g, '""')}"`,
+      `"${(s.messageOrDetails || '').replace(/"/g, '""')}"`,
+      `"${metaString.replace(/"/g, '""')}"`
+    ];
+  });
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `Grenada_Festival_Form_Submissions_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute('download', `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+/**
+ * Robust CSV parser that correctly handles escaped quotes, quoted newlines, and commas.
+ */
+export const parseCSVRows = (text: string): string[][] => {
+  const cleanText = text.replace(/^\uFEFF/, '').trim();
+  if (!cleanText) return [];
+
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText[i];
+    const nextChar = cleanText[i + 1];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          // Escaped quote
+          currentField += '"';
+          i++;
+        } else {
+          // End of quoted field
+          inQuotes = false;
+        }
+      } else {
+        currentField += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        currentRow.push(currentField.trim());
+        currentField = '';
+      } else if (char === '\r') {
+        // Skip carriage returns
+        continue;
+      } else if (char === '\n') {
+        currentRow.push(currentField.trim());
+        if (currentRow.some(field => field.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    }
+  }
+
+  // Push final field/row if present
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some(field => field.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+};
+
+export interface ParsedCsvResult {
+  validItems: FormSubmissionItem[];
+  errors: string[];
+  totalRows: number;
+  tagCounts: Record<FormSubmissionItem['type'], number>;
+  statusCounts: Record<FormSubmissionItem['status'], number>;
+  totalRevenueGBP: number;
+}
+
+/**
+ * Parse CSV text into validated FormSubmissionItem array with smart header detection
+ * and synchronized tag normalization across all 5 categories and 3 statuses.
+ */
+export const parseSubmissionsCSV = (
+  csvText: string,
+  defaultType?: FormSubmissionItem['type']
+): ParsedCsvResult => {
+  const rawRows = parseCSVRows(csvText);
+  if (rawRows.length < 2) {
+    return {
+      validItems: [],
+      errors: ['The uploaded CSV file is empty or does not contain a header and data rows.'],
+      totalRows: 0,
+      tagCounts: { 'pass-order': 0, contact: 0, 'flight-registration': 0, 'transport-request': 0, newsletter: 0 },
+      statusCounts: { new: 0, 'in-review': 0, resolved: 0 },
+      totalRevenueGBP: 0
+    };
+  }
+
+  const rawHeaders = rawRows[0].map(h => h.toLowerCase().trim().replace(/[\s_\-\/\(\)]/g, ''));
+  const originalHeaders = rawRows[0].map(h => h.trim());
+  const dataRows = rawRows.slice(1);
+
+  // Helper to find column index from aliases
+  const findCol = (aliases: string[]): number => {
+    return rawHeaders.findIndex(h => aliases.some(alias => h === alias || h.includes(alias)));
+  };
+
+  const idCol = findCol(['id', 'subid', 'orderid', 'ref', 'reference', 'ordernumber', 'ticketid']);
+  const typeCol = findCol(['typecode', 'type', 'categorytag', 'formtype', 'category', 'submissiontype', 'tag']);
+  const statusCol = findCol(['statuscode', 'status', 'statustag', 'state', 'stage', 'lifecycle', 'paymentstatus']);
+  const nameCol = findCol(['guestname', 'name', 'fullname', 'customer', 'customername', 'applicant', 'contactname', 'attendee']);
+  const emailCol = findCol(['email', 'emailaddress', 'mail', 'email-address']);
+  const phoneCol = findCol(['phone', 'phonenumber', 'tel', 'telephone', 'mobile', 'whatsapp', 'cell']);
+  const topicCol = findCol(['topicpass', 'topicpasspackage', 'topic', 'pass', 'package', 'item', 'passtopic', 'subject', 'ticket', 'passpackage', 'tier']);
+  const dateCol = findCol(['submitteddateiso', 'submittedatformatted', 'submittedat', 'submitteddate', 'date', 'createdat', 'timestamp', 'time', 'purchasedat']);
+  const amountCol = findCol(['amountgbp', 'amount', 'price', 'total', 'revenue', 'cost', 'fee', 'totalpaid', 'paid']);
+  const messageCol = findCol(['detailsmessage', 'message', 'details', 'notes', 'comments', 'inquiry', 'description', 'notescomments', 'specialrequests']);
+  const metadataCol = findCol(['metadataextratags', 'metadata', 'customtags', 'extradetails', 'tags', 'properties']);
+
+  const knownColIndices = new Set([idCol, typeCol, statusCol, nameCol, emailCol, phoneCol, topicCol, dateCol, amountCol, messageCol, metadataCol].filter(idx => idx >= 0));
+
+  const validItems: FormSubmissionItem[] = [];
+  const errors: string[] = [];
+  const tagCounts: Record<FormSubmissionItem['type'], number> = {
+    'pass-order': 0,
+    contact: 0,
+    'flight-registration': 0,
+    'transport-request': 0,
+    newsletter: 0
+  };
+  const statusCounts: Record<FormSubmissionItem['status'], number> = {
+    new: 0,
+    'in-review': 0,
+    resolved: 0
+  };
+  let totalRevenueGBP = 0;
+
+  dataRows.forEach((row, idx) => {
+    const rowNum = idx + 2;
+    if (row.length === 0 || row.every(cell => !cell || cell.trim() === '')) return;
+
+    const rawName = nameCol >= 0 ? row[nameCol]?.trim() : '';
+    const rawEmail = emailCol >= 0 ? row[emailCol]?.trim() : '';
+
+    if (!rawName && !rawEmail && row.length < 2) {
+      errors.push(`Row ${rowNum}: Skipped row due to empty name and email.`);
+      return;
+    }
+
+    // Determine type tag (handles all 5 tags identically)
+    const rawType = typeCol >= 0 ? row[typeCol] : undefined;
+    const determinedType = normalizeTypeTag(rawType, defaultType || 'contact');
+
+    // Determine status tag (handles all 3 statuses identically)
+    const rawStatus = statusCol >= 0 ? row[statusCol] : undefined;
+    const determinedStatus = normalizeStatusTag(rawStatus, 'new');
+
+    // Determine Amount
+    let parsedAmount: number | undefined = undefined;
+    if (amountCol >= 0 && row[amountCol]) {
+      const cleanedAmount = row[amountCol].replace(/[^0-9.-]+/g, '');
+      const num = parseFloat(cleanedAmount);
+      if (!isNaN(num) && num >= 0) {
+        parsedAmount = Math.round(num * 100) / 100;
+      }
+    }
+    if (parsedAmount === undefined && determinedType === 'pass-order') {
+      parsedAmount = 150; // default standard pass baseline if missing
+    }
+
+    // Determine submittedAt date
+    let submittedAt = new Date().toISOString();
+    if (dateCol >= 0 && row[dateCol]) {
+      const parsedDate = new Date(row[dateCol]);
+      if (!isNaN(parsedDate.getTime())) {
+        submittedAt = parsedDate.toISOString();
+      }
+    }
+
+    // Parse extra metadata tags
+    let extraDetails: Record<string, string> = {};
+    if (metadataCol >= 0 && row[metadataCol]) {
+      const rawMeta = row[metadataCol].trim();
+      if (rawMeta.startsWith('{') && rawMeta.endsWith('}')) {
+        try {
+          extraDetails = JSON.parse(rawMeta);
+        } catch {
+          extraDetails = { RawMetadata: rawMeta };
+        }
+      } else if (rawMeta) {
+        extraDetails = { Tags: rawMeta };
+      }
+    }
+
+    // Collect any additional custom columns from the CSV
+    originalHeaders.forEach((headerName, hIdx) => {
+      if (!knownColIndices.has(hIdx) && row[hIdx]?.trim()) {
+        const key = headerName || `Column_${hIdx + 1}`;
+        extraDetails[key] = row[hIdx].trim();
+      }
+    });
+
+    const item: FormSubmissionItem = {
+      id: (idCol >= 0 && row[idCol]?.trim()) ? row[idCol].trim() : `sub-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      type: determinedType,
+      name: rawName || 'Imported Guest',
+      email: rawEmail || 'attendee@caricom2027.gd',
+      phone: phoneCol >= 0 && row[phoneCol]?.trim() ? row[phoneCol].trim() : undefined,
+      topicOrPass: topicCol >= 0 && row[topicCol]?.trim() 
+        ? row[topicCol].trim() 
+        : (determinedType === 'pass-order' ? 'Full Festival Pass (All-Access)' : ALL_SUBMISSION_TYPE_TAGS[determinedType].label),
+      status: determinedStatus,
+      submittedAt: submittedAt,
+      amountGBP: parsedAmount,
+      messageOrDetails: messageCol >= 0 && row[messageCol]?.trim() ? row[messageCol].trim() : undefined,
+      extraDetails: Object.keys(extraDetails).length > 0 ? extraDetails : undefined
+    };
+
+    validItems.push(item);
+    tagCounts[item.type] = (tagCounts[item.type] || 0) + 1;
+    statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+    if (item.amountGBP) {
+      totalRevenueGBP += item.amountGBP;
+    }
+  });
+
+  return {
+    validItems,
+    errors,
+    totalRows: dataRows.length,
+    tagCounts,
+    statusCounts,
+    totalRevenueGBP: Math.round(totalRevenueGBP * 100) / 100
+  };
+};
+
+/**
+ * Import parsed submissions into local storage and database
+ */
+export const importSubmissionsCSV = async (
+  csvText: string,
+  options?: {
+    defaultType?: FormSubmissionItem['type'];
+    mergeStrategy?: 'append' | 'upsert';
+  }
+): Promise<{ success: boolean; importedCount: number; errors: string[] }> => {
+  const result = parseSubmissionsCSV(csvText, options?.defaultType);
+  if (result.validItems.length === 0) {
+    return {
+      success: false,
+      importedCount: 0,
+      errors: result.errors.length > 0 ? result.errors : ['No valid records could be extracted from the CSV file.']
+    };
+  }
+
+  const currentSubmissions = getSubmissions();
+  const mergeStrategy = options?.mergeStrategy || 'append';
+  let finalSubmissions: FormSubmissionItem[] = [];
+
+  if (mergeStrategy === 'upsert') {
+    const existingMap = new Map<string, FormSubmissionItem>();
+    currentSubmissions.forEach(sub => existingMap.set(sub.id, sub));
+
+    result.validItems.forEach(item => {
+      existingMap.set(item.id, item);
+    });
+
+    finalSubmissions = Array.from(existingMap.values());
+  } else {
+    // Append strategy: ensure unique IDs
+    const preparedItems = result.validItems.map((item, idx) => ({
+      ...item,
+      id: `sub-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`
+    }));
+    finalSubmissions = [...preparedItems, ...currentSubmissions];
+  }
+
+  // Sort descending by date
+  finalSubmissions.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+  // Save locally
+  saveSubmissions(finalSubmissions);
+
+  // Sync batch to server backend
+  try {
+    await safeApiCall('/api/submissions/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: result.validItems })
+    });
+  } catch (err) {
+    console.warn('Backend batch sync error:', err);
+  }
+
+  return {
+    success: true,
+    importedCount: result.validItems.length,
+    errors: result.errors
+  };
+};
+
+/**
+ * Generate a ready-to-fill sample CSV template with synchronized columns and complete tags
+ */
+export const generateSampleCSV = (mode: 'all' | 'orders' | 'forms' = 'all'): string => {
+  const headers = [
+    'ID',
+    'Type Code',
+    'Category Tag',
+    'Status Code',
+    'Status Tag',
+    'Guest Name',
+    'Email',
+    'Phone',
+    'Topic / Pass Package',
+    'Amount (GBP)',
+    'Submitted Date (ISO)',
+    'Submitted At (Formatted)',
+    'Details / Message',
+    'Metadata & Extra Tags'
+  ];
+  
+  let sampleRows: string[][] = [];
+
+  if (mode === 'orders') {
+    sampleRows = [
+      ['ORD-2027-101', 'pass-order', 'Pass Order & Ticketing', 'resolved', 'Resolved / Confirmed', 'Marcus Sterling', 'marcus.sterling@uk-finance.co.uk', '+44 7700 900123', 'VIP Diamond All-Access Pass (4-Day)', '495.00', '2026-08-10T14:30:00.000Z', '10/08/2026, 15:30', 'Includes private catamaran transfer and VIP lounge wristbands.', '{"OrderRef":"ORD-2027-101","Tier":"VIP Diamond","Wristbands":"2"}'],
+      ['ORD-2027-102', 'pass-order', 'Pass Order & Ticketing', 'new', 'New / Unprocessed', 'Elena Rostova', 'elena.rostova@caribbeantravel.de', '+49 151 2345678', 'Weekend Carnival Hopper Pass', '225.00', '2026-08-14T09:15:00.000Z', '14/08/2026, 10:15', '2x Weekend Hopper passes. Requested vegetarian catering options.', '{"OrderRef":"ORD-2027-102","Dietary":"Vegetarian"}'],
+      ['ORD-2027-103', 'pass-order', 'Pass Order & Ticketing', 'in-review', 'In Review / In Progress', 'David Baptiste', 'david.b@spiceisle-enterprises.gd', '+1 473 440 2233', 'Opening Gala & Heritage Pass', '150.00', '2026-08-15T11:00:00.000Z', '15/08/2026, 12:00', 'Corporate hospitality booking for 5 delegates.', '{"OrderRef":"ORD-2027-103","Seats":"5"}']
+    ];
+  } else if (mode === 'forms') {
+    sampleRows = [
+      ['SUB-2027-201', 'contact', 'Contact Inquiry', 'new', 'New / Unprocessed', 'Sophia Chen', 'sophia.chen@globalarts.org', '+1 416 555 0199', 'Cultural Workshop Enquiry', '0.00', '2026-08-12T16:45:00.000Z', '12/08/2026, 17:45', 'Interested in hosting a Caribbean pan jazz youth workshop during festival week.', '{"Department":"Arts & Culture"}'],
+      ['SUB-2027-202', 'flight-registration', 'Flight Registration', 'resolved', 'Resolved / Confirmed', 'Captain Liam O\'Connor', 'liam.oc@aerocrew.ie', '+353 87 123 4567', 'BA2157 to GND Airport', '0.00', '2026-08-13T18:20:00.000Z', '13/08/2026, 19:20', 'Arriving Maurice Bishop International GND on July 28 at 16:40 with party of 4.', '{"FlightNumber":"BA2157","Airline":"British Airways","ArrivalAirport":"GND"}'],
+      ['SUB-2027-203', 'transport-request', 'Airport & Hotel Shuttle', 'in-review', 'In Review / In Progress', 'Amara Adebayo', 'amara.adebayo@lagos-media.ng', '+234 802 345 6789', 'Airport Executive Shuttle', '65.00', '2026-08-14T12:10:00.000Z', '14/08/2026, 13:10', 'Requires VIP direct transfer from GND Airport to Silversands Resort Grand Anse.', '{"PickupLocation":"GND Airport","DropoffLocation":"Silversands Resort"}'],
+      ['SUB-2027-204', 'newsletter', 'VIP Newsletter Subscriber', 'resolved', 'Resolved / Confirmed', 'Chloe Beauchamp', 'chloe.beauchamp@paris-culture.fr', '+33 6 12 34 56 78', 'VIP Newsletter Subscription', '0.00', '2026-08-15T08:00:00.000Z', '15/08/2026, 09:00', 'Subscribed for London DJ headline lineup drops and ticket priority alerts.', '{"Source":"Website Footer"}']
+    ];
+  } else {
+    // Complete synchronized sample with all 5 tags
+    sampleRows = [
+      ['ORD-2027-101', 'pass-order', 'Pass Order & Ticketing', 'resolved', 'Resolved / Confirmed', 'Marcus Sterling', 'marcus.sterling@uk-finance.co.uk', '+44 7700 900123', 'VIP Diamond All-Access Pass (4-Day)', '495.00', '2026-08-10T14:30:00.000Z', '10/08/2026, 15:30', 'Includes private catamaran transfer and VIP lounge wristbands.', '{"Tier":"VIP Diamond"}'],
+      ['SUB-2027-201', 'contact', 'Contact Inquiry', 'new', 'New / Unprocessed', 'Sophia Chen', 'sophia.chen@globalarts.org', '+1 416 555 0199', 'Cultural Workshop Enquiry', '0.00', '2026-08-12T16:45:00.000Z', '12/08/2026, 17:45', 'Interested in hosting a Caribbean pan jazz youth workshop.', '{"Category":"Education"}'],
+      ['SUB-2027-202', 'flight-registration', 'Flight Registration', 'resolved', 'Resolved / Confirmed', 'Liam O\'Connor', 'liam.oc@aerocrew.ie', '+353 87 123 4567', 'BA2157 (LGW -> GND)', '0.00', '2026-08-13T18:20:00.000Z', '13/08/2026, 19:20', 'Arriving Maurice Bishop GND Airport on July 28 with party of 4.', '{"FlightNumber":"BA2157","Airline":"British Airways"}'],
+      ['SUB-2027-203', 'transport-request', 'Airport & Hotel Shuttle', 'in-review', 'In Review / In Progress', 'Amara Adebayo', 'amara.adebayo@lagos-media.ng', '+234 802 345 6789', 'Executive Airport Shuttle', '65.00', '2026-08-14T12:10:00.000Z', '14/08/2026, 13:10', 'VIP transfer from GND Airport to Grand Anse.', '{"ShuttleRoute":"GND to Grand Anse"}'],
+      ['SUB-2027-204', 'newsletter', 'VIP Newsletter Subscriber', 'resolved', 'Resolved / Confirmed', 'Chloe Beauchamp', 'chloe.beauchamp@paris-culture.fr', '+33 6 12 34 56 78', 'VIP Newsletter Subscription', '0.00', '2026-08-15T08:00:00.000Z', '15/08/2026, 09:00', 'Subscribed for London DJ headline lineup drops.', '{"Source":"Website Footer"}']
+    ];
+  }
+
+  const formattedRows = sampleRows.map(r => [
+    r[0],
+    r[1],
+    `"${r[2].replace(/"/g, '""')}"`,
+    r[3],
+    `"${r[4].replace(/"/g, '""')}"`,
+    `"${r[5].replace(/"/g, '""')}"`,
+    `"${r[6].replace(/"/g, '""')}"`,
+    `"${r[7].replace(/"/g, '""')}"`,
+    `"${r[8].replace(/"/g, '""')}"`,
+    r[9],
+    r[10],
+    `"${r[11].replace(/"/g, '""')}"`,
+    `"${r[12].replace(/"/g, '""')}"`,
+    `"${r[13].replace(/"/g, '""')}"`
+  ]);
+
+  return [headers.join(','), ...formattedRows.map(r => r.join(','))].join('\n');
+};
+
+/**
+ * Trigger download of ready-to-fill sample CSV template
+ */
+export const downloadSampleCSV = (mode: 'all' | 'orders' | 'forms' = 'all'): void => {
+  const content = generateSampleCSV(mode);
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  const label = mode === 'orders' ? 'Pass_Orders' : mode === 'forms' ? 'Received_Forms' : 'All_Tags_Unified';
+  link.setAttribute('download', `Grenada_Festival_Template_${label}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
