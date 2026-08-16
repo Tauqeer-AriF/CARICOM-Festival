@@ -202,13 +202,17 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
         fetchDriveBackups(result.accessToken);
       }
     } catch (e: any) {
-      console.error('Google Drive sign in failed:', e);
       const isUnauthorizedDomain = e?.code === 'auth/unauthorized-domain' || e?.message?.includes('unauthorized-domain');
+      const isCancelled = e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request';
+      if (isCancelled) {
+        return;
+      }
       if (isUnauthorizedDomain) {
         const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
         setAuthDomainError(currentHostname);
         showToast('Domain not authorized in Firebase Auth settings', 'error');
       } else {
+        console.error('Google Drive sign in failed:', e);
         showToast(e.message || 'Failed to connect Google Drive', 'error');
       }
     } finally {
@@ -1075,12 +1079,29 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
                   </button>
                 </div>
 
-                <div className="text-[11px] text-neutral-400 bg-neutral-950/60 rounded-lg p-2.5 space-y-1">
-                  <p className="font-semibold text-neutral-300">Quick 3-step fix in Firebase Console:</p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-neutral-400">
-                    <li>Open <strong>Firebase Console → Authentication → Settings tab</strong>.</li>
-                    <li>Scroll to <strong>Authorized domains</strong> and click <strong>Add domain</strong>.</li>
-                    <li>Paste <code className="text-amber-300 font-mono bg-neutral-900 px-1 py-0.5 rounded">{authDomainError || window.location.hostname}</code> (or <code className="text-amber-300 font-mono bg-neutral-900 px-1 py-0.5 rounded">run.app</code>) and click <strong>Save</strong>.</li>
+                <div className="text-[11px] text-neutral-400 bg-neutral-950/60 rounded-lg p-2.5 space-y-1.5">
+                  <p className="font-semibold text-neutral-300">Quick fix in Firebase Console:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-neutral-400">
+                    <li>
+                      Go directly to{' '}
+                      <a
+                        href="https://console.firebase.google.com/project/gen-lang-client-0460038713/authentication/settings"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sky-400 underline hover:text-sky-300 inline-flex items-center gap-1 font-semibold"
+                      >
+                        Firebase Auth Settings <ExternalLink className="w-3 h-3 inline" />
+                      </a>
+                    </li>
+                    <li>Scroll down to the <strong>Authorized domains</strong> list.</li>
+                    <li>Click <strong>Add domain</strong> and add:
+                      <div className="mt-1 pl-4 space-y-1 font-mono text-[10px] text-amber-300">
+                        <div>• <code className="bg-neutral-900 px-1 py-0.5 rounded">caricomfestival.co.uk</code></div>
+                        <div>• <code className="bg-neutral-900 px-1 py-0.5 rounded">www.caricomfestival.co.uk</code></div>
+                        <div>• <code className="bg-neutral-900 px-1 py-0.5 rounded">run.app</code> <span className="text-neutral-500 font-sans text-[9px]">(for Cloud Run previews)</span></div>
+                      </div>
+                    </li>
+                    <li>Click <strong>Save</strong> and wait ~10 seconds for Firebase to propagate the changes.</li>
                   </ol>
                 </div>
               </div>
