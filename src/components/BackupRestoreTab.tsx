@@ -100,6 +100,8 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
   const [isUploadingToDrive, setIsUploadingToDrive] = useState<boolean>(false);
   const [uploadingFilename, setUploadingFilename] = useState<string | null>(null);
   const [isBackingUpAndUploading, setIsBackingUpAndUploading] = useState<boolean>(false);
+  const [authDomainError, setAuthDomainError] = useState<string | null>(null);
+  const [hasCopiedDomain, setHasCopiedDomain] = useState<boolean>(false);
 
   // Load Drive settings and initialize auth listener
   useEffect(() => {
@@ -169,11 +171,13 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
   // Handle Google Drive connect / sign in
   const handleConnectGoogleDrive = async () => {
     setIsSigningInGoogle(true);
+    setAuthDomainError(null);
     try {
       const result = await googleSignIn();
       if (result) {
         setDriveUser(result.user);
         setDriveToken(result.accessToken);
+        setAuthDomainError(null);
         showToast(`Connected to Google Drive as ${result.user.email}`);
 
         // Provision folder and enable auto-upload by default
@@ -199,7 +203,14 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       }
     } catch (e: any) {
       console.error('Google Drive sign in failed:', e);
-      showToast(e.message || 'Failed to connect Google Drive', 'error');
+      const isUnauthorizedDomain = e?.code === 'auth/unauthorized-domain' || e?.message?.includes('unauthorized-domain');
+      if (isUnauthorizedDomain) {
+        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        setAuthDomainError(currentHostname);
+        showToast('Domain not authorized in Firebase Auth settings', 'error');
+      } else {
+        showToast(e.message || 'Failed to connect Google Drive', 'error');
+      }
     } finally {
       setIsSigningInGoogle(false);
     }
@@ -1031,21 +1042,66 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
             </div>
           </div>
         ) : (
-          <div className="bg-neutral-950/70 p-4 rounded-xl flex items-center justify-between gap-4 text-xs text-neutral-400">
-            <div className="space-y-1">
-              <p className="font-semibold text-neutral-200">How Google Drive Auto-Upload works:</p>
-              <p className="text-[11px] text-neutral-400 leading-relaxed">
-                Connect your account once, and every automated schedule or manual backup will be silently and securely uploaded to a private folder in your Google Drive.
-              </p>
+          <div className="space-y-3">
+            {authDomainError && (
+              <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl p-4 text-xs space-y-2.5 text-amber-200">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-300">Firebase Auth: Domain Authorization Required</span>
+                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                      Firebase blocked the Google OAuth popup because this Cloud Run domain has not been added to your Firebase Authorized Domains list yet.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-950/90 border border-neutral-800 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-[11px]">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="text-neutral-500 shrink-0">Domain to add:</span>
+                    <span className="text-amber-300 font-bold truncate">{authDomainError || window.location.hostname}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const domain = authDomainError || window.location.hostname;
+                      navigator.clipboard.writeText(domain);
+                      setHasCopiedDomain(true);
+                      setTimeout(() => setHasCopiedDomain(false), 3000);
+                    }}
+                    className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 transition-colors cursor-pointer flex items-center gap-1 self-start sm:self-center"
+                  >
+                    {hasCopiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : null}
+                    <span>{hasCopiedDomain ? 'Copied!' : 'Copy Domain'}</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-neutral-400 bg-neutral-950/60 rounded-lg p-2.5 space-y-1">
+                  <p className="font-semibold text-neutral-300">Quick 3-step fix in Firebase Console:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-neutral-400">
+                    <li>Open <strong>Firebase Console → Authentication → Settings tab</strong>.</li>
+                    <li>Scroll to <strong>Authorized domains</strong> and click <strong>Add domain</strong>.</li>
+                    <li>Paste <code className="text-amber-300 font-mono bg-neutral-900 px-1 py-0.5 rounded">{authDomainError || window.location.hostname}</code> (or <code className="text-amber-300 font-mono bg-neutral-900 px-1 py-0.5 rounded">run.app</code>) and click <strong>Save</strong>.</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-neutral-950/70 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-neutral-400">
+              <div className="space-y-1">
+                <p className="font-semibold text-neutral-200">How Google Drive Auto-Upload works:</p>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  Connect your account once, and every automated schedule or manual backup will be silently and securely uploaded to a private folder in your Google Drive.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleConnectGoogleDrive}
+                disabled={isSigningInGoogle}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer shrink-0 transition-transform active:scale-95 shadow-sm disabled:opacity-50"
+              >
+                {isSigningInGoogle ? 'Connecting...' : authDomainError ? 'Try Connecting Again' : 'Connect Now'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleConnectGoogleDrive}
-              disabled={isSigningInGoogle}
-              className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold text-xs rounded-xl cursor-pointer shrink-0 transition-transform active:scale-95 shadow-sm disabled:opacity-50"
-            >
-              {isSigningInGoogle ? 'Connecting...' : 'Connect Now'}
-            </button>
           </div>
         )}
       </div>
