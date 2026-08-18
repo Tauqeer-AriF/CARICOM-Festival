@@ -7876,9 +7876,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {(() => {
-                    const totalGalleryPages = Math.ceil(galleryItems.length / ITEMS_PER_PAGE) || 1;
+                    const GALLERY_ITEMS_PER_PAGE = 12;
+                    const totalGalleryPages = Math.ceil(galleryItems.length / GALLERY_ITEMS_PER_PAGE) || 1;
                     const currentGalleryPage = Math.min(galleryPage, totalGalleryPages);
-                    const paginatedGallery = galleryItems.slice((currentGalleryPage - 1) * ITEMS_PER_PAGE, currentGalleryPage * ITEMS_PER_PAGE);
+                    const paginatedGallery = galleryItems.slice((currentGalleryPage - 1) * GALLERY_ITEMS_PER_PAGE, currentGalleryPage * GALLERY_ITEMS_PER_PAGE);
                     return (
                       <>
                         {paginatedGallery.map((item) => {
@@ -7949,7 +7950,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         {totalGalleryPages > 1 && (
                           <div className="col-span-full flex items-center justify-between pt-4 border-t border-neutral-800/40 bg-neutral-950/10 px-3 py-2 rounded-lg">
                             <span className="text-[11px] text-neutral-400 font-sans">
-                              Showing <span className="text-white font-bold">{((currentGalleryPage - 1) * ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentGalleryPage * ITEMS_PER_PAGE, galleryItems.length)}</span> of <span className="text-white font-bold">{galleryItems.length}</span> photos
+                              Showing <span className="text-white font-bold">{((currentGalleryPage - 1) * GALLERY_ITEMS_PER_PAGE) + 1}</span> to <span className="text-white font-bold">{Math.min(currentGalleryPage * GALLERY_ITEMS_PER_PAGE, galleryItems.length)}</span> of <span className="text-white font-bold">{galleryItems.length}</span> photos
                             </span>
                             <div className="flex items-center gap-2">
                               <button

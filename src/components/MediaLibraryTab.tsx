@@ -454,7 +454,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     showToast(enabled ? `Auto-cleanup enabled for unused media older than ${ageInDays === 0 ? 'immediate' : ageInDays + ' days'}!` : 'Auto-cleanup disabled.');
   };
 
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 12;
   const totalPages = Math.ceil(filteredMedia.length / ITEMS_PER_PAGE) || 1;
   const paginatedMedia = filteredMedia.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
