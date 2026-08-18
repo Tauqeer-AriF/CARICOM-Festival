@@ -94,11 +94,26 @@ import {
   Shield,
   Compass,
   Sun,
+  Moon,
   Palmtree,
-  Database
+  Database,
+  CalendarRange,
+  Sliders,
+  CalendarCheck,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { 
+  formatEventDateRange, 
+  calculateDurationDays, 
+  formatIsoDate, 
+  shiftIsoDate, 
+  parseTextDateToIso, 
+  parseIsoDate,
+  getFestivalDatesFromEvents,
+  getEffectiveFestivalDateRange
+} from '../utils/dateUtils';
 import { LuxurySkeletonOverlay } from '../components/LuxurySkeletonOverlay';
 import { CustomConfirmModal } from '../components/CustomConfirmModal';
 import { MediaSelectorModal } from '../components/MediaSelectorModal';
@@ -116,9 +131,45 @@ import {
 
 interface AdminDashboardViewProps {
   setActiveTab: (tab: any) => void;
+  theme?: 'dark' | 'light';
+  setTheme?: (theme: 'dark' | 'light') => void;
 }
 
-export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiveTab }) => {
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ 
+  setActiveTab,
+  theme: propTheme,
+  setTheme: propSetTheme
+}) => {
+  // Theme state synchronized with prop or localStorage
+  const [internalTheme, setInternalTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null;
+      return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const activeTheme = propTheme || internalTheme;
+
+  const handleToggleTheme = () => {
+    const nextTheme = activeTheme === 'dark' ? 'light' : 'dark';
+    if (propSetTheme) {
+      propSetTheme(nextTheme);
+    } else {
+      setInternalTheme(nextTheme);
+      try {
+        localStorage.setItem('theme', nextTheme);
+        if (nextTheme === 'light') {
+          document.documentElement.classList.add('light-mode');
+        } else {
+          document.documentElement.classList.remove('light-mode');
+        }
+      } catch (err) {
+        console.warn('Failed to save theme:', err);
+      }
+    }
+  };
   // Auth state (Password / Passcode Protected)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('admin_authenticated') === 'true' || localStorage.getItem('admin_authenticated') === 'true';
@@ -476,19 +527,37 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [passes, setPasses] = useState<PassItem[]>([]);
   const [testimonials, setTestimonials] = useState<TestimonialItem[]>([]);
 
+  // Master Festival Dates & Events Schedule State
+  const [festivalStartInput, setFestivalStartInput] = useState<string>(
+    siteConfig?.festivalDates?.startDate || '2027-05-22'
+  );
+  const [festivalEndInput, setFestivalEndInput] = useState<string>(
+    siteConfig?.festivalDates?.endDate || '2027-05-31'
+  );
+  const [festivalTimeInput, setFestivalTimeInput] = useState<string>(
+    siteConfig?.festivalDates?.startTime || '18:00'
+  );
+  const [showDatesManager, setShowDatesManager] = useState<boolean>(true);
+
   // Editing and Adding states
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [showAddEvent, setShowAddEvent] = useState<boolean>(false);
   const [newEventForm, setNewEventForm] = useState<Partial<EventItem>>({
     title: '',
-    date: 'August 13, 2027',
+    category: 'Party',
+    startDate: '2027-05-22',
+    endDate: '2027-05-22',
+    isSingleDay: true,
+    date: 'May 22, 2027',
     dayNumber: 1,
-    time: '10:00 PM - 5:00 AM',
-    location: '',
+    time: '18:00 - 23:00',
+    location: 'St. George\'s, Grenada',
     description: '',
     highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
-    genres: [],
+    genres: ['Soca', 'Calypso'],
     djLineup: [],
+    dressCode: '',
+    wristbandRequired: true,
     ticketPrice: undefined,
     isFeatured: false
   });
@@ -602,6 +671,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     const freshConfig = getSiteConfig();
     lastSavedConfigRef.current = JSON.stringify(freshConfig);
     setSiteConfigState(freshConfig);
+    if (freshConfig.festivalDates?.startDate) {
+      setFestivalStartInput(freshConfig.festivalDates.startDate);
+    }
+    if (freshConfig.festivalDates?.endDate) {
+      setFestivalEndInput(freshConfig.festivalDates.endDate);
+    }
+    if (freshConfig.festivalDates?.startTime) {
+      setFestivalTimeInput(freshConfig.festivalDates.startTime);
+    }
     setEvents(getEvents());
     setGalleryItems(getGalleryItems());
     setHotels(getHotels());
@@ -783,37 +861,129 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
     }, 1400);
   };
 
+  // --- MASTER FESTIVAL DATES & EVENTS SCHEDULE HANDLERS ---
+  const handleSaveFestivalMasterDates = () => {
+    const formattedRange = formatEventDateRange(festivalStartInput, festivalEndInput, 'May 22 – 31, 2027');
+    const updatedDates = {
+      startDate: festivalStartInput,
+      endDate: festivalEndInput,
+      startTime: festivalTimeInput,
+      label: `${formattedRange.toUpperCase()} • SPICE ISLE`,
+      rangeText: formattedRange,
+      locationLabel: 'SPICE ISLE, GRENADA'
+    };
+
+    const updatedConfig: SiteConfig = {
+      ...siteConfig,
+      festivalDates: updatedDates,
+      banner: {
+        ...siteConfig.banner,
+        text: `🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • ${formattedRange.toUpperCase()}`
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    setSiteConfigState(updatedConfig);
+    saveSiteConfig(updatedConfig);
+    setSaveToast('Festival dates updated successfully!');
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
   // --- EVENTS CRUD HANDLERS ---
   const handleSaveEvent = (e: React.FormEvent) => {
     e.preventDefault();
+    let updatedList: EventItem[];
     if (editingEvent) {
-      const updated = events.map(ev => ev.id === editingEvent.id ? editingEvent : ev);
-      saveEvents(updated);
+      const isSingle = editingEvent.isSingleDay !== undefined 
+        ? editingEvent.isSingleDay 
+        : (editingEvent.startDate === editingEvent.endDate);
+      const start = editingEvent.startDate || parseTextDateToIso(editingEvent.date) || festivalStartInput;
+      const end = isSingle ? start : (editingEvent.endDate || start);
+      const formattedDate = formatEventDateRange(start, end, editingEvent.date);
+
+      const finalEvent: EventItem = {
+        ...editingEvent,
+        category: editingEvent.category?.trim() || 'Party',
+        startDate: start,
+        endDate: end,
+        isSingleDay: isSingle,
+        date: formattedDate,
+        djLineup: editingEvent.djLineup || [],
+        wristbandRequired: editingEvent.wristbandRequired ?? true
+      };
+
+      updatedList = events.map(ev => ev.id === editingEvent.id ? finalEvent : ev);
+      saveEvents(updatedList);
       setEditingEvent(null);
       setSaveToast('Event updated successfully!');
     } else {
+      const isSingle = newEventForm.isSingleDay !== undefined ? newEventForm.isSingleDay : true;
+      const start = newEventForm.startDate || festivalStartInput;
+      const end = isSingle ? start : (newEventForm.endDate || start);
+      const formattedDate = formatEventDateRange(start, end, newEventForm.date);
+
       const created: EventItem = {
         ...newEventForm as EventItem,
         id: 'event-' + Date.now(),
-        djLineup: newEventForm.djLineup || []
+        category: newEventForm.category?.trim() || 'Party',
+        startDate: start,
+        endDate: end,
+        isSingleDay: isSingle,
+        date: formattedDate,
+        djLineup: newEventForm.djLineup || [],
+        wristbandRequired: newEventForm.wristbandRequired ?? true
       };
-      saveEvents([...events, created]);
+      updatedList = [...events, created];
+      saveEvents(updatedList);
       setShowAddEvent(false);
       setNewEventForm({
         title: '',
-        date: 'August 13, 2027',
-        dayNumber: 1,
-        time: '10:00 PM - 5:00 AM',
-        location: '',
+        category: 'Party',
+        startDate: festivalStartInput,
+        endDate: festivalStartInput,
+        isSingleDay: true,
+        date: formatIsoDate(festivalStartInput),
+        dayNumber: (events.length % 10) + 1,
+        time: '18:00 - 23:00',
+        location: 'St. George\'s, Grenada',
         description: '',
         highlightImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80',
-        genres: [],
+        genres: ['Soca', 'Calypso'],
         djLineup: [],
+        dressCode: '',
+        wristbandRequired: true,
         ticketPrice: undefined,
         isFeatured: false
       });
       setSaveToast('New event created successfully!');
     }
+
+    // Recalculate dates if derived range exists
+    const derivedDates = getFestivalDatesFromEvents(updatedList);
+    if (derivedDates) {
+      const formattedRange = formatEventDateRange(derivedDates.startDate, derivedDates.endDate);
+      const updatedConfig: SiteConfig = {
+        ...siteConfig,
+        festivalDates: {
+          startDate: derivedDates.startDate,
+          endDate: derivedDates.endDate,
+          startTime: siteConfig.festivalDates?.startTime || '18:00',
+          label: `${formattedRange.toUpperCase()} • SPICE ISLE`,
+          rangeText: formattedRange,
+          locationLabel: 'SPICE ISLE, GRENADA'
+        },
+        banner: {
+          ...siteConfig.banner,
+          text: `🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • ${formattedRange.toUpperCase()}`
+        },
+        updatedAt: new Date().toISOString()
+      };
+      setSiteConfigState(updatedConfig);
+      saveSiteConfig(updatedConfig);
+      setFestivalStartInput(derivedDates.startDate);
+      setFestivalEndInput(derivedDates.endDate);
+    }
+
     loadData();
     setTimeout(() => setSaveToast(null), 3000);
   };
@@ -825,6 +995,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
       () => {
         const filtered = events.filter(ev => ev.id !== id);
         saveEvents(filtered);
+        const derivedDates = getFestivalDatesFromEvents(filtered);
+        if (derivedDates) {
+          const formattedRange = formatEventDateRange(derivedDates.startDate, derivedDates.endDate);
+          const updatedConfig: SiteConfig = {
+            ...siteConfig,
+            festivalDates: {
+              startDate: derivedDates.startDate,
+              endDate: derivedDates.endDate,
+              startTime: siteConfig.festivalDates?.startTime || '18:00',
+              label: `${formattedRange.toUpperCase()} • SPICE ISLE`,
+              rangeText: formattedRange,
+              locationLabel: 'SPICE ISLE, GRENADA'
+            },
+            banner: {
+              ...siteConfig.banner,
+              text: `🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • ${formattedRange.toUpperCase()}`
+            },
+            updatedAt: new Date().toISOString()
+          };
+          setSiteConfigState(updatedConfig);
+          saveSiteConfig(updatedConfig);
+          setFestivalStartInput(derivedDates.startDate);
+          setFestivalEndInput(derivedDates.endDate);
+        }
         setSaveToast('Event deleted successfully!');
         loadData();
         setTimeout(() => setSaveToast(null), 3000);
@@ -1230,6 +1424,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
           className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full blur-[150px] pointer-events-none opacity-20 transition-colors duration-500" 
           style={{ backgroundColor: `${primaryColor}10` }}
         />
+
+        {/* Top Floating Controls with Theme Toggle */}
+        <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+          <button
+            onClick={handleToggleTheme}
+            id="admin-login-theme-toggle"
+            className="p-2 sm:p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
+            title={activeTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {activeTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            ) : (
+              <Moon className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            )}
+          </button>
+        </div>
 
         <div className="w-full max-w-md bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-center space-y-6 relative z-10">
           <div 
@@ -1692,6 +1902,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
               </button>
             </div>
+
+            {/* Dark / Light Mode Toggle Button (Matching Front Header) */}
+            <button
+              onClick={handleToggleTheme}
+              id="admin-dashboard-theme-toggle"
+              className="p-2 sm:p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 rounded-xl text-neutral-200 transition-all cursor-pointer hover:border-amber-400 shadow-lg shrink-0 group"
+              title={activeTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {activeTheme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              ) : (
+                <Moon className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              )}
+            </button>
           </div>
         </header>
 
@@ -6638,16 +6862,104 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                 <div>
                   <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Event Management Hub</span>
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Festival Events & Live Shows</h2>
-                  <p className="text-xs text-neutral-400 font-light">Add, edit, or delete events appearing on the main listings page.</p>
+                  <p className="text-xs text-neutral-400 font-light">Manage overall festival start & end dates and customize individual event listings.</p>
                 </div>
-                {!showAddEvent && !editingEvent && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!showAddEvent && !editingEvent && (
+                    <button
+                      onClick={() => setShowAddEvent(true)}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                    >
+                      <Plus className="w-4 h-4" /> Add Festival Event
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* DEDICATED SECTION: FESTIVAL START & END DATES */}
+              <div className="bg-[#0C0F1E] border border-amber-500/30 rounded-2xl p-5 md:p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-neutral-800 pb-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400">
+                      <CalendarRange className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        Festival Dates Configuration
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                          Live Sync
+                        </span>
+                      </h3>
+                      <p className="text-xs text-neutral-400 font-light">
+                        Set the festival start and end dates. Changes instantly reflect across the countdown timer, header tags, and website.
+                      </p>
+                    </div>
+                  </div>
+
                   <button
-                    onClick={() => setShowAddEvent(true)}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                    type="button"
+                    onClick={handleSaveFestivalMasterDates}
+                    className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 self-start md:self-auto"
                   >
-                    <Plus className="w-4 h-4" /> Add Festival Event
+                    <Save className="w-4 h-4" />
+                    <span>Save Festival Dates</span>
                   </button>
-                )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-400" /> Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={festivalStartInput}
+                      onChange={(e) => setFestivalStartInput(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-neutral-500 block">Opening commencement date</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-400" /> End Date
+                    </label>
+                    <input
+                      type="date"
+                      min={festivalStartInput}
+                      value={festivalEndInput}
+                      onChange={(e) => setFestivalEndInput(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-neutral-500 block">Final grand finale date</span>
+                  </div>
+
+                  <div className="space-y-1.5 flex flex-col justify-between">
+                    <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">
+                      Active Duration & Preview
+                    </label>
+                    <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl flex flex-col justify-center min-h-[46px] space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-amber-300 font-bold font-mono text-xs truncate">
+                          {formatEventDateRange(festivalStartInput, festivalEndInput, 'May 22 – 31, 2027')}
+                        </span>
+                        {(() => {
+                          const dur = calculateDurationDays(festivalStartInput, festivalEndInput);
+                          return (
+                            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono px-2 py-0.5 rounded shrink-0">
+                              {dur === 1 ? '1 Day' : `${dur} Days`}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <span className="text-[10px] text-neutral-500 block truncate">
+                        Global dates applied across hero, calendar & footer
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Event Form (Create or Edit) */}
@@ -6656,10 +6968,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                   onSubmit={handleSaveEvent}
                   className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
                 >
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-amber-400" />
-                    {editingEvent ? 'Edit Festival Event' : 'Create New Festival Event'}
-                  </h3>
+                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-amber-400" />
+                      {editingEvent ? 'Edit Festival Event Details' : 'Create New Festival Event'}
+                    </h3>
+                    <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold">
+                      {editingEvent ? `ID: ${editingEvent.id}` : 'Draft Mode'}
+                    </span>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
                     <div className="space-y-1.5">
@@ -6693,37 +7010,233 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Date</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingEvent ? editingEvent.date : newEventForm.date}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, date: e.target.value });
-                          else setNewEventForm({ ...newEventForm, date: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. August 13, 2027"
-                      />
-                    </div>
+                    {/* DEDICATED EVENT DATE & DURATION SELECTOR */}
+                    {(() => {
+                      const isSingle = editingEvent
+                        ? (editingEvent.isSingleDay ?? (!editingEvent.endDate || editingEvent.startDate === editingEvent.endDate))
+                        : (newEventForm.isSingleDay ?? true);
 
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Day Number (1 - 10)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        required
-                        value={editingEvent ? editingEvent.dayNumber : newEventForm.dayNumber}
-                        onChange={(e) => {
-                          const num = Number(e.target.value);
-                          if (editingEvent) setEditingEvent({ ...editingEvent, dayNumber: num });
-                          else setNewEventForm({ ...newEventForm, dayNumber: num });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
+                      const curStart = editingEvent
+                        ? (editingEvent.startDate || parseTextDateToIso(editingEvent.date) || festivalStartInput)
+                        : (newEventForm.startDate || festivalStartInput);
+
+                      const curEnd = isSingle
+                        ? curStart
+                        : (editingEvent
+                            ? (editingEvent.endDate || curStart)
+                            : (newEventForm.endDate || curStart));
+
+                      const curDayNum = editingEvent ? editingEvent.dayNumber : newEventForm.dayNumber;
+                      const curDuration = isSingle ? 1 : calculateDurationDays(curStart, curEnd);
+                      const curFormattedRange = formatEventDateRange(curStart, isSingle ? curStart : curEnd);
+
+                      return (
+                        <div className="md:col-span-2 bg-neutral-950/80 border border-neutral-800 p-5 rounded-2xl space-y-4">
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-neutral-800 pb-3">
+                            <div>
+                              <label className="text-amber-400 font-bold uppercase block text-xs flex items-center gap-1.5">
+                                <CalendarRange className="w-3.5 h-3.5 text-amber-400" />
+                                Event Schedule & Duration Settings
+                              </label>
+                              <p className="text-[11px] text-neutral-400 font-light mt-0.5">
+                                Configure single-day or multi-day date spans with automatic duration calculation.
+                              </p>
+                            </div>
+
+                            {/* Event Duration Mode Selector */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (editingEvent) {
+                                    setEditingEvent({
+                                      ...editingEvent,
+                                      isSingleDay: true,
+                                      endDate: curStart,
+                                      date: formatEventDateRange(curStart, curStart)
+                                    });
+                                  } else {
+                                    setNewEventForm({
+                                      ...newEventForm,
+                                      isSingleDay: true,
+                                      endDate: curStart,
+                                      date: formatEventDateRange(curStart, curStart)
+                                    });
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                  isSingle
+                                    ? 'bg-amber-500 text-neutral-950 font-black shadow-sm'
+                                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                                }`}
+                              >
+                                <span>⚡ Single-Day (1 Day)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (editingEvent) {
+                                    const end = editingEvent.endDate && editingEvent.endDate >= curStart ? editingEvent.endDate : curStart;
+                                    setEditingEvent({
+                                      ...editingEvent,
+                                      isSingleDay: false,
+                                      endDate: end,
+                                      date: formatEventDateRange(curStart, end)
+                                    });
+                                  } else {
+                                    const end = newEventForm.endDate && newEventForm.endDate >= curStart ? newEventForm.endDate : curStart;
+                                    setNewEventForm({
+                                      ...newEventForm,
+                                      isSingleDay: false,
+                                      endDate: end,
+                                      date: formatEventDateRange(curStart, end)
+                                    });
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                  !isSingle
+                                    ? 'bg-emerald-500 text-neutral-950 font-black shadow-sm'
+                                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                                }`}
+                              >
+                                <span>🗓️ Multi-Day Range</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-neutral-400 font-bold uppercase text-[11px] block">Start Date</label>
+                              <input
+                                type="date"
+                                required
+                                value={curStart}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (editingEvent) {
+                                    const end = isSingle ? val : (editingEvent.endDate && editingEvent.endDate >= val ? editingEvent.endDate : val);
+                                    setEditingEvent({
+                                      ...editingEvent,
+                                      startDate: val,
+                                      endDate: end,
+                                      date: formatEventDateRange(val, end)
+                                    });
+                                  } else {
+                                    const end = isSingle ? val : (newEventForm.endDate && newEventForm.endDate >= val ? newEventForm.endDate : val);
+                                    setNewEventForm({
+                                      ...newEventForm,
+                                      startDate: val,
+                                      endDate: end,
+                                      date: formatEventDateRange(val, end)
+                                    });
+                                  }
+                                }}
+                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none transition-colors"
+                              />
+                            </div>
+
+                            {!isSingle ? (
+                              <div className="space-y-1.5">
+                                <label className="text-neutral-400 font-bold uppercase text-[11px] block">End Date (Inclusive)</label>
+                                <input
+                                  type="date"
+                                  required
+                                  min={curStart}
+                                  value={curEnd}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (editingEvent) {
+                                      setEditingEvent({
+                                        ...editingEvent,
+                                        endDate: val,
+                                        date: formatEventDateRange(curStart, val)
+                                      });
+                                    } else {
+                                      setNewEventForm({
+                                        ...newEventForm,
+                                        endDate: val,
+                                        date: formatEventDateRange(curStart, val)
+                                      });
+                                    }
+                                  }}
+                                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none transition-colors"
+                                />
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <label className="text-neutral-400 font-bold uppercase text-[11px] block">Schedule Type</label>
+                                <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-mono text-amber-400 font-bold flex items-center gap-1.5 h-[46px]">
+                                  <span>⚡ Single-Day Event</span>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                              <label className="text-neutral-400 font-bold uppercase text-[11px] block">Festival Day Number</label>
+                              <input
+                                type="number"
+                                min="1"
+                                required
+                                value={curDayNum}
+                                onChange={(e) => {
+                                  const num = Number(e.target.value);
+                                  if (editingEvent) setEditingEvent({ ...editingEvent, dayNumber: num });
+                                  else setNewEventForm({ ...newEventForm, dayNumber: num });
+                                }}
+                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none font-mono text-xs transition-colors"
+                              />
+                            </div>
+                          </div>
+
+                          {/* REFINED ACTIVE DURATION & PREVIEW CONTAINER */}
+                          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/80 pb-3">
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold tracking-wider block">
+                                  Active Schedule & Duration Preview
+                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-amber-300 font-bold text-sm sm:text-base font-serif">
+                                    📅 {curFormattedRange}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                                <span className="bg-neutral-950 text-neutral-300 border border-neutral-800 text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg uppercase">
+                                  Day {curDayNum}
+                                </span>
+                                {isSingle || curDuration <= 1 ? (
+                                  <span className="bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black font-mono px-2.5 py-1 rounded-lg uppercase">
+                                    ⚡ 1 Day Event
+                                  </span>
+                                ) : (
+                                  <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black font-mono px-2.5 py-1 rounded-lg uppercase">
+                                    🗓️ {curDuration}-Day Range
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                              <span className="text-[11px] text-neutral-400">
+                                Custom public display label override <span className="text-neutral-500">(Optional)</span>:
+                              </span>
+                              <input
+                                type="text"
+                                value={editingEvent ? (editingEvent.date || '') : (newEventForm.date || '')}
+                                onChange={(e) => {
+                                  if (editingEvent) setEditingEvent({ ...editingEvent, date: e.target.value });
+                                  else setNewEventForm({ ...newEventForm, date: e.target.value });
+                                }}
+                                placeholder={`Auto: "${curFormattedRange}"`}
+                                className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500 focus:outline-none placeholder-neutral-600 font-sans"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div className="space-y-1.5">
                       <label className="text-neutral-400 font-bold uppercase block">Show Timing</label>
@@ -6753,6 +7266,72 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                         className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
                         placeholder="e.g. Mellowland River stage"
                       />
+                    </div>
+
+                    {/* EVENT BADGE / CATEGORY TAG MANAGER */}
+                    <div className="md:col-span-2 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <label className="text-amber-400 font-bold uppercase block text-xs flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            Event Category Badge Text
+                          </label>
+                          <p className="text-[11px] text-neutral-400 font-light mt-0.5">
+                            Sets the badge text displayed in the top corner of the event card (e.g. Party, Music, Adventure, Cultural, Gala, VIP Beach Fete).
+                          </p>
+                        </div>
+
+                        {/* Live Badge Preview */}
+                        <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-lg shrink-0">
+                          <span className="text-[10px] text-neutral-400 uppercase font-mono font-bold">Badge Preview:</span>
+                          <span className="bg-amber-500 text-neutral-950 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-wider shadow-sm">
+                            {(editingEvent ? editingEvent.category : newEventForm.category) || 'Party'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input
+                            type="text"
+                            required
+                            value={editingEvent ? (editingEvent.category ?? '') : (newEventForm.category ?? '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (editingEvent) setEditingEvent({ ...editingEvent, category: val });
+                              else setNewEventForm({ ...newEventForm, category: val });
+                            }}
+                            className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white font-semibold focus:border-amber-500 focus:outline-none placeholder-neutral-500 text-xs"
+                            placeholder="Type custom badge text (e.g. Party, Music, Adventure, Cultural, Gala, VIP Beach Fete, Boat Cruise)"
+                          />
+                        </div>
+
+                        {/* Preset Quick-Picks */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold mr-1">Presets:</span>
+                          {['Party', 'Music', 'Adventure', 'Cultural', 'Gala', 'VIP Beach Fete', 'Boat Cruise', 'Street Carnival', 'After Party'].map((preset) => {
+                            const current = (editingEvent ? editingEvent.category : newEventForm.category) || '';
+                            const isSelected = current.toLowerCase() === preset.toLowerCase();
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => {
+                                  if (editingEvent) setEditingEvent({ ...editingEvent, category: preset });
+                                  else setNewEventForm({ ...newEventForm, category: preset });
+                                }}
+                                className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-amber-500 text-neutral-950 border-amber-500 font-black shadow-sm'
+                                    : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:text-white'
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 md:col-span-2">
@@ -6812,6 +7391,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       />
                     </div>
 
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">
+                        Dress Code <span className="text-neutral-500 font-normal text-xs">(Optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editingEvent ? (editingEvent.dressCode ?? '') : (newEventForm.dressCode ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (editingEvent) setEditingEvent({ ...editingEvent, dressCode: val });
+                          else setNewEventForm({ ...newEventForm, dressCode: val });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. All White Luxury, Beach Chic, Casual"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-neutral-400 font-bold uppercase block">Access Policy</label>
+                      <select
+                        value={editingEvent ? (editingEvent.wristbandRequired !== false ? 'true' : 'false') : (newEventForm.wristbandRequired !== false ? 'true' : 'false')}
+                        onChange={(e) => {
+                          const val = e.target.value === 'true';
+                          if (editingEvent) setEditingEvent({ ...editingEvent, wristbandRequired: val });
+                          else setNewEventForm({ ...newEventForm, wristbandRequired: val });
+                        }}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="true">Wristband / Pass Required</option>
+                        <option value="false">Open Entry / Free Admission</option>
+                      </select>
+                    </div>
+
                     <div className="space-y-1.5 md:col-span-2">
                       <label className="text-neutral-400 font-bold uppercase block">
                         Music Genres <span className="text-neutral-500 font-normal text-xs">(Optional, Comma-separated)</span>
@@ -6863,9 +7475,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer shadow-md"
                     >
-                      {editingEvent ? 'Save Changes' : 'Create Event'}
+                      {editingEvent ? 'Save Event Changes' : 'Create Festival Event'}
                     </button>
                   </div>
                 </form>
@@ -6897,7 +7509,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
               {/* Events List */}
               <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl overflow-hidden shadow-md">
-                <div className="px-5 py-4 border-b border-neutral-800/80 flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-neutral-800/80 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -6921,80 +7533,96 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     const paginatedEvents = events.slice((currentEventsPage - 1) * ITEMS_PER_PAGE, currentEventsPage * ITEMS_PER_PAGE);
                     return (
                       <>
-                        {paginatedEvents.map((ev) => (
-                          <div key={ev.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <input
-                                type="checkbox"
-                                checked={selectedEvents.includes(ev.id)}
-                                onChange={() => {
-                                  setSelectedEvents(prev => 
-                                    prev.includes(ev.id) ? prev.filter(id => id !== ev.id) : [...prev, ev.id]
-                                  );
-                                }}
-                                className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0"
-                              />
-                              <img
-                                src={ev.highlightImage}
-                                alt={ev.title}
-                                referrerPolicy="no-referrer"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                                }}
-                                className="w-14 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
-                              />
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-white font-bold text-sm leading-snug">{ev.title}</span>
-                                  {ev.isFeatured && (
-                                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Featured</span>
-                                  )}
-                                  <span className="bg-neutral-800 text-neutral-400 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full uppercase">Day {ev.dayNumber}</span>
-                                </div>
-                                <p className="text-neutral-400 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 font-light">
-                                  <span>📅 {ev.date}</span>
-                                  <span>⏰ {ev.time}</span>
-                                  <span>📍 {ev.location}</span>
-                                </p>
-                                {ev.djLineup && ev.djLineup.length > 0 && (
-                                  <p className="text-[11px] text-amber-300/90 font-medium flex items-center gap-1.5 pt-0.5">
-                                    <Disc className="w-3 h-3 text-amber-400 shrink-0" />
-                                    <span className="text-neutral-400 font-semibold">DJs:</span>
-                                    <span>{ev.djLineup.join(', ')}</span>
+                        {paginatedEvents.map((ev) => {
+                          const duration = calculateDurationDays(ev.startDate, ev.endDate);
+                          const isSingle = ev.isSingleDay !== undefined ? ev.isSingleDay : (duration <= 1);
+                          return (
+                            <div key={ev.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/30 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedEvents.includes(ev.id)}
+                                  onChange={() => {
+                                    setSelectedEvents(prev => 
+                                      prev.includes(ev.id) ? prev.filter(id => id !== ev.id) : [...prev, ev.id]
+                                    );
+                                  }}
+                                  className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0"
+                                />
+                                <img
+                                  src={ev.highlightImage}
+                                  alt={ev.title}
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                                  }}
+                                  className="w-14 h-14 object-cover rounded-xl border border-neutral-800 bg-neutral-950"
+                                />
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-white font-bold text-sm leading-snug">{ev.title}</span>
+                                    {ev.isFeatured && (
+                                      <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Featured</span>
+                                    )}
+                                    <span className="bg-neutral-800 text-neutral-400 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full uppercase">Day {ev.dayNumber}</span>
+                                    <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      🏷️ {ev.category || 'Party'}
+                                    </span>
+                                    {duration > 1 ? (
+                                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black px-1.5 py-0.5 rounded font-mono uppercase">
+                                        {duration}-Day Event
+                                      </span>
+                                    ) : (
+                                      <span className="bg-neutral-800/80 text-amber-400/80 border border-neutral-700 text-[9px] font-semibold px-1.5 py-0.5 rounded font-mono uppercase">
+                                        1-Day Event
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-neutral-400 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 font-light">
+                                    <span className="text-amber-300/90 font-medium">📅 {formatEventDateRange(ev.startDate, ev.endDate, ev.date)}</span>
+                                    <span>⏰ {ev.time}</span>
+                                    <span>📍 {ev.location}</span>
                                   </p>
-                                )}
-                                <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                  {ev.genres && ev.genres.map((g, idx) => (
-                                    <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
-                                  ))}
-                                  {ev.ticketPrice !== undefined && ev.ticketPrice !== null && (
-                                    <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                                  {ev.djLineup && ev.djLineup.length > 0 && (
+                                    <p className="text-[11px] text-amber-300/90 font-medium flex items-center gap-1.5 pt-0.5">
+                                      <Disc className="w-3 h-3 text-amber-400 shrink-0" />
+                                      <span className="text-neutral-400 font-semibold">DJs:</span>
+                                      <span>{ev.djLineup.join(', ')}</span>
+                                    </p>
                                   )}
+                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                    {ev.genres && ev.genres.map((g, idx) => (
+                                      <span key={idx} className="bg-neutral-950/80 border border-neutral-800 text-neutral-300 text-[9px] px-2 py-0.5 rounded-md font-medium">{g}</span>
+                                    ))}
+                                    {ev.ticketPrice !== undefined && ev.ticketPrice !== null && (
+                                      <span className="text-[11px] font-mono text-emerald-400 font-bold ml-2">£{ev.ticketPrice} Ticket</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                                <button
+                                  onClick={() => {
+                                    setEditingEvent(ev);
+                                    setShowAddEvent(false);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }}
+                                  className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
+                                  title="Edit event details"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteEvent(ev.id)}
+                                  className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
+                                  title="Delete Event"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                              <button
-                                onClick={() => {
-                                  setEditingEvent(ev);
-                                  setShowAddEvent(false);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
-                                title="Edit event details"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteEvent(ev.id)}
-                                className="p-2 bg-neutral-900 hover:bg-rose-950/20 text-neutral-500 hover:text-rose-400 rounded-lg border border-neutral-800/80 hover:border-rose-500/30 transition-colors cursor-pointer text-xs font-bold"
-                                title="Delete Event"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                         {totalEventPages > 1 && (
                           <div className="flex items-center justify-between pt-4 px-5 py-3 border-t border-neutral-800 bg-neutral-950/20">

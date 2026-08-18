@@ -41,7 +41,7 @@ export const TravelInsuranceView: React.FC<TravelInsuranceViewProps> = ({ setAct
             1. Full Refund Within 30 Days of Purchase
           </h3>
           <p className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed">
-            All festival passes, wristbands, and river tubing add-ons are eligible for a 100% full refund within 30 calendar days of initial order date (up to 60 days before event commencement on May 13, 2027).
+            All festival passes, wristbands, and river tubing add-ons are eligible for a 100% full refund within 30 calendar days of initial order date (up to 60 days before event commencement on May 22, 2027).
           </p>
         </div>
 

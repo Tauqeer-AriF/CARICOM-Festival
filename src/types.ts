@@ -142,6 +142,14 @@ export interface SiteConfig {
     text?: string;
   };
   pageImages?: PageImagesConfig;
+  festivalDates?: {
+    startDate: string; // '2027-05-22'
+    endDate: string;   // '2027-05-31'
+    startTime?: string;// '18:00'
+    label?: string;    // 'MAY 22 - 31, 2027'
+    rangeText?: string;// 'May 22 – 31, 2027'
+    locationLabel?: string; // 'SPICE ISLE, GRENADA'
+  };
   adminPath?: string;
   adminPassword?: string;
   contactEmail?: string;
@@ -169,8 +177,11 @@ export interface EventItem {
   id: string;
   dayNumber: number;
   date: string;
+  startDate?: string; // 'YYYY-MM-DD'
+  endDate?: string;   // 'YYYY-MM-DD' (same as startDate for one-day events)
+  isSingleDay?: boolean; // true if event is a single day
   title: string;
-  category: 'Music' | 'Cultural' | 'Adventure' | 'Gala' | 'Party';
+  category: 'Music' | 'Cultural' | 'Adventure' | 'Gala' | 'Party' | string;
   location: string;
   time: string;
   description: string;

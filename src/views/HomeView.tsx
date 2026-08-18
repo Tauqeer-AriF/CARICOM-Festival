@@ -4,6 +4,7 @@ import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { getSiteConfig, getPageImage } from '../services/submissionService';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { GrenadaWeatherWidget } from '../components/GrenadaWeatherWidget';
+import { getEffectiveFestivalDateRange, calculateDurationDays } from '../utils/dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, 
@@ -28,6 +29,7 @@ import {
 interface HomeViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onAddToCart: (pass: PassItem) => void;
+  siteConfig?: SiteConfig;
 }
 
 // Custom animation presets for a premium aesthetic
@@ -203,12 +205,18 @@ const HERO_SLIDE_MODES = [
   }
 ];
 
-export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart }) => {
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
+export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, siteConfig: propSiteConfig }) => {
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(propSiteConfig || getSiteConfig());
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (propSiteConfig) {
+      setSiteConfig(propSiteConfig);
+    }
+  }, [propSiteConfig]);
 
   const handlePrevSlide = () => {
     setDirection(-1);
@@ -233,18 +241,31 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
         setSiteConfig(getSiteConfig());
       }
     };
+    const handleEventsUpdate = () => {
+      setSiteConfig(getSiteConfig());
+    };
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'grenada_site_config') {
+      if (e.key === 'grenada_caricom_site_config_v1' || e.key === 'grenada_caricom_events_v4' || e.key === 'grenada_site_config') {
         setSiteConfig(getSiteConfig());
       }
     };
     window.addEventListener('site_config_updated', handleConfigUpdate);
+    window.addEventListener('events_updated', handleEventsUpdate);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('site_config_updated', handleConfigUpdate);
+      window.removeEventListener('events_updated', handleEventsUpdate);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  const festivalDateDisplay = useMemo(() => {
+    return getEffectiveFestivalDateRange(siteConfig);
+  }, [siteConfig]);
+
+  const festivalDurationDays = useMemo(() => {
+    return calculateDurationDays(siteConfig.festivalDates?.startDate, siteConfig.festivalDates?.endDate);
+  }, [siteConfig.festivalDates?.startDate, siteConfig.festivalDates?.endDate]);
 
   // Compute active background images considering displayCount setting
   const activeHeroImages = useMemo(() => {
@@ -387,7 +408,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           
           <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             <div className="inline-flex items-center gap-2 bg-[#121822]/90 backdrop-blur-md text-amber-300 text-[11px] sm:text-xs font-semibold px-3.5 sm:px-4 py-1.5 rounded-full border border-amber-500/30 uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl">
-              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" /> MAY 13 - 17, 2027 • SPICE ISLE, GRENADA
+              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" /> {festivalDateDisplay.toUpperCase()} • SPICE ISLE, GRENADA
             </div>
             <GrenadaWeatherWidget variant="badge" />
           </div>
@@ -400,12 +421,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
           </h1>
 
           <p className="text-sm sm:text-xl font-light text-slate-300 max-w-2xl mx-auto leading-relaxed px-2">
-            Where London's top DJs & revelers unite with Grenada's tropical warmth. A 10-day luxury festival of Caribbean culture, music, beach fetes, and river tubing.
+            Where London's top DJs & revelers unite with Grenada's tropical warmth. A luxury festival of Caribbean culture, music, beach fetes, and river tubing.
           </p>
 
           {/* Sophisticated Hero Countdown Timer */}
           <div className="pt-2 pb-1">
-            <CountdownTimer variant="hero" />
+            <CountdownTimer variant="hero" siteConfig={siteConfig} />
           </div>
 
           {/* Action Buttons */}
@@ -560,7 +581,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
                 onClick={() => setActiveTab('events')}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-full shadow-lg transition-transform hover:scale-[1.02] cursor-pointer"
               >
-                Explore 10-Day Lineup
+                Explore Festival Lineup
               </button>
               <button
                 onClick={() => setActiveTab('about-mellowland')}
@@ -683,13 +704,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart })
       >
         <div className="max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-300 text-xs font-semibold px-3.5 py-1 rounded-full border border-amber-500/30 uppercase tracking-widest">
-            <Music className="w-3.5 h-3.5 text-amber-400" /> EXCLUSIVE 10-DAY PARTY ATMOSPHERE
+            <Music className="w-3.5 h-3.5 text-amber-400" /> EXCLUSIVE {festivalDurationDays}-DAY PARTY ATMOSPHERE
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white">
-            10 Days of Music, Parties & Vibes
+            {festivalDurationDays} Days of Music, Parties & Vibes
           </h2>
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-light">
-            During your ten-day stay in Grenada, enjoy an exclusive itinerary blending beach parties, white gala night, river tubing, and luxury resort lounges with London's finest DJs.
+            During your stay in Grenada, enjoy an exclusive itinerary blending beach parties, white gala night, river tubing, and luxury resort lounges with London's finest DJs.
           </p>
         </div>
 

@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { FESTIVAL_DATE_STRING } from '../data/festivalData';
+import { getSiteConfig } from '../services/submissionService';
+import { getEffectiveFestivalDateRange } from '../utils/dateUtils';
+import { SiteConfig } from '../types';
 import { Calendar, Clock, Sparkles } from 'lucide-react';
 
 interface CountdownTimerProps {
   variant?: 'hero' | 'widget';
+  siteConfig?: SiteConfig;
 }
 
-export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widget' }) => {
+export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widget', siteConfig: propSiteConfig }) => {
+  const [config, setConfig] = useState<SiteConfig>(propSiteConfig || getSiteConfig());
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -15,7 +20,44 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widge
   });
 
   useEffect(() => {
-    const targetDate = new Date(FESTIVAL_DATE_STRING).getTime();
+    if (propSiteConfig) {
+      setConfig(propSiteConfig);
+    }
+  }, [propSiteConfig]);
+
+  useEffect(() => {
+    const handleConfigChange = (e?: any) => {
+      if (e?.detail) {
+        setConfig(e.detail);
+      } else {
+        setConfig(getSiteConfig());
+      }
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'grenada_caricom_site_config_v1' || e.key === 'grenada_caricom_events_v4' || e.key === 'grenada_site_config') {
+        setConfig(getSiteConfig());
+      }
+    };
+
+    window.addEventListener('site_config_updated', handleConfigChange);
+    window.addEventListener('events_updated', handleConfigChange);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('site_config_updated', handleConfigChange);
+      window.removeEventListener('events_updated', handleConfigChange);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  const targetDateString = config?.festivalDates?.startDate 
+    ? `${config.festivalDates.startDate}T${config.festivalDates.startTime || '18:00:00'}`
+    : FESTIVAL_DATE_STRING;
+
+  const festivalDateDisplay = getEffectiveFestivalDateRange(config);
+  const dateHeading = `${festivalDateDisplay.toUpperCase()} • SPICE ISLE`;
+
+  useEffect(() => {
+    const targetDate = new Date(targetDateString).getTime();
 
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -37,7 +79,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widge
     const timer = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [targetDateString]);
 
   if (variant === 'hero') {
     return (
@@ -98,7 +140,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ variant = 'widge
               <Clock className="w-3.5 h-3.5" /> Official Festival Countdown
             </div>
             <h3 className="text-xl md:text-2xl font-bold font-serif tracking-tight text-white mt-0.5">
-              MAY 13 - 17, 2027 • SPICE ISLE
+              {dateHeading}
             </h3>
           </div>
         </div>

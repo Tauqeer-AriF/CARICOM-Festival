@@ -15,9 +15,9 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
     phoneWhatsApp: '',
     airline: '',
     flightNumber: '',
-    arrivalDate: '2027-05-13',
+    arrivalDate: '2027-05-22',
     arrivalTime: '14:30',
-    departureDate: '2027-05-23',
+    departureDate: '2027-06-01',
     departureTime: '18:00',
     chosenHotel: 'Royalton Grenada Resort & Spa',
     specialRequests: ''

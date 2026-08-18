@@ -668,7 +668,7 @@ export default function App() {
           )}
         </AnimatePresence>
         <div className={`flex-1 flex flex-col transition-opacity duration-1000 ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          <AdminDashboardView setActiveTab={setActiveTab} />
+          <AdminDashboardView setActiveTab={setActiveTab} theme={theme} setTheme={setTheme} />
         </div>
       </div>
     );
@@ -733,7 +733,7 @@ export default function App() {
         ) : (
           <>
             {activeTab === 'home' && (
-              <HomeView setActiveTab={setActiveTab} onAddToCart={handleAddToCart} />
+              <HomeView setActiveTab={setActiveTab} onAddToCart={handleAddToCart} siteConfig={siteConfig} />
             )}
 
             {activeTab === 'events' && (

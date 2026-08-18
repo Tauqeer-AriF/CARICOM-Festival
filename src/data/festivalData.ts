@@ -1,6 +1,6 @@
 import { EventItem, HotelItem, PassItem, TestimonialItem } from '../types';
 
-export const FESTIVAL_DATE_STRING = '2027-05-13T18:00:00';
+export const FESTIVAL_DATE_STRING = '2027-05-22T18:00:00';
 
 export const FESTIVAL_IMAGES = {
   hero: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80', // Beach DJ Showcase
@@ -49,7 +49,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-1',
     dayNumber: 1,
-    date: 'May 13, 2027',
+    date: 'May 22, 2027',
+    startDate: '2027-05-22',
+    endDate: '2027-05-22',
+    isSingleDay: true,
     title: 'Spice Isle Touchdown & VIP Welcome Lime',
     category: 'Party',
     location: 'Royalton Grenada Beachfront Lounge',
@@ -64,7 +67,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-2',
     dayNumber: 2,
-    date: 'May 14, 2027',
+    date: 'May 23, 2027',
+    startDate: '2027-05-23',
+    endDate: '2027-05-23',
+    isSingleDay: true,
     title: 'London Meets Spice Isle Beach Fete',
     category: 'Music',
     location: 'Grand Anse Beach Club',
@@ -79,7 +85,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-3',
     dayNumber: 3,
-    date: 'May 15, 2027',
+    date: 'May 24, 2027',
+    startDate: '2027-05-24',
+    endDate: '2027-05-24',
+    isSingleDay: true,
     title: 'Mellowland River Tubing & Farm-to-Table Garden Lime',
     category: 'Adventure',
     location: 'Mellows Entertainment Complex',
@@ -94,7 +103,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-4',
     dayNumber: 4,
-    date: 'May 16, 2027',
+    date: 'May 25, 2027',
+    startDate: '2027-05-25',
+    endDate: '2027-05-25',
+    isSingleDay: true,
     title: 'London vs Grenada Big Karaoke Clash',
     category: 'Music',
     location: 'Mellowland Outdoor Stage',
@@ -109,7 +121,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-5',
     dayNumber: 5,
-    date: 'May 17, 2027',
+    date: 'May 26, 2027',
+    startDate: '2027-05-26',
+    endDate: '2027-05-26',
+    isSingleDay: true,
     title: 'The Flagship White Gala Sunset Party',
     category: 'Gala',
     location: 'Royalton Oceanfront Pavilion',
@@ -124,7 +139,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-6',
     dayNumber: 6,
-    date: 'May 18, 2027',
+    date: 'May 27, 2027',
+    startDate: '2027-05-27',
+    endDate: '2027-05-27',
+    isSingleDay: true,
     title: 'CARICOM Sister Islands Cultural Showcase',
     category: 'Cultural',
     location: 'St. George’s Waterfront Cultural Park',
@@ -139,7 +157,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-7',
     dayNumber: 7,
-    date: 'May 19, 2027',
+    date: 'May 28, 2027',
+    startDate: '2027-05-28',
+    endDate: '2027-05-28',
+    isSingleDay: true,
     title: 'Underwater Sculpture Park & Catamaran Sunset Cruise',
     category: 'Adventure',
     location: 'Molinière Bay & Spice Isle Marine',
@@ -154,7 +175,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-8',
     dayNumber: 8,
-    date: 'May 20, 2027',
+    date: 'May 29, 2027',
+    startDate: '2027-05-29',
+    endDate: '2027-05-29',
+    isSingleDay: true,
     title: 'Jungle & Afrobeat Rainforest Rave',
     category: 'Music',
     location: 'Annandale Rainforest Estate',
@@ -169,7 +193,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-9',
     dayNumber: 9,
-    date: 'May 21, 2027',
+    date: 'May 30, 2027',
+    startDate: '2027-05-30',
+    endDate: '2027-05-30',
+    isSingleDay: true,
     title: 'CARICOM Carnival Road Parade & Jouvert Energy',
     category: 'Cultural',
     location: 'St. George’s Parade Route to Mellowland',
@@ -184,7 +211,10 @@ export const FESTIVAL_EVENTS: EventItem[] = [
   {
     id: 'day-10',
     dayNumber: 10,
-    date: 'May 22, 2027',
+    date: 'May 31, 2027',
+    startDate: '2027-05-31',
+    endDate: '2027-05-31',
+    isSingleDay: true,
     title: 'Farewell Spice Island Brunch & Thank-You Lyme',
     category: 'Party',
     location: 'Mellowland Garden & River Bank',

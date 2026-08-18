@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActiveTab, SiteConfig } from '../types';
+import { getEffectiveFestivalDateRange } from '../utils/dateUtils';
 import { 
   Palmtree, 
   Instagram, 
@@ -44,6 +45,8 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const festivalDateDisplay = getEffectiveFestivalDateRange(siteConfig);
+
   const socialLinks = siteConfig?.socialLinks || {
     instagram: 'https://instagram.com',
     tiktok: 'https://tiktok.com',
@@ -62,13 +65,13 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-[0.2em] mb-3">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> MAY 13 - 17, 2027 • SPICE ISLE
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> {festivalDateDisplay.toUpperCase()} • SPICE ISLE
               </div>
               <h3 className="text-2xl sm:text-4xl font-bold text-white font-serif tracking-tight">
                 Ready for London's Finest in Grenada?
               </h3>
               <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-xl font-light">
-                Lock in your official festival passes, submit flight details for complimentary hotel transfer, and join us for 10 days of Caribbean unity.
+                Lock in your official festival passes, submit flight details for complimentary hotel transfer, and join us for an unforgettable celebration of Caribbean unity.
               </p>
             </div>
 
@@ -212,7 +215,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
             </h4>
             <ul className="space-y-2.5 text-xs text-slate-400 font-light">
               <li><button onClick={() => handleTab('home')} className="hover:text-amber-300 cursor-pointer transition-colors">Home Overview</button></li>
-              <li><button onClick={() => handleTab('events')} className="hover:text-amber-300 cursor-pointer transition-colors">10-Day Event Lineup</button></li>
+              <li><button onClick={() => handleTab('events')} className="hover:text-amber-300 cursor-pointer transition-colors">Official Event Lineup</button></li>
               <li><button onClick={() => handleTab('about-grenada')} className="hover:text-amber-300 cursor-pointer transition-colors">Spice Isle Grenada</button></li>
               <li><button onClick={() => handleTab('about-mellowland')} className="hover:text-amber-300 cursor-pointer transition-colors">About Mellowland</button></li>
               <li><button onClick={() => handleTab('testimonials')} className="hover:text-amber-300 cursor-pointer transition-colors">Reveler Testimonials</button></li>

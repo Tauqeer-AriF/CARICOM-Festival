@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ActiveTab, EventItem } from '../types';
 import { getSiteConfig, getPageImage } from '../services/submissionService';
+import { formatEventDateRange, calculateDurationDays, getEffectiveFestivalDateRange } from '../utils/dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar, 
@@ -33,13 +34,40 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeEventModal, setActiveEventModal] = useState<EventItem | null>(null);
 
-  const categories = ['All', 'Party', 'Music', 'Adventure', 'Cultural', 'Gala'];
+  // Dynamically compute filter buttons: only show categories that have at least one related event
+  const categories = useMemo(() => {
+    const presentCatsMap = new Map<string, string>();
+    events.forEach(evt => {
+      const cat = evt.category?.trim();
+      if (cat) {
+        const lower = cat.toLowerCase();
+        if (!presentCatsMap.has(lower)) {
+          presentCatsMap.set(lower, cat);
+        }
+      }
+    });
+
+    const activeList = Array.from(presentCatsMap.values());
+    return ['All', ...activeList];
+  }, [events]);
+
+  // If the active filter button no longer has any associated events, safely reset to 'All'
+  useEffect(() => {
+    if (selectedCategory !== 'All') {
+      const exists = categories.some(c => c.toLowerCase() === selectedCategory.toLowerCase());
+      if (!exists) {
+        setSelectedCategory('All');
+      }
+    }
+  }, [categories, selectedCategory]);
 
   const filteredEvents = events.filter(evt => {
-    const matchesCategory = selectedCategory === 'All' || evt.category.toLowerCase() === selectedCategory.toLowerCase();
+    const evtCat = evt.category || 'Party';
+    const matchesCategory = selectedCategory === 'All' || evtCat.toLowerCase() === selectedCategory.toLowerCase();
     const query = searchQuery.toLowerCase();
     const matchesSearch = evt.title.toLowerCase().includes(query) || 
                           evt.description.toLowerCase().includes(query) ||
+                          evtCat.toLowerCase().includes(query) ||
                           (evt.djLineup && evt.djLineup.some(dj => dj.toLowerCase().includes(query))) ||
                           (evt.genres && evt.genres.some(g => g.toLowerCase().includes(query)));
     return matchesCategory && matchesSearch;
@@ -56,34 +84,52 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-transparent" />
         <div className="relative z-10 max-w-2xl space-y-4">
           <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> 10-Day Festival Itinerary
+            <Sparkles className="w-3.5 h-3.5" /> {getEffectiveFestivalDateRange(siteConfig, events).toUpperCase()} • SCHEDULE
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-serif tracking-tight leading-tight">
             Festival <span className="text-gold-gradient">Event Schedule</span>
           </h1>
           <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
-            Explore the full 10-day itinerary featuring London & Grenada’s top DJs, beach fetes, river tubing, cultural street parades, and the grand White Gala.
+            Explore the full festival itinerary featuring London & Grenada’s top DJs, beach fetes, river tubing, cultural street parades, and the grand White Gala.
           </p>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
       <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Category Pills */}
+        {/* Category Pills (Only visible when events exist for that filter) */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedCategory === cat 
-                  ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' 
-                  : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const count = cat === 'All'
+              ? events.length 
+              : events.filter(e => (e.category || '').toLowerCase() === cat.toLowerCase()).length;
+            
+            // Guard: do not render category button if 0 events are related to that filter
+            if (cat !== 'All' && count === 0) return null;
+
+            const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
+
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20 font-black' 
+                    : 'bg-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-700'
+                }`}
+              >
+                <span>{cat}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  isSelected
+                    ? 'bg-neutral-950/20 text-neutral-950'
+                    : 'bg-neutral-900/90 text-neutral-400'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search Input */}
@@ -132,11 +178,16 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
             {/* Event Details Content */}
             <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-amber-400/90 text-xs font-semibold">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{event.date}</span>
+                <div className="flex items-center gap-2 text-amber-400/90 text-xs font-semibold flex-wrap">
+                  <Calendar className="w-3.5 h-3.5 shrink-0" />
+                  <span>{formatEventDateRange(event.startDate, event.endDate, event.date)}</span>
+                  {calculateDurationDays(event.startDate, event.endDate) > 1 && (
+                    <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-1.5 py-0.2 rounded font-mono">
+                      {calculateDurationDays(event.startDate, event.endDate)} Days
+                    </span>
+                  )}
                   <span className="text-neutral-600">•</span>
-                  <Clock className="w-3.5 h-3.5" />
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span>{event.time}</span>
                 </div>
 
@@ -230,13 +281,26 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
                   </button>
 
                   <div className="absolute bottom-4 left-6 right-6 space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="bg-amber-500 text-neutral-950 text-[10px] font-black px-2.5 py-0.5 rounded font-mono uppercase">
                         DAY {activeEventModal.dayNumber}
                       </span>
-                      <span className="text-amber-400 text-xs font-bold">
-                        {activeEventModal.date}
+                      <span className="bg-neutral-900/90 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                        {activeEventModal.category || 'Event'}
                       </span>
+                      <span className="text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatEventDateRange(activeEventModal.startDate, activeEventModal.endDate, activeEventModal.date)}
+                      </span>
+                      {calculateDurationDays(activeEventModal.startDate, activeEventModal.endDate) > 1 ? (
+                        <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded font-mono uppercase">
+                          {calculateDurationDays(activeEventModal.startDate, activeEventModal.endDate)}-Day Event
+                        </span>
+                      ) : (
+                        <span className="bg-neutral-800/80 border border-neutral-700 text-neutral-400 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">
+                          1-Day Event
+                        </span>
+                      )}
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-serif">
                       {activeEventModal.title}

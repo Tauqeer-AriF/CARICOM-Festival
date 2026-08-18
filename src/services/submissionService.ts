@@ -46,8 +46,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   },
   banner: {
     enabled: true,
-    text: '🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • MAY 13 - 17, 2027',
+    text: '🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • MAY 22 - 31, 2027',
     bgColor: '#10B981', // Emerald green
+  },
+  festivalDates: {
+    startDate: '2027-05-22',
+    endDate: '2027-05-31',
+    startTime: '18:00',
+    label: 'MAY 22 - 31, 2027',
+    locationLabel: 'SPICE ISLE, GRENADA',
   },
   hero: {
     displayCount: 5,
@@ -131,10 +138,10 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     email: 'sarah.j@outlook.com',
     phone: '+44 7700 900123',
     topicOrPass: 'Virgin Atlantic VS141',
-    messageOrDetails: 'Arriving May 13th at 15:20. Staying at Royalton Grenada. Requesting airport shuttle transfer for 2 adults with 4 suitcases.',
+    messageOrDetails: 'Arriving May 22nd at 15:20. Staying at Royalton Grenada. Requesting airport shuttle transfer for 2 adults with 4 suitcases.',
     status: 'resolved',
     submittedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-    extraDetails: { Airline: 'Virgin Atlantic', FlightNum: 'VS141', Arrival: '2027-05-13 15:20', Departure: '2027-05-23 19:40', Hotel: 'Royalton Grenada Resort & Spa' }
+    extraDetails: { Airline: 'Virgin Atlantic', FlightNum: 'VS141', Arrival: '2027-05-22 15:20', Departure: '2027-06-01 19:40', Hotel: 'Royalton Grenada Resort & Spa' }
   },
   {
     id: 'sub-102',
@@ -143,11 +150,11 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     email: 'm.thorne@gmail.com',
     phone: '+1 305 555 0192',
     topicOrPass: 'British Airways BA2158',
-    messageOrDetails: 'Arriving May 12th at 14:45. Staying at Royalton Grenada. Requesting airport shuttle transfer for 2 adults with 3 large suitcases.',
+    messageOrDetails: 'Arriving May 21st at 14:45. Staying at Royalton Grenada. Requesting airport shuttle transfer for 2 adults with 3 large suitcases.',
     status: 'in-review',
     submittedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
     amountGBP: 120,
-    extraDetails: { Airline: 'British Airways', FlightNum: 'BA2158', Arrival: '2027-05-12 14:45', Departure: '2027-05-22 17:30', Hotel: 'Royalton Grenada Resort & Spa' }
+    extraDetails: { Airline: 'British Airways', FlightNum: 'BA2158', Arrival: '2027-05-21 14:45', Departure: '2027-05-31 17:30', Hotel: 'Royalton Grenada Resort & Spa' }
   },
   {
     id: 'sub-108',
@@ -191,10 +198,10 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     email: 'david.boyce@caribbean-travel.org',
     phone: '+1 473 405 9911',
     topicOrPass: 'American Airlines AA1148',
-    messageOrDetails: 'Arriving May 13th at 16:10. Staying at Mount Cinnamon Grenada Resort. Requested private SUV transfer.',
+    messageOrDetails: 'Arriving May 22nd at 16:10. Staying at Mount Cinnamon Grenada Resort. Requested private SUV transfer.',
     status: 'resolved',
     submittedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
-    extraDetails: { Airline: 'American Airlines', FlightNum: 'AA1148', Arrival: '2027-05-13 16:10', Departure: '2027-05-23 11:20', Hotel: 'Mount Cinnamon Resort' }
+    extraDetails: { Airline: 'American Airlines', FlightNum: 'AA1148', Arrival: '2027-05-22 16:10', Departure: '2027-06-01 11:20', Hotel: 'Mount Cinnamon Resort' }
   },
   {
     id: 'sub-104',
@@ -839,6 +846,10 @@ export const saveSiteConfig = (config: SiteConfig): void => {
     const normalizedConfig: SiteConfig = {
       ...DEFAULT_SITE_CONFIG,
       ...config,
+      festivalDates: {
+        ...DEFAULT_SITE_CONFIG.festivalDates,
+        ...(config.festivalDates || {})
+      },
       socialLinks: { ...DEFAULT_SITE_CONFIG.socialLinks, ...(config.socialLinks || {}) },
       branding: { ...DEFAULT_SITE_CONFIG.branding, ...(config.branding || {}) },
       banner: { ...DEFAULT_SITE_CONFIG.banner, ...(config.banner || {}) },
