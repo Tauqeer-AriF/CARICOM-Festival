@@ -122,6 +122,11 @@ import { BackupRestoreTab } from '../components/BackupRestoreTab';
 import { PassBadgePdfModal, parseSubmissionItems } from '../components/PassBadgePdfModal';
 import { ImportCsvModal } from '../components/ImportCsvModal';
 import { EditSubmissionModal } from '../components/EditSubmissionModal';
+import { EditEventModal } from '../components/EditEventModal';
+import { EditGalleryItemModal } from '../components/EditGalleryItemModal';
+import { EditPassModal } from '../components/EditPassModal';
+import { EditHotelModal } from '../components/EditHotelModal';
+import { EditTestimonialModal } from '../components/EditTestimonialModal';
 import { 
   SubmissionTypeBadge, 
   SubmissionStatusBadge, 
@@ -393,10 +398,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   // Media Selector State
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
-    'event' | 'gallery' | 'gallery_video' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | { heroIndex: number } | { pageImageKey: string } | null
+    'event' | 'gallery' | 'gallery_video' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | 'custom_callback' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
+  const [mediaSelectorCallback, setMediaSelectorCallback] = useState<((url: string) => void) | null>(null);
+
+  const openMediaLibraryWithCallback = (onSelect: (url: string) => void) => {
+    setMediaSelectorCallback(() => onSelect);
+    setMediaSelectorTarget('custom_callback');
+  };
 
   const handleMediaSelect = (url: string) => {
+    if (mediaSelectorTarget === 'custom_callback' && mediaSelectorCallback) {
+      mediaSelectorCallback(url);
+      setMediaSelectorCallback(null);
+      setMediaSelectorTarget(null);
+      setSaveToast('Selected media applied from Media Library!');
+      return;
+    }
     if (mediaSelectorTarget === 'logo') {
       const updatedConfig = {
         ...siteConfig,
@@ -614,6 +632,92 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     rating: 5,
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
   });
+
+  // --- DEDICATED MODAL SAVE HANDLERS ---
+  const handleSaveEventModal = (savedEvent: EventItem) => {
+    let updatedList: EventItem[];
+    if (editingEvent) {
+      updatedList = events.map(ev => ev.id === savedEvent.id ? savedEvent : ev);
+      setSaveToast('Event updated successfully!');
+    } else {
+      updatedList = [...events, savedEvent];
+      setSaveToast('New event created successfully!');
+    }
+    setEvents(updatedList);
+    saveEvents(updatedList);
+    setEditingEvent(null);
+    setShowAddEvent(false);
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSaveGalleryModal = (savedItem: GalleryItem) => {
+    let updatedList: GalleryItem[];
+    if (editingGallery) {
+      updatedList = galleryItems.map(item => item.id === savedItem.id ? savedItem : item);
+      setSaveToast('Gallery item updated successfully!');
+    } else {
+      updatedList = [savedItem, ...galleryItems];
+      setSaveToast('New gallery item added!');
+    }
+    setGalleryItems(updatedList);
+    saveGalleryItems(updatedList);
+    setEditingGallery(null);
+    setShowAddGallery(false);
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSavePassModal = (savedPass: PassItem) => {
+    let updatedList: PassItem[];
+    if (editingPass) {
+      updatedList = passes.map(p => p.id === savedPass.id ? savedPass : p);
+      setSaveToast('Pass package updated!');
+    } else {
+      updatedList = [...passes, savedPass];
+      setSaveToast('New pass package created!');
+    }
+    setPasses(updatedList);
+    savePasses(updatedList);
+    setEditingPass(null);
+    setShowAddPass(false);
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSaveHotelModal = (savedHotel: HotelItem) => {
+    let updatedList: HotelItem[];
+    if (editingHotel) {
+      updatedList = hotels.map(h => h.id === savedHotel.id ? savedHotel : h);
+      setSaveToast('Hotel details updated!');
+    } else {
+      updatedList = [...hotels, savedHotel];
+      setSaveToast('New partner hotel added!');
+    }
+    setHotels(updatedList);
+    saveHotels(updatedList);
+    setEditingHotel(null);
+    setShowAddHotel(false);
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSaveTestimonialModal = (savedTestimonial: TestimonialItem) => {
+    let updatedList: TestimonialItem[];
+    if (editingTestimonial) {
+      updatedList = testimonials.map(t => t.id === savedTestimonial.id ? savedTestimonial : t);
+      setSaveToast('Testimonial updated!');
+    } else {
+      updatedList = [...testimonials, savedTestimonial];
+      setSaveToast('New testimonial added!');
+    }
+    setTestimonials(updatedList);
+    saveTestimonials(updatedList);
+    setEditingTestimonial(null);
+    setShowAddTestimonial(false);
+    loadData();
+    setTimeout(() => setSaveToast(null), 3000);
+  };
 
   const primaryColor = siteConfig.branding.primaryColor || '#F59E0B';
   const secondaryColor = siteConfig.branding.secondaryColor || '#10B981';
@@ -2119,11 +2223,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer"
                               />
                             </th>
-                            <th className="py-3.5 px-5 w-[20%]">Guest Name</th>
-                            <th className="py-3.5 px-4 w-[15%]">Form Category</th>
-                            <th className="py-3.5 px-4 w-[32%]">Details Summary</th>
-                            <th className="py-3.5 px-4 w-[14%] text-center">Lifecycle Status</th>
-                            <th className="py-3.5 px-5 w-[14%] text-right">Quick Actions</th>
+                            <th className="py-3.5 px-5 w-[25%]">Guest Name</th>
+                            <th className="py-3.5 px-4 w-[18%]">Form Category</th>
+                            <th className="py-3.5 px-4 w-[37%]">Details Summary</th>
+                            <th className="py-3.5 px-5 w-[15%] text-right">Quick Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-900">
@@ -2206,11 +2309,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                       </div>
                                     </td>
 
-                                    {/* Lifecycle Status */}
-                                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                      <span className="text-neutral-600 font-mono text-xs">—</span>
-                                    </td>
-
                                     {/* Quick Actions */}
                                     <td className="py-3 px-5 text-right" onClick={(e) => e.stopPropagation()}>
                                       <div className="flex items-center justify-end gap-1.5">
@@ -2249,7 +2347,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 {/* COLLAPSIBLE DETAILS VIEW */}
                                 {isExpanded && (
                                   <tr className="bg-neutral-950/40">
-                                    <td colSpan={6} className="py-4 px-6 border-t border-neutral-900">
+                                    <td colSpan={5} className="py-4 px-6 border-t border-neutral-900">
                                       <div className="space-y-4 animate-in slide-in-from-top-1 duration-150">
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                           {/* Dossier Contact */}
@@ -6865,14 +6963,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <p className="text-xs text-neutral-400 font-light">Manage overall festival start & end dates and customize individual event listings.</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {!showAddEvent && !editingEvent && (
-                    <button
-                      onClick={() => setShowAddEvent(true)}
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
-                    >
-                      <Plus className="w-4 h-4" /> Add Festival Event
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingEvent(null);
+                      setShowAddEvent(true);
+                    }}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" /> Add Festival Event
+                  </button>
                 </div>
               </div>
 
@@ -6962,526 +7062,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* Event Form (Create or Edit) */}
-              {(showAddEvent || editingEvent) && (
-                <form
-                  onSubmit={handleSaveEvent}
-                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
-                >
-                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-amber-400" />
-                      {editingEvent ? 'Edit Festival Event Details' : 'Create New Festival Event'}
-                    </h3>
-                    <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold">
-                      {editingEvent ? `ID: ${editingEvent.id}` : 'Draft Mode'}
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Event Title</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingEvent ? editingEvent.title : newEventForm.title}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, title: e.target.value });
-                          else setNewEventForm({ ...newEventForm, title: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Soca Monarch Finals"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Featured Status</label>
-                      <select
-                        value={editingEvent ? (editingEvent.isFeatured ? 'true' : 'false') : (newEventForm.isFeatured ? 'true' : 'false')}
-                        onChange={(e) => {
-                          const val = e.target.value === 'true';
-                          if (editingEvent) setEditingEvent({ ...editingEvent, isFeatured: val });
-                          else setNewEventForm({ ...newEventForm, isFeatured: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="false">Standard Event</option>
-                        <option value="true">Featured (Prominent Hero Placement)</option>
-                      </select>
-                    </div>
-
-                    {/* DEDICATED EVENT DATE & DURATION SELECTOR */}
-                    {(() => {
-                      const isSingle = editingEvent
-                        ? (editingEvent.isSingleDay ?? (!editingEvent.endDate || editingEvent.startDate === editingEvent.endDate))
-                        : (newEventForm.isSingleDay ?? true);
-
-                      const curStart = editingEvent
-                        ? (editingEvent.startDate || parseTextDateToIso(editingEvent.date) || festivalStartInput)
-                        : (newEventForm.startDate || festivalStartInput);
-
-                      const curEnd = isSingle
-                        ? curStart
-                        : (editingEvent
-                            ? (editingEvent.endDate || curStart)
-                            : (newEventForm.endDate || curStart));
-
-                      const curDayNum = editingEvent ? editingEvent.dayNumber : newEventForm.dayNumber;
-                      const curDuration = isSingle ? 1 : calculateDurationDays(curStart, curEnd);
-                      const curFormattedRange = formatEventDateRange(curStart, isSingle ? curStart : curEnd);
-
-                      return (
-                        <div className="md:col-span-2 bg-neutral-950/80 border border-neutral-800 p-5 rounded-2xl space-y-4">
-                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-neutral-800 pb-3">
-                            <div>
-                              <label className="text-amber-400 font-bold uppercase block text-xs flex items-center gap-1.5">
-                                <CalendarRange className="w-3.5 h-3.5 text-amber-400" />
-                                Event Schedule & Duration Settings
-                              </label>
-                              <p className="text-[11px] text-neutral-400 font-light mt-0.5">
-                                Configure single-day or multi-day date spans with automatic duration calculation.
-                              </p>
-                            </div>
-
-                            {/* Event Duration Mode Selector */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (editingEvent) {
-                                    setEditingEvent({
-                                      ...editingEvent,
-                                      isSingleDay: true,
-                                      endDate: curStart,
-                                      date: formatEventDateRange(curStart, curStart)
-                                    });
-                                  } else {
-                                    setNewEventForm({
-                                      ...newEventForm,
-                                      isSingleDay: true,
-                                      endDate: curStart,
-                                      date: formatEventDateRange(curStart, curStart)
-                                    });
-                                  }
-                                }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                                  isSingle
-                                    ? 'bg-amber-500 text-neutral-950 font-black shadow-sm'
-                                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                                }`}
-                              >
-                                <span>⚡ Single-Day (1 Day)</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (editingEvent) {
-                                    const end = editingEvent.endDate && editingEvent.endDate >= curStart ? editingEvent.endDate : curStart;
-                                    setEditingEvent({
-                                      ...editingEvent,
-                                      isSingleDay: false,
-                                      endDate: end,
-                                      date: formatEventDateRange(curStart, end)
-                                    });
-                                  } else {
-                                    const end = newEventForm.endDate && newEventForm.endDate >= curStart ? newEventForm.endDate : curStart;
-                                    setNewEventForm({
-                                      ...newEventForm,
-                                      isSingleDay: false,
-                                      endDate: end,
-                                      date: formatEventDateRange(curStart, end)
-                                    });
-                                  }
-                                }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                                  !isSingle
-                                    ? 'bg-emerald-500 text-neutral-950 font-black shadow-sm'
-                                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                                }`}
-                              >
-                                <span>🗓️ Multi-Day Range</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="text-neutral-400 font-bold uppercase text-[11px] block">Start Date</label>
-                              <input
-                                type="date"
-                                required
-                                value={curStart}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (editingEvent) {
-                                    const end = isSingle ? val : (editingEvent.endDate && editingEvent.endDate >= val ? editingEvent.endDate : val);
-                                    setEditingEvent({
-                                      ...editingEvent,
-                                      startDate: val,
-                                      endDate: end,
-                                      date: formatEventDateRange(val, end)
-                                    });
-                                  } else {
-                                    const end = isSingle ? val : (newEventForm.endDate && newEventForm.endDate >= val ? newEventForm.endDate : val);
-                                    setNewEventForm({
-                                      ...newEventForm,
-                                      startDate: val,
-                                      endDate: end,
-                                      date: formatEventDateRange(val, end)
-                                    });
-                                  }
-                                }}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none transition-colors"
-                              />
-                            </div>
-
-                            {!isSingle ? (
-                              <div className="space-y-1.5">
-                                <label className="text-neutral-400 font-bold uppercase text-[11px] block">End Date (Inclusive)</label>
-                                <input
-                                  type="date"
-                                  required
-                                  min={curStart}
-                                  value={curEnd}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (editingEvent) {
-                                      setEditingEvent({
-                                        ...editingEvent,
-                                        endDate: val,
-                                        date: formatEventDateRange(curStart, val)
-                                      });
-                                    } else {
-                                      setNewEventForm({
-                                        ...newEventForm,
-                                        endDate: val,
-                                        date: formatEventDateRange(curStart, val)
-                                      });
-                                    }
-                                  }}
-                                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-mono text-xs focus:border-amber-500 focus:outline-none transition-colors"
-                                />
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5">
-                                <label className="text-neutral-400 font-bold uppercase text-[11px] block">Schedule Type</label>
-                                <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-mono text-amber-400 font-bold flex items-center gap-1.5 h-[46px]">
-                                  <span>⚡ Single-Day Event</span>
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="space-y-1.5">
-                              <label className="text-neutral-400 font-bold uppercase text-[11px] block">Festival Day Number</label>
-                              <input
-                                type="number"
-                                min="1"
-                                required
-                                value={curDayNum}
-                                onChange={(e) => {
-                                  const num = Number(e.target.value);
-                                  if (editingEvent) setEditingEvent({ ...editingEvent, dayNumber: num });
-                                  else setNewEventForm({ ...newEventForm, dayNumber: num });
-                                }}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none font-mono text-xs transition-colors"
-                              />
-                            </div>
-                          </div>
-
-                          {/* REFINED ACTIVE DURATION & PREVIEW CONTAINER */}
-                          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4 space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/80 pb-3">
-                              <div className="space-y-1">
-                                <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold tracking-wider block">
-                                  Active Schedule & Duration Preview
-                                </span>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-amber-300 font-bold text-sm sm:text-base font-serif">
-                                    📅 {curFormattedRange}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 flex-wrap shrink-0">
-                                <span className="bg-neutral-950 text-neutral-300 border border-neutral-800 text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg uppercase">
-                                  Day {curDayNum}
-                                </span>
-                                {isSingle || curDuration <= 1 ? (
-                                  <span className="bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black font-mono px-2.5 py-1 rounded-lg uppercase">
-                                    ⚡ 1 Day Event
-                                  </span>
-                                ) : (
-                                  <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black font-mono px-2.5 py-1 rounded-lg uppercase">
-                                    🗓️ {curDuration}-Day Range
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-                              <span className="text-[11px] text-neutral-400">
-                                Custom public display label override <span className="text-neutral-500">(Optional)</span>:
-                              </span>
-                              <input
-                                type="text"
-                                value={editingEvent ? (editingEvent.date || '') : (newEventForm.date || '')}
-                                onChange={(e) => {
-                                  if (editingEvent) setEditingEvent({ ...editingEvent, date: e.target.value });
-                                  else setNewEventForm({ ...newEventForm, date: e.target.value });
-                                }}
-                                placeholder={`Auto: "${curFormattedRange}"`}
-                                className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500 focus:outline-none placeholder-neutral-600 font-sans"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Show Timing</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingEvent ? editingEvent.time : newEventForm.time}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, time: e.target.value });
-                          else setNewEventForm({ ...newEventForm, time: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. 10:00 PM - 4:00 AM"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Location / Venue</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingEvent ? editingEvent.location : newEventForm.location}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, location: e.target.value });
-                          else setNewEventForm({ ...newEventForm, location: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Mellowland River stage"
-                      />
-                    </div>
-
-                    {/* EVENT BADGE / CATEGORY TAG MANAGER */}
-                    <div className="md:col-span-2 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <label className="text-amber-400 font-bold uppercase block text-xs flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                            Event Category Badge Text
-                          </label>
-                          <p className="text-[11px] text-neutral-400 font-light mt-0.5">
-                            Sets the badge text displayed in the top corner of the event card (e.g. Party, Music, Adventure, Cultural, Gala, VIP Beach Fete).
-                          </p>
-                        </div>
-
-                        {/* Live Badge Preview */}
-                        <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-lg shrink-0">
-                          <span className="text-[10px] text-neutral-400 uppercase font-mono font-bold">Badge Preview:</span>
-                          <span className="bg-amber-500 text-neutral-950 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-wider shadow-sm">
-                            {(editingEvent ? editingEvent.category : newEventForm.category) || 'Party'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-1">
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <input
-                            type="text"
-                            required
-                            value={editingEvent ? (editingEvent.category ?? '') : (newEventForm.category ?? '')}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (editingEvent) setEditingEvent({ ...editingEvent, category: val });
-                              else setNewEventForm({ ...newEventForm, category: val });
-                            }}
-                            className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white font-semibold focus:border-amber-500 focus:outline-none placeholder-neutral-500 text-xs"
-                            placeholder="Type custom badge text (e.g. Party, Music, Adventure, Cultural, Gala, VIP Beach Fete, Boat Cruise)"
-                          />
-                        </div>
-
-                        {/* Preset Quick-Picks */}
-                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                          <span className="text-[10px] text-neutral-400 font-mono uppercase font-bold mr-1">Presets:</span>
-                          {['Party', 'Music', 'Adventure', 'Cultural', 'Gala', 'VIP Beach Fete', 'Boat Cruise', 'Street Carnival', 'After Party'].map((preset) => {
-                            const current = (editingEvent ? editingEvent.category : newEventForm.category) || '';
-                            const isSelected = current.toLowerCase() === preset.toLowerCase();
-                            return (
-                              <button
-                                key={preset}
-                                type="button"
-                                onClick={() => {
-                                  if (editingEvent) setEditingEvent({ ...editingEvent, category: preset });
-                                  else setNewEventForm({ ...newEventForm, category: preset });
-                                }}
-                                className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-amber-500 text-neutral-950 border-amber-500 font-black shadow-sm'
-                                    : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:text-white'
-                                }`}
-                              >
-                                {preset}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Brief Description</label>
-                      <textarea
-                        required
-                        rows={3}
-                        value={editingEvent ? editingEvent.description : newEventForm.description}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, description: e.target.value });
-                          else setNewEventForm({ ...newEventForm, description: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="Describe the experience, schedule, or lineup details..."
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-neutral-400 font-bold uppercase block">Cover Image URL</label>
-                        <button
-                          type="button"
-                          onClick={() => setMediaSelectorTarget('event')}
-                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                        >
-                          <Image className="w-3 h-3" /> Select from Media
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={editingEvent ? editingEvent.highlightImage : newEventForm.highlightImage}
-                        onChange={(e) => {
-                          if (editingEvent) setEditingEvent({ ...editingEvent, highlightImage: e.target.value });
-                          else setNewEventForm({ ...newEventForm, highlightImage: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">
-                        Ticket Price (GBP) <span className="text-neutral-500 font-normal text-xs">(Optional)</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editingEvent ? (editingEvent.ticketPrice ?? '') : (newEventForm.ticketPrice ?? '')}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const pr = val === '' ? undefined : Number(val);
-                          if (editingEvent) setEditingEvent({ ...editingEvent, ticketPrice: pr });
-                          else setNewEventForm({ ...newEventForm, ticketPrice: pr });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. 50 (leave blank if free/included)"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">
-                        Dress Code <span className="text-neutral-500 font-normal text-xs">(Optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editingEvent ? (editingEvent.dressCode ?? '') : (newEventForm.dressCode ?? '')}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (editingEvent) setEditingEvent({ ...editingEvent, dressCode: val });
-                          else setNewEventForm({ ...newEventForm, dressCode: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. All White Luxury, Beach Chic, Casual"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Access Policy</label>
-                      <select
-                        value={editingEvent ? (editingEvent.wristbandRequired !== false ? 'true' : 'false') : (newEventForm.wristbandRequired !== false ? 'true' : 'false')}
-                        onChange={(e) => {
-                          const val = e.target.value === 'true';
-                          if (editingEvent) setEditingEvent({ ...editingEvent, wristbandRequired: val });
-                          else setNewEventForm({ ...newEventForm, wristbandRequired: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="true">Wristband / Pass Required</option>
-                        <option value="false">Open Entry / Free Admission</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">
-                        Music Genres <span className="text-neutral-500 font-normal text-xs">(Optional, Comma-separated)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editingEvent ? (editingEvent.genres ? editingEvent.genres.join(', ') : '') : (newEventForm.genres ? newEventForm.genres.join(', ') : '')}
-                        onChange={(e) => {
-                          const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                          if (editingEvent) setEditingEvent({ ...editingEvent, genres: arr });
-                          else setNewEventForm({ ...newEventForm, genres: arr });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Soca, Reggae, Afro (leave blank if none)"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block flex items-center gap-1.5">
-                        <Disc className="w-3.5 h-3.5 text-amber-400" /> Event DJs & Lineup <span className="text-neutral-500 font-normal text-xs">(Optional, Comma-separated)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editingEvent ? (editingEvent.djLineup ? editingEvent.djLineup.join(', ') : '') : (newEventForm.djLineup ? newEventForm.djLineup.join(', ') : '')}
-                        onChange={(e) => {
-                          const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                          if (editingEvent) setEditingEvent({ ...editingEvent, djLineup: arr });
-                          else setNewEventForm({ ...newEventForm, djLineup: arr });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none font-mono text-xs"
-                        placeholder="e.g. DJ Slick (London), DJ Spice (Grenada), Selecta Quad (leave blank if none)"
-                      />
-                      <p className="text-[10px] text-neutral-500 font-light">
-                        Separate multiple DJs with commas. If provided, these will display on the festival schedule.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingEvent(null);
-                        setShowAddEvent(false);
-                      }}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer shadow-md"
-                    >
-                      {editingEvent ? 'Save Event Changes' : 'Create Festival Event'}
-                    </button>
-                  </div>
-                </form>
-              )}
 
               {/* Bulk Actions for Events */}
               {selectedEvents.length > 0 && (
@@ -7669,167 +7250,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Gallery Media & Highlights</h2>
                   <p className="text-xs text-neutral-400 font-light">Add, edit, or remove photos and videos appearing in the public gallery.</p>
                 </div>
-                {!showAddGallery && !editingGallery && (
-                  <button
-                    onClick={() => setShowAddGallery(true)}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
-                  >
-                    <Plus className="w-4 h-4" /> Add Gallery Item
-                  </button>
-                )}
-              </div>
-
-              {/* Gallery Form */}
-              {(showAddGallery || editingGallery) && (
-                <form
-                  onSubmit={handleSaveGallery}
-                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                <button
+                  onClick={() => {
+                    setEditingGallery(null);
+                    setShowAddGallery(true);
+                  }}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
                 >
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
-                    <Image className="w-4 h-4 text-amber-400" />
-                    {editingGallery ? 'Edit Gallery Item' : 'Add New Gallery Item'}
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Media Type</label>
-                      <select
-                        value={editingGallery ? (editingGallery.mediaType || (editingGallery.videoUrl ? 'video' : 'image')) : (newGalleryForm.mediaType || 'image')}
-                        onChange={(e) => {
-                          const mType = e.target.value as 'image' | 'video';
-                          if (editingGallery) setEditingGallery({ ...editingGallery, mediaType: mType });
-                          else setNewGalleryForm({ ...newGalleryForm, mediaType: mType });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="image">📷 Photo / Image</option>
-                        <option value="video">🎥 Video Clip</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Title / Caption</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingGallery ? editingGallery.title : newGalleryForm.title}
-                        onChange={(e) => {
-                          if (editingGallery) setEditingGallery({ ...editingGallery, title: e.target.value });
-                          else setNewGalleryForm({ ...newGalleryForm, title: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Mellowland River Tubing Launch"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Category Filter</label>
-                      <select
-                        value={editingGallery ? editingGallery.category : newGalleryForm.category}
-                        onChange={(e) => {
-                          const cat = e.target.value as GalleryItem['category'];
-                          if (editingGallery) setEditingGallery({ ...editingGallery, category: cat });
-                          else setNewGalleryForm({ ...newGalleryForm, category: cat });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="VIP Beach Fete">VIP Beach Fete</option>
-                        <option value="Mellowland Village">Mellowland Village</option>
-                        <option value="Soca & Concerts">Soca & Concerts</option>
-                        <option value="Island Excursions">Island Excursions</option>
-                        <option value="Luxury & Resort">Luxury & Resort</option>
-                      </select>
-                    </div>
-
-                    {((editingGallery && (editingGallery.mediaType === 'video' || Boolean(editingGallery.videoUrl))) || (!editingGallery && newGalleryForm.mediaType === 'video')) && (
-                      <div className="space-y-1.5 md:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-amber-400 font-bold uppercase block">Video URL (YouTube Embed / Vimeo / MP4 Video)</label>
-                          <button
-                            type="button"
-                            onClick={() => setMediaSelectorTarget('gallery_video')}
-                            className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded border border-amber-500/30"
-                          >
-                            <Video className="w-3 h-3" /> Select Video from Media
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          required
-                          value={editingGallery ? (editingGallery.videoUrl || '') : (newGalleryForm.videoUrl || '')}
-                          onChange={(e) => {
-                            if (editingGallery) setEditingGallery({ ...editingGallery, videoUrl: e.target.value, mediaType: 'video' });
-                            else setNewGalleryForm({ ...newGalleryForm, videoUrl: e.target.value, mediaType: 'video' });
-                          }}
-                          className="w-full bg-neutral-950 border border-amber-500/50 rounded-lg p-2.5 text-white focus:border-amber-400 focus:outline-none"
-                          placeholder="https://www.youtube.com/embed/... or /uploads/video.mp4 or select from Media"
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-neutral-400 font-bold uppercase block">
-                          {((editingGallery && (editingGallery.mediaType === 'video' || Boolean(editingGallery.videoUrl))) || (!editingGallery && newGalleryForm.mediaType === 'video'))
-                            ? 'Thumbnail Poster Image URL'
-                            : 'Photo Image URL'}
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setMediaSelectorTarget('gallery')}
-                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                        >
-                          <Image className="w-3 h-3" /> Select from Media
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={editingGallery ? editingGallery.imageUrl : newGalleryForm.imageUrl}
-                        onChange={(e) => {
-                          if (editingGallery) setEditingGallery({ ...editingGallery, imageUrl: e.target.value });
-                          else setNewGalleryForm({ ...newGalleryForm, imageUrl: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Location (Caption Subtext)</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingGallery ? editingGallery.location : newGalleryForm.location}
-                        onChange={(e) => {
-                          if (editingGallery) setEditingGallery({ ...editingGallery, location: e.target.value });
-                          else setNewGalleryForm({ ...newGalleryForm, location: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. St. George's, Grenada"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingGallery(null);
-                        setShowAddGallery(false);
-                      }}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
-                    >
-                      {editingGallery ? 'Save Item' : 'Add Item'}
-                    </button>
-                  </div>
-                </form>
-              )}
+                  <Plus className="w-4 h-4" /> Add Gallery Item
+                </button>
+              </div>
 
               {/* Bulk Actions for Gallery */}
               {selectedGallery.length > 0 && (
@@ -7926,8 +7356,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                     <button
                                       onClick={() => {
                                         setEditingGallery(item);
-                                        setShowAddGallery(false);
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        setShowAddGallery(true);
                                       }}
                                       className="text-[9px] text-amber-400 font-black hover:underline cursor-pointer"
                                     >
@@ -7992,157 +7421,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Festival Pass Manager</h2>
                   <p className="text-xs text-neutral-400 font-light">Modify tiers, price rates, and features shown in the booking shop.</p>
                 </div>
-                {!showAddPass && !editingPass && (
-                  <button
-                    onClick={() => setShowAddPass(true)}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
-                  >
-                    <Plus className="w-4 h-4" /> Create Pass Tier
-                  </button>
-                )}
-              </div>
-
-              {/* Pass Form */}
-              {(showAddPass || editingPass) && (
-                <form
-                  onSubmit={handleSavePass}
-                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                <button
+                  onClick={() => {
+                    setEditingPass(null);
+                    setShowAddPass(true);
+                  }}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
                 >
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
-                    <Ticket className="w-4 h-4 text-amber-400" />
-                    {editingPass ? 'Edit Pass Package' : 'Create New Pass Package'}
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Pass Title / Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingPass ? editingPass.title : newPassForm.title}
-                        onChange={(e) => {
-                          if (editingPass) setEditingPass({ ...editingPass, title: e.target.value });
-                          else setNewPassForm({ ...newPassForm, title: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. 10-Day Gold VIP All Access"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Wristband Type Designation</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingPass ? editingPass.wristbandType : newPassForm.wristbandType}
-                        onChange={(e) => {
-                          if (editingPass) setEditingPass({ ...editingPass, wristbandType: e.target.value });
-                          else setNewPassForm({ ...newPassForm, wristbandType: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. GOLD WRISTBAND"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Subheading Description</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingPass ? editingPass.subtitle : newPassForm.subtitle}
-                        onChange={(e) => {
-                          if (editingPass) setEditingPass({ ...editingPass, subtitle: e.target.value });
-                          else setNewPassForm({ ...newPassForm, subtitle: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Full premium experience for true revelers"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Price in GBP (£)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        required
-                        value={editingPass ? editingPass.priceGBP : newPassForm.priceGBP}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (editingPass) setEditingPass({ ...editingPass, priceGBP: val });
-                          else setNewPassForm({ ...newPassForm, priceGBP: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Included Events Text</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingPass ? editingPass.includedEvents : newPassForm.includedEvents}
-                        onChange={(e) => {
-                          if (editingPass) setEditingPass({ ...editingPass, includedEvents: e.target.value });
-                          else setNewPassForm({ ...newPassForm, includedEvents: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. All events days 1 - 10"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Most Popular Badge Highlight</label>
-                      <select
-                        value={editingPass ? (editingPass.popular ? 'true' : 'false') : (newPassForm.popular ? 'true' : 'false')}
-                        onChange={(e) => {
-                          const pop = e.target.value === 'true';
-                          if (editingPass) setEditingPass({ ...editingPass, popular: pop });
-                          else setNewPassForm({ ...newPassForm, popular: pop });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="false">Standard</option>
-                        <option value="true">Highlight as Popular (Visual Scale Accent)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Pass Perks (one per line)</label>
-                      <textarea
-                        required
-                        rows={3}
-                        value={editingPass ? editingPass.features.join('\n') : newPassForm.features?.join('\n')}
-                        onChange={(e) => {
-                          const lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-                          if (editingPass) setEditingPass({ ...editingPass, features: lines });
-                          else setNewPassForm({ ...newPassForm, features: lines });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none animate-none"
-                        placeholder="VIP front-stage lounge fete access&#10;Complimentary organic garden buffet&#10;Official yacht shuttle pass included"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingPass(null);
-                        setShowAddPass(false);
-                      }}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
-                    >
-                      {editingPass ? 'Save Changes' : 'Create Pass'}
-                    </button>
-                  </div>
-                </form>
-              )}
+                  <Plus className="w-4 h-4" /> Create Pass Tier
+                </button>
+              </div>
 
               {/* Bulk Actions for Passes */}
               {selectedPasses.length > 0 && (
@@ -8232,8 +7520,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                   type="button"
                                   onClick={() => {
                                     setEditingPass(pass);
-                                    setShowAddPass(false);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    setShowAddPass(true);
                                   }}
                                   className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
                                 >
@@ -8296,210 +7583,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Recommended Partner Hotels</h2>
                   <p className="text-xs text-neutral-400 font-light">Add, edit, or toggle spotlight recommendations for beachfront hotel choices.</p>
                 </div>
-                {!showAddHotel && !editingHotel && (
-                  <button
-                    onClick={() => setShowAddHotel(true)}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
-                  >
-                    <Plus className="w-4 h-4" /> Add Partner Hotel
-                  </button>
-                )}
-              </div>
-
-              {/* Hotel Form */}
-              {(showAddHotel || editingHotel) && (
-                <form
-                  onSubmit={handleSaveHotel}
-                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                <button
+                  onClick={() => {
+                    setEditingHotel(null);
+                    setShowAddHotel(true);
+                  }}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
                 >
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
-                    <Hotel className="w-4 h-4 text-amber-400" />
-                    {editingHotel ? 'Edit Recommended Hotel' : 'Create Recommended Hotel'}
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Hotel Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.name : newHotelForm.name}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, name: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, name: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Royalton Grenada Resort"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Rating (Stars: 1 - 5)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="5"
-                        required
-                        value={editingHotel ? editingHotel.stars : newHotelForm.stars}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (editingHotel) setEditingHotel({ ...editingHotel, stars: val });
-                          else setNewHotelForm({ ...newHotelForm, stars: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Tagline Quote</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.tagline : newHotelForm.tagline}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, tagline: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, tagline: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Beachfront Luxury and Soca Sunset parties"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Is Highly Recommended (Spotlight Placement)</label>
-                      <select
-                        value={editingHotel ? (editingHotel.isRecommended ? 'true' : 'false') : (newHotelForm.isRecommended ? 'true' : 'false')}
-                        onChange={(e) => {
-                          const rec = e.target.value === 'true';
-                          if (editingHotel) setEditingHotel({ ...editingHotel, isRecommended: rec });
-                          else setNewHotelForm({ ...newHotelForm, isRecommended: rec });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="false">Partner Accommodation (Grid placement)</option>
-                        <option value="true">Spotlight Recommendation (Large Banner feature)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Hotel Description</label>
-                      <textarea
-                        required
-                        rows={3}
-                        value={editingHotel ? editingHotel.description : newHotelForm.description}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, description: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, description: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="Describe the hotel amenities, reception desks, and proximity to festival points..."
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-neutral-400 font-bold uppercase block">Cover Photo URL</label>
-                        <button
-                          type="button"
-                          onClick={() => setMediaSelectorTarget('hotel')}
-                          className="text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                        >
-                          <Image className="w-3 h-3" /> Select from Media
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.image : newHotelForm.image}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, image: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, image: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Location (Geographic)</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.location : newHotelForm.location}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, location: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, location: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Magazine Beach, St. George's"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Distance/Travel time to Mellowland</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.distanceToMellowland : newHotelForm.distanceToMellowland}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, distanceToMellowland: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, distanceToMellowland: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. 15 mins drive"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Official Booking Website Link</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingHotel ? editingHotel.bookingUrl : newHotelForm.bookingUrl}
-                        onChange={(e) => {
-                          if (editingHotel) setEditingHotel({ ...editingHotel, bookingUrl: e.target.value });
-                          else setNewHotelForm({ ...newHotelForm, bookingUrl: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Hotel Features / Perks (one per line)</label>
-                      <textarea
-                        required
-                        rows={3}
-                        value={editingHotel ? editingHotel.features.join('\n') : newHotelForm.features?.join('\n')}
-                        onChange={(e) => {
-                          const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-                          if (editingHotel) setEditingHotel({ ...editingHotel, features: list });
-                          else setNewHotelForm({ ...newHotelForm, features: list });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800/60 rounded-lg p-2.5 text-white focus:border-amber-500/60 focus:outline-none animate-none"
-                        placeholder="Beachfront Ocean Suites&#10;Mellows Official Shuttle Stop&#10;On-site wristband collection desk"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingHotel(null);
-                        setShowAddHotel(false);
-                      }}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
-                    >
-                      {editingHotel ? 'Save Changes' : 'Create Partner'}
-                    </button>
-                  </div>
-                </form>
-              )}
+                  <Plus className="w-4 h-4" /> Add Partner Hotel
+                </button>
+              </div>
 
               {/* Bulk Actions for Hotels */}
               {selectedHotels.length > 0 && (
@@ -8599,8 +7692,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => {
                                   setEditingHotel(hotel);
-                                  setShowAddHotel(false);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  setShowAddHotel(true);
                                 }}
                                 className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold font-sans"
                               >
@@ -8812,152 +7904,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Testimonials Manager</h2>
                   <p className="text-xs text-neutral-400 font-light">Add, edit, or remove guest experiences shown on the public testimonials board.</p>
                 </div>
-                {!showAddTestimonial && !editingTestimonial && (
-                  <button
-                    onClick={() => setShowAddTestimonial(true)}
-                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
-                  >
-                    <Plus className="w-4 h-4" /> Add Testimonial
-                  </button>
-                )}
-              </div>
-
-              {/* Testimonial Form (Create or Edit) */}
-              {(showAddTestimonial || editingTestimonial) && (
-                <form
-                  onSubmit={handleSaveTestimonial}
-                  className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg"
+                <button
+                  onClick={() => {
+                    setEditingTestimonial(null);
+                    setShowAddTestimonial(true);
+                  }}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 transition-transform hover:scale-105"
                 >
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-amber-400" />
-                    {editingTestimonial ? 'Edit Guest Testimonial' : 'Create Guest Testimonial'}
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Guest Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingTestimonial ? editingTestimonial.name : newTestimonialForm.name}
-                        onChange={(e) => {
-                          if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, name: e.target.value });
-                          else setNewTestimonialForm({ ...newTestimonialForm, name: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Sarah Jenkins"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Role / Designation</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingTestimonial ? editingTestimonial.role : newTestimonialForm.role}
-                        onChange={(e) => {
-                          if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, role: e.target.value });
-                          else setNewTestimonialForm({ ...newTestimonialForm, role: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. Soca Enthusiast"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Location / Origin</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingTestimonial ? editingTestimonial.location : newTestimonialForm.location}
-                        onChange={(e) => {
-                          if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, location: e.target.value });
-                          else setNewTestimonialForm({ ...newTestimonialForm, location: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="e.g. London, UK"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-neutral-400 font-bold uppercase block">Rating (1 - 5 Stars)</label>
-                      <select
-                        value={editingTestimonial ? editingTestimonial.rating : newTestimonialForm.rating}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, rating: val });
-                          else setNewTestimonialForm({ ...newTestimonialForm, rating: val });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value={5}>★★★★★ (5 Stars)</option>
-                        <option value={4}>★★★★☆ (4 Stars)</option>
-                        <option value={3}>★★★☆☆ (3 Stars)</option>
-                        <option value={2}>★★☆☆☆ (2 Stars)</option>
-                        <option value={1}>★☆☆☆☆ (1 Star)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Avatar / Profile Image URL</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          required
-                          value={editingTestimonial ? editingTestimonial.avatar : newTestimonialForm.avatar}
-                          onChange={(e) => {
-                            if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, avatar: e.target.value });
-                            else setNewTestimonialForm({ ...newTestimonialForm, avatar: e.target.value });
-                          }}
-                          className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                          placeholder="Image URL"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setMediaSelectorTarget('testimonial')}
-                          className="px-3 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors uppercase text-[10px] tracking-wider font-extrabold flex items-center gap-1 cursor-pointer shrink-0"
-                        >
-                          <Image className="w-3.5 h-3.5" /> Media Library
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-neutral-400 font-bold uppercase block">Testimonial Quote</label>
-                      <textarea
-                        required
-                        rows={4}
-                        value={editingTestimonial ? editingTestimonial.quote : newTestimonialForm.quote}
-                        onChange={(e) => {
-                          if (editingTestimonial) setEditingTestimonial({ ...editingTestimonial, quote: e.target.value });
-                          else setNewTestimonialForm({ ...newTestimonialForm, quote: e.target.value });
-                        }}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
-                        placeholder="Share the guest's beautiful carnival experience or quote..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTestimonial(null);
-                        setShowAddTestimonial(false);
-                      }}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-lg transition-colors cursor-pointer"
-                    >
-                      {editingTestimonial ? 'Save Changes' : 'Create Testimonial'}
-                    </button>
-                  </div>
-                </form>
-              )}
+                  <Plus className="w-4 h-4" /> Add Testimonial
+                </button>
+              </div>
 
               {/* Bulk Actions for Testimonials */}
               {selectedTestimonials.length > 0 && (
@@ -9056,8 +8012,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => {
                                   setEditingTestimonial(t);
-                                  setShowAddTestimonial(false);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  setShowAddTestimonial(true);
                                 }}
                                 className="p-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 rounded-lg border border-neutral-800 transition-colors cursor-pointer text-xs font-bold"
                                 title="Edit testimonial details"
@@ -9814,6 +8769,71 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           primaryColor={primaryColor}
         />
       )}
+
+      {/* Edit Event Pop-up Modal */}
+      <EditEventModal
+        isOpen={showAddEvent || editingEvent !== null}
+        onClose={() => {
+          setShowAddEvent(false);
+          setEditingEvent(null);
+        }}
+        onSave={handleSaveEventModal}
+        event={editingEvent}
+        primaryColor={primaryColor}
+        defaultStartDate={festivalStartInput}
+        onOpenMediaLibrary={openMediaLibraryWithCallback}
+      />
+
+      {/* Edit Gallery Item Pop-up Modal */}
+      <EditGalleryItemModal
+        isOpen={showAddGallery || editingGallery !== null}
+        onClose={() => {
+          setShowAddGallery(false);
+          setEditingGallery(null);
+        }}
+        onSave={handleSaveGalleryModal}
+        item={editingGallery}
+        primaryColor={primaryColor}
+        onOpenMediaLibrary={openMediaLibraryWithCallback}
+      />
+
+      {/* Edit Pass Package Pop-up Modal */}
+      <EditPassModal
+        isOpen={showAddPass || editingPass !== null}
+        onClose={() => {
+          setShowAddPass(false);
+          setEditingPass(null);
+        }}
+        onSave={handleSavePassModal}
+        pass={editingPass}
+        primaryColor={primaryColor}
+      />
+
+      {/* Edit Hotel Pop-up Modal */}
+      <EditHotelModal
+        isOpen={showAddHotel || editingHotel !== null}
+        onClose={() => {
+          setShowAddHotel(false);
+          setEditingHotel(null);
+        }}
+        onSave={handleSaveHotelModal}
+        hotel={editingHotel}
+        primaryColor={primaryColor}
+        onOpenMediaLibrary={openMediaLibraryWithCallback}
+      />
+
+      {/* Edit Testimonial Pop-up Modal */}
+      <EditTestimonialModal
+        isOpen={showAddTestimonial || editingTestimonial !== null}
+        onClose={() => {
+          setShowAddTestimonial(false);
+          setEditingTestimonial(null);
+        }}
+        onSave={handleSaveTestimonialModal}
+        testimonial={editingTestimonial}
+        primaryColor={primaryColor}
+        onOpenMediaLibrary={openMediaLibraryWithCallback}
+      />
 
     </div>
   );
