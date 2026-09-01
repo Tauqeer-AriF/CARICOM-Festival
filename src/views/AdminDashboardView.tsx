@@ -2091,7 +2091,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   color: activeAdminTab === 'users' ? '#000000' : '#d4d4d4'
                 }}
               >
-                {getAdminUsers().length}
+                {getAdminUsers().filter(u => u.role !== 'Owner' && u.username.toLowerCase() !== 'owner').length}
               </span>
             </button>
           )}
