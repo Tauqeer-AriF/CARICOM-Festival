@@ -152,6 +152,11 @@ export interface SiteConfig {
   };
   adminPath?: string;
   adminPassword?: string;
+  ownerAdminPath?: string;
+  ownerAdminPassword?: string;
+  isKilled?: boolean;
+  killedReason?: string;
+  killedAt?: string;
   contactEmail?: string;
   contactPhone?: string;
   updatedAt?: string;
@@ -260,4 +265,29 @@ export interface MediaItem {
   type: string; // mime type
   uploadedAt: string;
 }
+
+export type AdminRole = 
+  | 'Owner'
+  | 'Admin' 
+  | 'Executive Lead' 
+  | 'Event Coordinator' 
+  | 'Ticketing & Passes' 
+  | 'Concierge Lead' 
+  | 'Curator' 
+  | 'Logistics Lead';
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  password: string;
+  passcode?: string;
+  name: string;
+  role: AdminRole;
+  email?: string;
+  status: 'active' | 'suspended';
+  createdAt: string;
+  lastLogin?: string;
+  notes?: string;
+}
+
 

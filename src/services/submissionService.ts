@@ -18,7 +18,7 @@ const TESTIMONIALS_KEY = 'grenada_caricom_testimonials_v2';
 const MEDIA_KEY = 'grenada_caricom_media_v2';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
-  appName: 'Grenada CARICOM Festival 2027',
+  appName: 'Grenada',
   appSubtitle: 'CARICOM FESTIVAL',
   appLogoUrl: '',
   appFaviconUrl: '/src/assets/images/favicon_icon_1786434632871.jpg',
@@ -46,7 +46,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   },
   banner: {
     enabled: true,
-    text: '🔥 GRENADA CARICOM FESTIVAL 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • MAY 22 - 31, 2027',
+    text: '🔥 GRENADA 2027 • EARLY BIRD VIP WRISTBANDS 85% SOLD OUT • MAY 22 - 31, 2027',
     bgColor: '#10B981', // Emerald green
   },
   festivalDates: {
@@ -92,6 +92,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   },
   adminPath: 'admin',
   adminPassword: '2027',
+  ownerAdminPath: 'owner-console',
+  ownerAdminPassword: '9999',
   contactEmail: 'info@grenadacaricomfestival.com',
   contactPhone: '+44 (0)7900 123 456',
 };
@@ -793,12 +795,15 @@ export const getSiteConfig = (): SiteConfig => {
       return DEFAULT_SITE_CONFIG;
     }
     const parsed = JSON.parse(raw);
+    const resolvedAppName = (!parsed.appName || parsed.appName === 'Grenada CARICOM Festival 2027') ? 'Grenada' : parsed.appName;
+    const resolvedBannerText = (parsed.banner?.text || DEFAULT_SITE_CONFIG.banner.text).replace('GRENADA CARICOM FESTIVAL 2027', 'GRENADA 2027');
     return {
       ...DEFAULT_SITE_CONFIG,
       ...parsed,
+      appName: resolvedAppName,
       socialLinks: { ...DEFAULT_SITE_CONFIG.socialLinks, ...(parsed.socialLinks || {}) },
       branding: { ...DEFAULT_SITE_CONFIG.branding, ...(parsed.branding || {}) },
-      banner: { ...DEFAULT_SITE_CONFIG.banner, ...(parsed.banner || {}) },
+      banner: { ...DEFAULT_SITE_CONFIG.banner, ...(parsed.banner || {}), text: resolvedBannerText },
       hero: {
         displayCount: parsed.hero?.displayCount ?? DEFAULT_SITE_CONFIG.hero?.displayCount ?? 5,
         autoplayInterval: parsed.hero?.autoplayInterval ?? DEFAULT_SITE_CONFIG.hero?.autoplayInterval ?? 4,

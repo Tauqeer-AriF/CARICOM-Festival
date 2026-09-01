@@ -955,7 +955,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleCopyLink(item)}
-                            className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                            className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                           >
                             {copiedId === item.id ? (
                               <>

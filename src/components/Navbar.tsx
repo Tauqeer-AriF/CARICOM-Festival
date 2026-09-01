@@ -207,7 +207,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {siteConfig?.appSubtitle || 'CARICOM FESTIVAL'}
                 </span>
                 <span className="text-base sm:text-lg font-bold font-serif tracking-tight text-white group-hover:text-amber-300 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                  {siteConfig?.appName || 'Grenada CARICOM Festival 2027'}
+                  {siteConfig?.appName || 'Grenada'}
                   {siteConfig?.appYearBadge && !siteConfig?.appName?.includes(siteConfig.appYearBadge) && (
                     <span className="font-sans font-extrabold text-amber-400 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">
                       {siteConfig.appYearBadge}

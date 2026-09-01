@@ -330,7 +330,7 @@ export const EditPassModal: React.FC<EditPassModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddFeature}
-                  className="px-3.5 bg-neutral-900 hover:bg-neutral-850 text-amber-400 border border-neutral-800 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3.5 bg-neutral-900 hover:bg-neutral-800 text-amber-400 border border-neutral-800 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-4 h-4" /> Add Perk
                 </button>
@@ -374,7 +374,7 @@ export const EditPassModal: React.FC<EditPassModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors text-xs"
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors text-xs"
               >
                 Cancel
               </button>

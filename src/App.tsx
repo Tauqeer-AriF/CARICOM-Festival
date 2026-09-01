@@ -25,6 +25,7 @@ import { NotFoundView } from './views/NotFoundView';
 import { RegistrationModal } from './components/RegistrationModal';
 import { AnimatePresence } from 'motion/react';
 import { SplashScreen } from './components/SplashScreen';
+import { ApplicationKilledView } from './components/ApplicationKilledView';
 
 // Helper to parse current path to ActiveTab
 const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
@@ -35,9 +36,10 @@ const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
   if (!current) return 'home';
   
   const config = overrideConfig || getSiteConfig();
-  const secretPath = (config.adminPath || 'admin').toLowerCase().trim();
+  const opsSecretPath = (config.adminPath || 'admin').toLowerCase().trim();
+  const ownerSecretPath = (config.ownerAdminPath || 'owner-console').toLowerCase().trim();
   
-  if (current === secretPath) return 'admin';
+  if (current === opsSecretPath || current === ownerSecretPath || current === 'admin') return 'admin';
   if (current === 'events') return 'events';
   if (current === 'gallery') return 'gallery';
   if (current === 'about-grenada') return 'about-grenada';
@@ -275,7 +277,7 @@ export default function App() {
       case 'contact': return 'Mellows Concierge Helpdesk';
       case 'travel-insurance': return 'Travel Insurance & Peace of Mind';
       case 'not-found': return 'Page Not Found';
-      default: return 'Grenada CARICOM Festival 2027';
+      default: return siteConfig.appName || 'Grenada';
     }
   };
 
@@ -702,29 +704,57 @@ export default function App() {
       </AnimatePresence>
 
       <div className={`flex-1 flex flex-col relative z-10 transition-opacity duration-1000 ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        {/* Top Announcement Banner */}
-        {siteConfig.banner?.enabled && siteConfig.banner.text && (
-        <div 
-          className="w-full text-center text-[10px] sm:text-xs font-bold py-2 px-4 select-none relative overflow-hidden transition-all duration-300 shrink-0 z-40 flex items-center justify-center gap-2 border-b border-white/5"
-          style={{ backgroundColor: siteConfig.banner.bgColor || '#10B981', color: '#ffffff' }}
-        >
-          <span className="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
-          <span className="uppercase tracking-[0.15em] font-sans text-white truncate">{siteConfig.banner.text}</span>
-        </div>
-      )}
+        {/* Check if Application has been killed by Owner */}
+        {siteConfig.isKilled && activeTab !== 'admin' ? (
+          <ApplicationKilledView 
+            siteConfig={siteConfig} 
+            onRestore={() => setSiteConfig(getSiteConfig())} 
+            onNavigateAdmin={() => setActiveTab('admin')} 
+          />
+        ) : (
+          <>
+            {/* Top Announcement Banner */}
+            {siteConfig.banner?.enabled && siteConfig.banner.text && (
+            <div 
+              className="w-full text-center text-[10px] sm:text-xs font-bold py-2 px-3 select-none relative overflow-hidden transition-all duration-300 shrink-0 z-40 flex items-center justify-center border-b border-white/5"
+              style={{ backgroundColor: siteConfig.banner.bgColor || '#10B981', color: '#ffffff' }}
+            >
+              <div className="flex items-center gap-2 overflow-hidden w-full max-w-7xl mx-auto justify-center">
+                <span className="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0 z-10" />
+                
+                {/* Mobile: Infinite scrolling ticker to read full banner notice. Desktop: Clean centered layout */}
+                <div className="overflow-hidden whitespace-nowrap w-full sm:w-auto flex justify-center">
+                  <div className="sm:hidden overflow-hidden w-full relative">
+                    <div className="animate-marquee inline-flex gap-8 whitespace-nowrap">
+                      <span className="uppercase tracking-[0.12em] font-sans text-white text-[10px] font-bold">
+                        {siteConfig.banner.text}
+                      </span>
+                      <span className="uppercase tracking-[0.12em] font-sans text-white text-[10px] font-bold">
+                        {siteConfig.banner.text}
+                      </span>
+                    </div>
+                  </div>
 
-      {/* Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        currency={currency}
-        setCurrency={setCurrency}
-        cartCount={totalCartCount}
-        onOpenCart={() => setIsCartOpen(true)}
-        theme={theme}
-        setTheme={setTheme}
-        siteConfig={siteConfig}
-      />
+                  <span className="hidden sm:inline-block uppercase tracking-[0.15em] font-sans text-white text-xs font-bold">
+                    {siteConfig.banner.text}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navbar */}
+          <Navbar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            currency={currency}
+            setCurrency={setCurrency}
+            cartCount={totalCartCount}
+            onOpenCart={() => setIsCartOpen(true)}
+            theme={theme}
+            setTheme={setTheme}
+            siteConfig={siteConfig}
+          />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -810,6 +840,8 @@ export default function App() {
 
       {/* Footer */}
       <Footer setActiveTab={setActiveTab} siteConfig={siteConfig} />
+          </>
+        )}
       </div>
 
     </div>

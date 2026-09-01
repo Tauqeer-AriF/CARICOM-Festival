@@ -132,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                   {siteConfig?.appSubtitle || 'CARICOM UNITY'}
                 </span>
                 <span className="text-lg font-bold text-white font-serif">
-                  {siteConfig?.appName || 'Grenada CARICOM Festival 2027'}
+                  {siteConfig?.appName || 'Grenada'}
                 </span>
               </div>
             </div>

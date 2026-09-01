@@ -320,7 +320,7 @@ export const EditHotelModal: React.FC<EditHotelModalProps> = ({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="text-[10px] font-bold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-850 px-2.5 py-1 rounded border border-neutral-800 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                    className="text-[10px] font-bold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 px-2.5 py-1 rounded border border-neutral-800 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
                     <Upload className="w-3 h-3 text-amber-400" />
                     {isUploading ? 'Uploading...' : 'Upload Image'}
@@ -429,7 +429,7 @@ export const EditHotelModal: React.FC<EditHotelModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddFeature}
-                  className="px-3.5 bg-neutral-900 hover:bg-neutral-850 text-amber-400 border border-neutral-800 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3.5 bg-neutral-900 hover:bg-neutral-800 text-amber-400 border border-neutral-800 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-4 h-4" /> Add Amenity
                 </button>
@@ -473,7 +473,7 @@ export const EditHotelModal: React.FC<EditHotelModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors text-xs"
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors text-xs"
               >
                 Cancel
               </button>

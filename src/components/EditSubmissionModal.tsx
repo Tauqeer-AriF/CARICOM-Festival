@@ -206,7 +206,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold cursor-pointer"
+                className="w-full bg-neutral-950 border border-neutral-800/70 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold cursor-pointer"
               >
                 <option value="contact">Contact Inquiry</option>
                 <option value="pass-order">Pass Order</option>
@@ -223,7 +223,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold cursor-pointer"
+                className="w-full bg-neutral-950 border border-neutral-800/70 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold cursor-pointer"
               >
                 <option value="new">🔴 New (Unreviewed)</option>
                 <option value="in-review">🟡 In Review</option>
@@ -233,7 +233,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
           </div>
 
           {/* Guest Identity Information */}
-          <div className="bg-neutral-950/60 border border-neutral-800/80 rounded-xl p-4 space-y-3.5">
+          <div className="bg-neutral-950/60 border border-neutral-800/70 rounded-xl p-4 space-y-3.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5 border-b border-neutral-900 pb-2">
               <User className="w-3.5 h-3.5 text-amber-400" /> Guest Contact Profile
             </span>
@@ -248,7 +248,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                   placeholder="e.g. Sarah Jenkins"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-[#0C0F1E] border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-[#0C0F1E] border border-neutral-800/70 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -262,7 +262,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                   placeholder="guest@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-[#0C0F1E] border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-[#0C0F1E] border border-neutral-800/70 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono"
                 />
               </div>
 
@@ -275,7 +275,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                   placeholder="+44 7700 900123"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full bg-[#0C0F1E] border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-[#0C0F1E] border border-neutral-800/70 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono"
                 />
               </div>
             </div>
@@ -293,7 +293,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                 placeholder={formData.type === 'pass-order' ? '2x 10-Day VIP Gold Pass' : 'VIP Cabana Inquiry'}
                 value={formData.topicOrPass}
                 onChange={(e) => setFormData({ ...formData, topicOrPass: e.target.value })}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-medium"
+                className="w-full bg-neutral-950 border border-neutral-800/70 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-medium"
               />
             </div>
 
@@ -308,7 +308,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                 placeholder="e.g. 450"
                 value={formData.amountGBP}
                 onChange={(e) => setFormData({ ...formData, amountGBP: e.target.value })}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-mono font-bold placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-neutral-950 border border-neutral-800/70 rounded-xl px-3 py-2 text-xs text-emerald-400 font-mono font-bold placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -324,12 +324,12 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
               placeholder="Enter message text, breakdown, or administrative notes..."
               value={formData.messageOrDetails}
               onChange={(e) => setFormData({ ...formData, messageOrDetails: e.target.value })}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 leading-relaxed"
+              className="w-full bg-neutral-950 border border-neutral-800/70 rounded-xl p-3 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 leading-relaxed"
             />
           </div>
 
           {/* Structured Parameters / Extra Metadata Key-Value Editor */}
-          <div className="bg-neutral-950/60 rounded-xl p-4 space-y-3">
+          <div className="bg-neutral-950/60 border border-neutral-800/70 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between pb-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-amber-400" /> Structured Parameters & Metadata ({formData.extraDetails.length})
@@ -337,7 +337,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAddMeta(!showAddMeta)}
-                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer border-0"
+                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-neutral-800/70"
               >
                 <Plus className="w-3 h-3" /> Add Custom Field
               </button>
@@ -345,7 +345,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
 
             {/* Quick add custom field form */}
             {showAddMeta && (
-              <div className="p-3 bg-[#0C0F1E] rounded-xl space-y-2 animate-in fade-in border-0">
+              <div className="p-3 bg-[#0C0F1E] border border-neutral-800/70 rounded-xl space-y-2 animate-in fade-in">
                 <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Add Structured Parameter:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
@@ -353,21 +353,21 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                     placeholder="Field name (e.g. OrderRef, Hotel, Airline)"
                     value={newMetaKey}
                     onChange={(e) => setNewMetaKey(e.target.value)}
-                    className="bg-neutral-950 border-0 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                    className="bg-neutral-950 border border-neutral-800/70 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
                   />
                   <input
                     type="text"
                     placeholder="Field value (e.g. GCF-2027-1002, Royalton Resort)"
                     value={newMetaValue}
                     onChange={(e) => setNewMetaValue(e.target.value)}
-                    className="bg-neutral-950 border-0 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                    className="bg-neutral-950 border border-neutral-800/70 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowAddMeta(false)}
-                    className="px-2.5 py-1 bg-neutral-900 text-neutral-400 text-[10px] font-bold rounded hover:text-white cursor-pointer border-0"
+                    className="px-2.5 py-1 bg-neutral-900 text-neutral-400 text-[10px] font-bold rounded hover:text-white cursor-pointer border border-neutral-800/70"
                   >
                     Cancel
                   </button>
@@ -375,7 +375,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                     type="button"
                     onClick={handleAddExtraDetail}
                     disabled={!newMetaKey.trim()}
-                    className="px-3 py-1 bg-amber-500 text-neutral-950 text-[10px] font-black rounded hover:bg-amber-400 disabled:opacity-40 cursor-pointer border-0"
+                    className="px-3 py-1 bg-amber-500 text-neutral-950 text-[10px] font-black rounded hover:bg-amber-400 disabled:opacity-40 cursor-pointer border border-neutral-800/70"
                   >
                     Add Parameter
                   </button>
@@ -387,13 +387,13 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
             {formData.extraDetails.length > 0 ? (
               <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
                 {formData.extraDetails.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-[#0C0F1E] border-0 p-2 rounded-lg">
+                  <div key={idx} className="flex items-center gap-2 bg-[#0C0F1E] border border-neutral-800/70 p-2 rounded-lg">
                     <input
                       type="text"
                       placeholder="Field Name"
                       value={item.key}
                       onChange={(e) => handleExtraDetailChange(idx, 'key', e.target.value)}
-                      className="w-1/3 bg-neutral-950 border-0 rounded px-2.5 py-1.5 text-xs text-amber-300 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                      className="w-1/3 bg-neutral-950 border border-neutral-800/70 rounded px-2.5 py-1.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500"
                     />
                     <span className="text-neutral-600 text-xs font-bold">:</span>
                     <input
@@ -401,7 +401,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
                       placeholder="Value"
                       value={item.value}
                       onChange={(e) => handleExtraDetailChange(idx, 'value', e.target.value)}
-                      className="flex-1 bg-neutral-950 border-0 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                      className="flex-1 bg-neutral-950 border border-neutral-800/70 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                     <button
                       type="button"
@@ -426,7 +426,7 @@ export const EditSubmissionModal: React.FC<EditSubmissionModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 text-xs font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors"
+              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-bold rounded-xl border border-neutral-800 cursor-pointer transition-colors"
             >
               Cancel
             </button>

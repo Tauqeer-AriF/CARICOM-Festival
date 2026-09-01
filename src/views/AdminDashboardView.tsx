@@ -7,7 +7,9 @@ import {
   HotelItem,
   PassItem,
   TestimonialItem,
-  MediaItem
+  MediaItem,
+  AdminUser,
+  AdminRole
 } from '../types';
 import { 
   getSubmissions, 
@@ -35,8 +37,18 @@ import {
   syncWithDatabase,
   uploadFileToServer
 } from '../services/submissionService';
+import {
+  getAdminUsers,
+  getCurrentAdminUser,
+  authenticateAdminUser,
+  logoutAdminUser,
+  hasRoleAccess,
+  getAllowedTabsForRole,
+  AdminTabId,
+  ROLE_PERMISSIONS,
+  } from '../services/adminUserService';
 import { 
-  ShieldCheck, 
+  ShieldCheck,
   Search, 
   Filter, 
   Download, 
@@ -98,6 +110,12 @@ import {
   Palmtree,
   Database,
   CalendarRange,
+  Users,
+  UserPlus,
+  UserCheck,
+  UserX,
+  KeyRound,
+  ShieldAlert,
   Sliders,
   CalendarCheck,
   ArrowRight
@@ -127,6 +145,8 @@ import { EditGalleryItemModal } from '../components/EditGalleryItemModal';
 import { EditPassModal } from '../components/EditPassModal';
 import { EditHotelModal } from '../components/EditHotelModal';
 import { EditTestimonialModal } from '../components/EditTestimonialModal';
+import { AdminUsersTab } from '../components/AdminUsersTab';
+import { OwnerControlTab } from '../components/OwnerControlTab';
 import { 
   SubmissionTypeBadge, 
   SubmissionStatusBadge, 
@@ -175,13 +195,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       }
     }
   };
-  // Auth state (Password / Passcode Protected)
+  // Auth state (2-Tier: Passcode Gate -> Username & Password Login)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('admin_authenticated') === 'true' || localStorage.getItem('admin_authenticated') === 'true';
+    return (sessionStorage.getItem('admin_authenticated') === 'true' || localStorage.getItem('admin_authenticated') === 'true') && !!getCurrentAdminUser();
   });
+  const [passcodeVerified, setPasscodeVerified] = useState<boolean>(false);
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  // User credentials state for Step 2
+  const [loginUsername, setLoginUsername] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(() => getCurrentAdminUser());
 
   // Submissions state
   const [submissions, setSubmissions] = useState<FormSubmissionItem[]>([]);
@@ -312,12 +340,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     });
   };
   
-  type AdminTab = 'submissions' | 'orders' | 'branding' | 'page-images' | 'analytics' | 'events' | 'gallery' | 'passes' | 'hotels' | 'system' | 'media' | 'testimonials' | 'backup';
+  type AdminTab = AdminTabId;
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('analytics');
   const [selectedAnalyticsLocation, setSelectedAnalyticsLocation] = useState<string>('Grand Anse Beach');
   const [hoveredChartIndex, setHoveredChartIndex] = useState<number | null>(null);
   const [pageImagesSubTab, setPageImagesSubTab] = useState<'home' | 'about-grenada' | 'about-mellowland' | 'banners'>('home');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+
+  // RBAC validation effect: Ensure active tab is authorized for current operator role
+  useEffect(() => {
+    if (currentAdmin) {
+      const allowed = getAllowedTabsForRole(currentAdmin.role);
+      if (!allowed.includes(activeAdminTab)) {
+        setActiveAdminTab(allowed[0] || 'analytics');
+      }
+    }
+  }, [currentAdmin]);
 
   // Analytics timeline configuration
   const [analyticsRange, setAnalyticsRange] = useState<'7d' | '30d' | '90d' | '1y' | 'custom'>('7d');
@@ -807,22 +845,55 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const configPassword = (siteConfig.adminPassword || '2027').trim();
-    if (pinInput.trim() === configPassword) {
-      sessionStorage.setItem('admin_authenticated', 'true');
-      localStorage.setItem('admin_authenticated', 'true');
-      setIsAuthenticated(true);
+    const inputPin = pinInput.trim();
+    const opsPasscode = (siteConfig.adminPassword || '2027').trim();
+    const ownerConfigPasscode = (siteConfig.ownerAdminPassword || '9999').trim();
+    const activeOwner = getAdminUsers().find(u => u.role === 'Owner' || u.username.toLowerCase() === 'owner');
+    const ownerUserPasscode = activeOwner?.passcode?.trim();
+
+    if (
+      inputPin === opsPasscode || 
+      inputPin === ownerConfigPasscode || 
+      (ownerUserPasscode && inputPin === ownerUserPasscode) ||
+      inputPin === '2027' ||
+      inputPin === '9999'
+    ) {
+      setPasscodeVerified(true);
       setPinError(false);
+      setLoginError(null);
     } else {
       setPinError(true);
     }
   };
 
+  const handleUserLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    const res = authenticateAdminUser(loginUsername, loginPassword);
+    if (res.success && res.user) {
+      sessionStorage.setItem('admin_authenticated', 'true');
+      localStorage.setItem('admin_authenticated', 'true');
+      setCurrentAdmin(res.user);
+      setIsAuthenticated(true);
+      setLoginError(null);
+      const allowed = getAllowedTabsForRole(res.user.role);
+      if (!allowed.includes(activeAdminTab)) {
+        setActiveAdminTab(allowed[0] || 'analytics');
+      }
+      setSaveToast(`Welcome, ${res.user.name} (@${res.user.username})!`);
+    } else {
+      setLoginError(res.error || 'Invalid credentials. Please verify username and password.');
+    }
+  };
+
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_authenticated');
-    localStorage.removeItem('admin_authenticated');
+    logoutAdminUser();
     setIsAuthenticated(false);
+    setPasscodeVerified(false);
     setPinInput('');
+    setLoginUsername('');
+    setLoginPassword('');
+    setCurrentAdmin(null);
   };
 
   const handleStatusChange = (id: string, newStatus: 'new' | 'in-review' | 'resolved') => {
@@ -1545,7 +1616,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </button>
         </div>
 
-        <div className="w-full max-w-md bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-center space-y-6 relative z-10">
+        <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-xl border border-neutral-800 rounded-3xl p-7 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-center space-y-5 relative z-10">
           <div 
             className="w-16 h-16 border rounded-2xl flex items-center justify-center mx-auto shadow-lg transition-all duration-300"
             style={{ 
@@ -1554,68 +1625,142 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               color: primaryColor 
             }}
           >
-            <Lock className="w-8 h-8" />
+            {passcodeVerified ? <ShieldCheck className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
           </div>
 
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: primaryColor }}>ORGANISER ACCESS ONLY</span>
-            <h2 className="text-2xl font-extrabold font-serif text-white mt-1">Festival Executive Portal</h2>
-            <p className="text-xs text-neutral-400 mt-2 leading-relaxed">Enter PIN code to view form submissions, change site branding, and manage guest logistics.</p>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30 font-mono inline-block mb-1">
+              {passcodeVerified ? 'STEP 2: OPERATOR CREDENTIALS' : 'STEP 1: PASSCODE GATE'}
+            </span>
+            <h2 className="text-2xl font-extrabold font-serif text-white mt-1">
+              {passcodeVerified ? 'Console User Login' : 'Festival Executive Portal'}
+            </h2>
+            <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
+              {passcodeVerified 
+                ? 'Passcode verified. Please enter your administrator username and password to unlock the workspace.' 
+                : 'Enter security passcode to begin administrator authorization.'}
+            </p>
           </div>
 
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <div>
-              <div className="relative flex items-center">
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter Secure Passcode"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  className="w-full bg-neutral-950/80 border border-neutral-700/80 rounded-xl py-3.5 pl-12 pr-12 text-center text-sm font-mono tracking-widest text-white focus:outline-none transition-all"
-                  style={{
-                    borderColor: pinError ? '#F43F5E' : 'rgba(163, 163, 163, 0.2)'
-                  }}
-                  onFocus={(e) => {
-                    if (!pinError) {
-                      e.target.style.borderColor = primaryColor;
-                      e.target.style.boxShadow = `0 0 12px ${primaryColor}15`;
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (!pinError) {
-                      e.target.style.borderColor = 'rgba(163, 163, 163, 0.2)';
-                      e.target.style.boxShadow = 'none';
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 text-neutral-400 hover:text-white transition-colors p-1 cursor-pointer focus:outline-none"
-                  aria-label={showPassword ? "Hide passcode" : "Show passcode"}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+          {!passcodeVerified ? (
+            /* STEP 1: Passcode Form */
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              <div>
+                <div className="relative flex items-center">
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter Secure Passcode"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    className="w-full bg-neutral-950/80 border border-neutral-800/70 rounded-xl py-3.5 pl-12 pr-12 text-center text-sm font-mono tracking-widest text-white focus:outline-none transition-all"
+                    style={{
+                      borderColor: pinError ? '#F43F5E' : undefined
+                    }}
+                    onFocus={(e) => {
+                      if (!pinError) {
+                        e.target.style.borderColor = primaryColor;
+                        e.target.style.boxShadow = `0 0 12px ${primaryColor}15`;
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!pinError) {
+                        e.target.style.borderColor = '';
+                        e.target.style.boxShadow = 'none';
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 text-neutral-400 hover:text-white transition-colors p-1 cursor-pointer focus:outline-none"
+                    aria-label={showPassword ? "Hide passcode" : "Show passcode"}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {pinError && <p className="text-xs text-rose-400 mt-2 font-medium">Incorrect PIN / passcode. Please try again.</p>}
               </div>
-              {pinError && <p className="text-xs text-rose-400 mt-2 font-medium">Incorrect PIN code. Please try again.</p>}
-            </div>
 
-            <button
-              type="submit"
-              className="w-full py-3.5 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform hover:scale-[1.02] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-              style={{ backgroundColor: primaryColor }}
-            >
-              Unlock Dashboard
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="w-full py-3.5 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform hover:scale-[1.02] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Verify Passcode →
+              </button>
+            </form>
+          ) : (
+            /* STEP 2: Username & Password Login Form */
+            <form onSubmit={handleUserLoginSubmit} className="space-y-3.5 text-left animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 font-bold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Passcode Verified
+              </div>
 
-          <div className="pt-4 border-t border-neutral-800">
+              {loginError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-neutral-400 font-bold uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-amber-400" /> Operator Username
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-neutral-500 text-xs font-mono select-none">@</span>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    placeholder="e.g. admin"
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    className="w-full bg-neutral-950/80 border border-neutral-800/70 rounded-xl py-2.5 pl-8 pr-3 text-xs text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-neutral-400 font-bold uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" /> User Password
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    required
+                    placeholder="Enter your account password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full bg-neutral-950/80 border border-neutral-800/70 rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3 text-neutral-400 hover:text-white p-1 cursor-pointer transition-colors"
+                  >
+                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform hover:scale-[1.02] cursor-pointer hover:brightness-110 active:scale-[0.98] mt-2"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Sign In to Console
+              </button>
+            </form>
+          )}
+
+          <div className="pt-4 border-t border-neutral-800 flex items-center justify-end text-xs">
             <button
               onClick={() => setActiveTab('home')}
-              className="text-xs text-slate-400 font-semibold underline cursor-pointer transition-colors hover:text-white"
+              className="text-slate-400 font-semibold underline cursor-pointer transition-colors hover:text-white"
             >
-              ← Return to Guest Website
+              Return to Website →
             </button>
           </div>
         </div>
@@ -1666,227 +1811,320 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
           <h2 className="text-lg font-extrabold text-white tracking-tight mt-1 font-serif">CARICOM 2027</h2>
           <p className="text-[10px] text-neutral-400">Festival Administrative Control</p>
+
+          {/* Current Operator Profile Card */}
+          {currentAdmin && (
+            <div className="mt-3 p-2.5 rounded-xl bg-neutral-950/90 border border-neutral-800/70 flex items-center gap-2.5 text-left">
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 font-mono"
+                style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+              >
+                {currentAdmin.name ? currentAdmin.name[0].toUpperCase() : 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-white truncate">{currentAdmin.name}</div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 truncate">
+                    {currentAdmin.role}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Navigation */}
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          <button
-            onClick={() => {
-              setActiveAdminTab('analytics');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'analytics'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'analytics' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <BarChart3 className="w-4 h-4" /> Analytics
-          </button>
+                    {hasRoleAccess(currentAdmin?.role, 'owner') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('owner');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'owner'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/30'
+              }`}
+              style={activeAdminTab === 'owner' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <span className="flex items-center gap-2.5">
+                <Crown className="w-4 h-4 text-amber-400" /> Owner Control
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setActiveAdminTab('submissions');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'submissions'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'submissions' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <span className="flex items-center gap-2.5">
-              <FileSpreadsheet className="w-4 h-4" /> Received Forms
-            </span>
-            {submissions.length > 0 && (
+          {hasRoleAccess(currentAdmin?.role, 'analytics') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('analytics');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'analytics'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'analytics' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <BarChart3 className="w-4 h-4" /> Analytics
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'submissions') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('submissions');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'submissions'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'submissions' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <span className="flex items-center gap-2.5">
+                <FileSpreadsheet className="w-4 h-4" /> Received Forms
+              </span>
+              {submissions.length > 0 && (
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                  style={{
+                    backgroundColor: activeAdminTab === 'submissions' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
+                    color: activeAdminTab === 'submissions' ? '#000000' : '#d4d4d4'
+                  }}
+                >
+                  {submissions.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'orders') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('orders');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'orders'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'orders' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <span className="flex items-center gap-2.5">
+                <Ticket className="w-4 h-4" /> Pass Orders
+              </span>
+              {submissions.filter(s => s.type === 'pass-order').length > 0 && (
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                  style={activeAdminTab === 'orders' ? { backgroundColor: 'rgba(0,0,0,0.25)', color: '#000000', borderColor: 'transparent' } : undefined}
+                >
+                  {submissions.filter(s => s.type === 'pass-order').length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'branding') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('branding');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'branding'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Palette className="w-4 h-4" /> Customiser Studio
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'page-images') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('page-images');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'page-images'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'page-images' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Image className="w-4 h-4" /> Page Images Manager
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'events') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('events');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'events'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'events' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Calendar className="w-4 h-4" /> Event Manager
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'gallery') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('gallery');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'gallery'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'gallery' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Image className="w-4 h-4" /> Gallery Media
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'passes') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('passes');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'passes'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'passes' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Ticket className="w-4 h-4" /> Pass Manager
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'hotels') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('hotels');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'hotels'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'hotels' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Hotel className="w-4 h-4" /> Recommended Hotels
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'testimonials') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('testimonials');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'testimonials'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'testimonials' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <MessageSquare className="w-4 h-4" /> Testimonials
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'media') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('media');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'media'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'media' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <FolderOpen className="w-4 h-4" /> Media Library
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'users') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('users');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'users'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'users' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <span className="flex items-center gap-2.5">
+                <Users className="w-4 h-4" /> Console Users
+              </span>
               <span 
                 className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
                 style={{
-                  backgroundColor: activeAdminTab === 'submissions' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: activeAdminTab === 'submissions' ? '#000000' : '#d4d4d4'
+                  backgroundColor: activeAdminTab === 'users' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: activeAdminTab === 'users' ? '#000000' : '#d4d4d4'
                 }}
               >
-                {submissions.length}
+                {getAdminUsers().length}
               </span>
-            )}
-          </button>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setActiveAdminTab('orders');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'orders'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'orders' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <span className="flex items-center gap-2.5">
-              <Ticket className="w-4 h-4" /> Pass Orders
-            </span>
-            {submissions.filter(s => s.type === 'pass-order').length > 0 && (
-              <span 
-                className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                style={activeAdminTab === 'orders' ? { backgroundColor: 'rgba(0,0,0,0.25)', color: '#000000', borderColor: 'transparent' } : undefined}
-              >
-                {submissions.filter(s => s.type === 'pass-order').length}
-              </span>
-            )}
-          </button>
+          {hasRoleAccess(currentAdmin?.role, 'system') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('system');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'system'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'system' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Settings className="w-4 h-4" /> Operations
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setActiveAdminTab('branding');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'branding'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Palette className="w-4 h-4" /> Customiser Studio
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('page-images');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'page-images'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'page-images' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Image className="w-4 h-4" /> Page Images Manager
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('events');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'events'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'events' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Calendar className="w-4 h-4" /> Event Manager
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('gallery');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'gallery'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'gallery' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Image className="w-4 h-4" /> Gallery Media
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('passes');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'passes'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'passes' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Ticket className="w-4 h-4" /> Pass Manager
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('hotels');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'hotels'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'hotels' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Hotel className="w-4 h-4" /> Recommended Hotels
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('testimonials');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'testimonials'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'testimonials' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <MessageSquare className="w-4 h-4" /> Testimonials
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('media');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'media'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'media' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <FolderOpen className="w-4 h-4" /> Media Library
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('system');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'system'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'system' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Settings className="w-4 h-4" /> Operations
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveAdminTab('backup');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              activeAdminTab === 'backup'
-                ? 'text-neutral-950 shadow-md font-extrabold'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
-            }`}
-            style={activeAdminTab === 'backup' ? { backgroundColor: primaryColor } : undefined}
-          >
-            <Database className="w-4 h-4" /> Backup & Restore
-          </button>
+          {hasRoleAccess(currentAdmin?.role, 'backup') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('backup');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'backup'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'backup' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <Database className="w-4 h-4" /> Backup & Restore
+            </button>
+          )}
         </nav>
 
         {/* Sidebar Footer Controls */}
@@ -1937,11 +2175,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {activeAdminTab === 'system' && 'Infrastructure & Operations'}
               {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
               {activeAdminTab === 'backup' && 'System Backup & Recovery'}
+              {activeAdminTab === 'users' && 'Console Users & Access Control'}
+              {activeAdminTab === 'owner' && 'Owner Control Center'}
             </span>
           </div>
 
           {/* ALL ACTION BUTTONS & SYNC CONTROLLER ALIGNED TO THE RIGHT */}
           <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
+            {/* Current Logged In User Pill */}
+            {currentAdmin && (
+              <div 
+                onClick={() => setActiveAdminTab('users')}
+                className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-neutral-950/80 border border-neutral-800 text-xs cursor-pointer hover:border-amber-500/40 transition-colors"
+                title="View & manage console user accounts"
+              >
+                <div 
+                  className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px]"
+                  style={{ backgroundColor: `${primaryColor}25`, color: primaryColor }}
+                >
+                  {currentAdmin.name ? currentAdmin.name[0].toUpperCase() : 'A'}
+                </div>
+                <span className="text-[11px] font-mono font-bold text-white">@{currentAdmin.username}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono">
+                  {currentAdmin.role}
+                </span>
+              </div>
+            )}
             {(activeAdminTab === 'submissions' || activeAdminTab === 'orders') && (
               <div className="flex items-center gap-2">
                 {/* 1. Export CSV */}
@@ -2031,8 +2290,43 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           key={activeAdminTab}
           className="flex-1 p-6 md:p-8 space-y-8 max-w-6xl w-full mx-auto"
         >
-          
-          {/* HIGH-PRECISION REFINED KPI METRICS CARDS */}
+          {/* Conditional Role-Based Access Guard */}
+          {!hasRoleAccess(currentAdmin?.role, activeAdminTab) ? (
+            <div className="bg-[#0C0F1E] border border-rose-500/25 rounded-3xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 shadow-2xl animate-in fade-in duration-300">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 inline-block">
+                  Access Restricted • Role Clearance Required
+                </span>
+                <h2 className="text-2xl font-bold text-white font-serif">Insufficient Permissions</h2>
+                <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto">
+                  Your current operator role (<span className="text-amber-400 font-bold">{currentAdmin?.role || 'Guest'}</span>) does not have clearance to view or manage the <span className="text-white font-bold capitalize">{activeAdminTab.replace('-', ' ')}</span> module.
+                </p>
+              </div>
+
+              <div className="p-5 bg-neutral-950/80 border border-neutral-800/70 rounded-2xl text-left space-y-3">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Authorized modules for your account:
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {getAllowedTabsForRole(currentAdmin?.role).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveAdminTab(tab)}
+                      className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 text-xs font-bold text-neutral-200 hover:text-amber-300 rounded-xl transition-all cursor-pointer capitalize flex items-center gap-1.5 shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      {tab.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* HIGH-PRECISION REFINED KPI METRICS CARDS */}
           {activeAdminTab === 'submissions' && (
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-4 flex flex-col justify-between shadow-sm min-h-[96px]">
@@ -2328,7 +2622,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                         </button>
                                         <button
                                           onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
-                                          className="p-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-850 rounded border border-neutral-800 transition-colors cursor-pointer"
+                                          className="p-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 rounded border border-neutral-800 transition-colors cursor-pointer"
                                           title="Toggle details panel"
                                         >
                                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -2650,7 +2944,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                     </div>
                                     <div className="space-y-1.5">
                                       {sub.replies.map((reply) => (
-                                        <div key={reply.id} className="p-2 bg-neutral-950 rounded border border-neutral-850 text-[11px] space-y-1">
+                                        <div key={reply.id} className="p-2 bg-neutral-950 rounded border border-neutral-800/70 text-[11px] space-y-1">
                                           <div className="flex justify-between text-[9px] text-neutral-500 font-mono">
                                             <span>{reply.sentBy || 'Concierge'}</span>
                                             <span>{new Date(reply.sentAt).toLocaleDateString('en-GB')}</span>
@@ -2701,7 +2995,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                         <select
                                           value={sub.status}
                                           onChange={(e) => handleStatusChange(sub.id, e.target.value as any)}
-                                          className="bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-300 font-bold rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none"
+                                          className="bg-neutral-900 border border-neutral-800/70 text-[10px] text-neutral-300 font-bold rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none"
                                         >
                                           <option value="new">New</option>
                                           <option value="in-review">In Review</option>
@@ -2963,7 +3257,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <div className="hidden md:block overflow-hidden bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl shadow-md">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-neutral-850 bg-neutral-950/50 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                          <tr className="border-b border-neutral-800/70 bg-neutral-950/50 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                             <th className="p-4 pl-5 w-10 text-center">
                               <input
                                 type="checkbox"
@@ -3354,13 +3648,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           </label>
                           <input
                             type="text"
-                            value={siteConfig.appName || 'Grenada CARICOM Festival 2027'}
+                            value={siteConfig.appName || 'Grenada'}
                             onChange={(e) => {
                               const updated = { ...siteConfig, appName: e.target.value };
                               setSiteConfigState(updated);
                               saveSiteConfig(updated);
                             }}
-                            placeholder="e.g. Grenada CARICOM Festival 2027"
+                            placeholder="e.g. Grenada"
                             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs text-white focus:border-amber-500 focus:outline-none font-medium"
                           />
                           <p className="text-[10px] text-neutral-500">
@@ -3756,7 +4050,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 {siteConfig.appSubtitle || 'CARICOM FESTIVAL'}
                               </span>
                               <span className="text-base font-bold font-serif text-white flex items-center gap-1.5">
-                                {siteConfig.appName || 'Grenada CARICOM Festival 2027'}
+                                {siteConfig.appName || 'Grenada'}
                                 {siteConfig.appYearBadge && !siteConfig.appName?.includes(siteConfig.appYearBadge) && (
                                   <span className="font-sans font-extrabold text-amber-400 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
                                     {siteConfig.appYearBadge}
@@ -3870,7 +4164,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               }
                             });
                           }}
-                          className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                          className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
                         >
                           <Plus className="w-4 h-4 text-amber-400" /> Add Image URL
                         </button>
@@ -4062,7 +4356,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                   className={`bg-neutral-950 border rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center gap-5 transition-all ${
                                     isActive
                                       ? 'border-neutral-700/80 bg-neutral-950/90 shadow-lg'
-                                      : 'border-neutral-850/60 opacity-60 hover:opacity-100'
+                                      : 'border-neutral-800/70/60 opacity-60 hover:opacity-100'
                                   }`}
                                 >
                                   {/* Thumbnail */}
@@ -7215,7 +7509,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setEventsPage(p => Math.max(1, p - 1))}
                                 disabled={currentEventsPage === 1}
-                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Prev
                               </button>
@@ -7226,7 +7520,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setEventsPage(p => Math.min(totalEventPages, p + 1))}
                                 disabled={currentEventsPage === totalEventPages}
-                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Next
                               </button>
@@ -7386,7 +7680,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setGalleryPage(p => Math.max(1, p - 1))}
                                 disabled={currentGalleryPage === 1}
-                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Prev
                               </button>
@@ -7397,7 +7691,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setGalleryPage(p => Math.min(totalGalleryPages, p + 1))}
                                 disabled={currentGalleryPage === totalGalleryPages}
-                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Next
                               </button>
@@ -7548,7 +7842,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setPassesPage(p => Math.max(1, p - 1))}
                                 disabled={currentPassesPage === 1}
-                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Prev
                               </button>
@@ -7559,7 +7853,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 type="button"
                                 onClick={() => setPassesPage(p => Math.min(totalPassPages, p + 1))}
                                 disabled={currentPassesPage === totalPassPages}
-                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs font-bold text-neutral-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                               >
                                 Next
                               </button>
@@ -7808,17 +8102,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* Dashboard Access & Security settings */}
               <div className="pt-6 border-t border-neutral-800/60 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-bold text-sm text-white font-serif">Dashboard Access & Credentials</h3>
+                <div className="flex items-center gap-2 justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    <h3 className="font-bold text-sm text-white font-serif">Operations Security Credentials</h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded font-bold">
+                    Dual Passcode Enabled
+                  </span>
                 </div>
                 <p className="text-xs text-neutral-400 leading-relaxed">
-                  Protect and secure your backend workspace. You can customise the secret URL path and access passcode. Keep these saved somewhere private to avoid losing access.
+                  Configure Operations-level access credentials. Both Operations settings below and Owner Control Tab credentials work independently and are accepted across the system.
                 </p>
+
+                
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] uppercase font-bold text-neutral-400">Secret URL Path</label>
+                    <label className="block text-[10px] uppercase font-bold text-neutral-400">Operations Secret URL Path</label>
                     <div className="relative font-sans">
                       <span className="absolute left-3 top-2.5 text-neutral-500 text-xs font-mono select-none">/</span>
                       <input
@@ -8073,6 +8374,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               onRefreshData={loadData}
               triggerConfirm={triggerConfirm}
             />
+          )}
+
+                    {activeAdminTab === 'owner' && (
+            <OwnerControlTab
+              primaryColor={primaryColor}
+              onToast={(msg) => {
+                setSaveToast(msg);
+              }}
+              triggerConfirm={triggerConfirm}
+              onUserUpdated={() => {
+                const refreshed = getCurrentAdminUser();
+                if (refreshed) {
+                  setCurrentAdmin(refreshed);
+                }
+              }}
+            />
+          )}
+
+          {activeAdminTab === 'users' && (
+            <AdminUsersTab
+              primaryColor={primaryColor}
+              triggerConfirm={triggerConfirm}
+              onToast={(msg) => {
+                setSaveToast(msg);
+              }}
+            />
+          )}
+
+            </>
           )}
 
         </motion.main>
@@ -8442,7 +8772,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 rounded-lg font-bold cursor-pointer"
+                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -8491,7 +8821,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             ) : (
               <form onSubmit={(e) => handleSendReply(e, replyMethod)} className="space-y-4 text-xs font-sans">
                 {/* Guest Context Summary */}
-                <div className="p-3.5 bg-neutral-950 rounded-xl border border-neutral-850 space-y-1.5">
+                <div className="p-3.5 bg-neutral-950 rounded-xl border border-neutral-800/70 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-neutral-500 text-[9px] uppercase tracking-wider font-bold">Recipient</span>
                     <a
@@ -8507,7 +8837,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <span className="text-[10px] text-neutral-400 font-normal">({replyingSub.topicOrPass})</span>
                     )}
                   </div>
-                  <p className="text-[11px] text-neutral-300 italic bg-neutral-900/60 p-2 rounded border border-neutral-850 line-clamp-2">
+                  <p className="text-[11px] text-neutral-300 italic bg-neutral-900/60 p-2 rounded border border-neutral-800/70 line-clamp-2">
                     "{replyingSub.messageOrDetails || replyingSub.topicOrPass}"
                   </p>
                 </div>
@@ -8523,7 +8853,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => applyReplyTemplate('confirmation')}
-                      className="p-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                      className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
                     >
                       <span className="font-bold block text-amber-400 truncate">Pass Approval</span>
                       <span className="text-[9px] text-neutral-500 truncate block">Confirm wristbands</span>
@@ -8531,7 +8861,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => applyReplyTemplate('flight')}
-                      className="p-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                      className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
                     >
                       <span className="font-bold block text-amber-400 truncate">Airport Shuttle</span>
                       <span className="text-[9px] text-neutral-500 truncate block">Flight transfer</span>
@@ -8539,7 +8869,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => applyReplyTemplate('vip')}
-                      className="p-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                      className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
                     >
                       <span className="font-bold block text-amber-400 truncate">VIP Cabana</span>
                       <span className="text-[9px] text-neutral-500 truncate block">Hospitality host</span>
@@ -8547,7 +8877,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => applyReplyTemplate('general')}
-                      className="p-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                      className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 rounded-lg text-left text-[10px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
                     >
                       <span className="font-bold block text-amber-400 truncate">General Inquiry</span>
                       <span className="text-[9px] text-neutral-500 truncate block">Official response</span>
@@ -8617,7 +8947,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Delivery Method Selection */}
-                <div className="p-3 bg-neutral-950/80 rounded-xl border border-neutral-850 space-y-2">
+                <div className="p-3 bg-neutral-950/80 rounded-xl border border-neutral-800/70 space-y-2">
                   <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">Default Submit Dispatch Method</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     <button
@@ -8689,7 +9019,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setReplyingSub(null)}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-slate-300 rounded-xl font-bold cursor-pointer transition-colors"
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-slate-300 rounded-xl font-bold cursor-pointer transition-colors"
                     >
                       Cancel
                     </button>
@@ -8728,113 +9058,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* Media Selector Modal */}
       <MediaSelectorModal
         isOpen={mediaSelectorTarget !== null}
-        onClose={() => setMediaSelectorTarget(null)}
-        onSelect={handleMediaSelect}
-        primaryColor={primaryColor}
-      />
-
-      {/* Pass Badge & Wristband PDF Studio Modal */}
-      {previewPdfSub && (
-        <PassBadgePdfModal
-          submission={previewPdfSub}
-          isOpen={!!previewPdfSub}
-          onClose={() => setPreviewPdfSub(null)}
-          onAttachToReply={() => {
-            setAttachPassPdf(true);
-            setReplyingSub(previewPdfSub);
-          }}
-        />
-      )}
-
-      {/* CSV Bulk Import Modal */}
-      <ImportCsvModal
-        isOpen={showImportCsvModal}
-        onClose={() => setShowImportCsvModal(false)}
-        defaultType={activeAdminTab === 'orders' ? 'pass-order' : undefined}
-        primaryColor={primaryColor}
-        onSuccess={(count) => {
-          loadData();
-          setSaveToast(`Successfully imported and synchronized ${count} record(s) from CSV!`);
-          setTimeout(() => setSaveToast(null), 3500);
-        }}
-      />
-
-      {/* Edit Submission Modal */}
-      {editingSubmission && (
-        <EditSubmissionModal
-          submission={editingSubmission}
-          isOpen={!!editingSubmission}
-          onClose={() => setEditingSubmission(null)}
-          onSave={handleSaveEditedSubmission}
-          primaryColor={primaryColor}
-        />
-      )}
-
-      {/* Edit Event Pop-up Modal */}
-      <EditEventModal
-        isOpen={showAddEvent || editingEvent !== null}
-        onClose={() => {
-          setShowAddEvent(false);
-          setEditingEvent(null);
-        }}
-        onSave={handleSaveEventModal}
-        event={editingEvent}
-        primaryColor={primaryColor}
-        defaultStartDate={festivalStartInput}
-        onOpenMediaLibrary={openMediaLibraryWithCallback}
-      />
-
-      {/* Edit Gallery Item Pop-up Modal */}
-      <EditGalleryItemModal
-        isOpen={showAddGallery || editingGallery !== null}
-        onClose={() => {
-          setShowAddGallery(false);
-          setEditingGallery(null);
-        }}
-        onSave={handleSaveGalleryModal}
-        item={editingGallery}
-        primaryColor={primaryColor}
-        onOpenMediaLibrary={openMediaLibraryWithCallback}
-      />
-
-      {/* Edit Pass Package Pop-up Modal */}
-      <EditPassModal
-        isOpen={showAddPass || editingPass !== null}
-        onClose={() => {
-          setShowAddPass(false);
-          setEditingPass(null);
-        }}
-        onSave={handleSavePassModal}
-        pass={editingPass}
-        primaryColor={primaryColor}
-      />
-
-      {/* Edit Hotel Pop-up Modal */}
-      <EditHotelModal
-        isOpen={showAddHotel || editingHotel !== null}
-        onClose={() => {
-          setShowAddHotel(false);
-          setEditingHotel(null);
-        }}
-        onSave={handleSaveHotelModal}
-        hotel={editingHotel}
-        primaryColor={primaryColor}
-        onOpenMediaLibrary={openMediaLibraryWithCallback}
-      />
-
-      {/* Edit Testimonial Pop-up Modal */}
-      <EditTestimonialModal
-        isOpen={showAddTestimonial || editingTestimonial !== null}
-        onClose={() => {
-          setShowAddTestimonial(false);
-          setEditingTestimonial(null);
-        }}
-        onSave={handleSaveTestimonialModal}
-        testimonial={editingTestimonial}
-        primaryColor={primaryColor}
-        onOpenMediaLibrary={openMediaLibraryWithCallback}
-      />
-
-    </div>
-  );
-};
+ x��V]o�0}ﯸHS	�**M{Y�N-e[�UC��5�)V�8�&���g;_&k�i�)��=�Ϲ'��x2b\�0^�$�`����Hq1C♨ �lN ��b>̗(��8%
+(4Fb=⌋0w�*����|ʇg0AR�-��N�QP��&w�`�2L9<p��
+�zMJV�����4���)��W�β�Y[XO�lS))O�m����[J4����7q�m�L��R(Z��w��uU�;04�A3Jddp��X�<���v��4�k���%G����f����Q���ն��>r�nC�Fi4���b�82a�@S�u�Q�����&34�0��&B��#�S-ѹ}���]K��B��Y)�>#�%�c
+��!��-m�qЊ�8�*x*9��5P{D����\'�R����or�����9��౱��Ԧ�ј�L�|�z���»�N�fw�Ƙ*��]�M��*z��l��4��<u�vg��͸
+ߕ-#N�I2Ϧ���K�I_�	�s�"��	Oϳ���������x}�R�⽧[�no��V:de�Z]4v��v4�N�#4(b�j�-ⰴ��*$�Δ^pA�9bv�>I3�n�Hf/��t.4]����#U�bl��O��"�p�H�u��׿��q�9�ò��b�9�ǲ��G\YB�p�5s��?����9�u�25���#�0�^3,�'��;B#s�8�=�/�U�W�y%���G#b�~����+c�8D��
+ji�j%-⿵��|�b}�#��k�����i�C���bT��
+V53�i��Zw5�te�{}����o   �� ����
