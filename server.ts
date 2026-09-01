@@ -14,7 +14,7 @@ import { GALLERY_ITEMS } from './src/data/galleryData';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Determine dynamic storage directory (support persistent Railway /data volume)
   let storageDir = process.cwd();
