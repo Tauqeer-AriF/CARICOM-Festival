@@ -23,10 +23,15 @@
     font-style: normal;
   }
 
-  /* Prevent automatic zooming on iOS Safari when focusing input elements */
+  /* Default base font size on mobile inputs while allowing explicit utility overrides */
   @media screen and (max-width: 868px) {
     input, select, textarea {
-      font-size: 16px !important;
+      font-size: 14px;
+    }
+    input:not([class*="text-"]):not([class*="text-["]),
+    select:not([class*="text-"]):not([class*="text-["]),
+    textarea:not([class*="text-"]):not([class*="text-["]) {
+      font-size: 16px;
     }
   }
 }
