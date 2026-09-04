@@ -77,7 +77,8 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-1.5 p-1.5 bg-neutral-950/80 border border-neutral-800/80 rounded-xl overflow-x-auto no-scrollbar">
+      {/* Main Sub-Navigation Bar matching Email Suite */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none">
         {[
           { id: 'identity', label: 'Brand Identity', icon: Sparkles, badge: undefined },
           { id: 'hero', label: 'Hero Section', icon: ImageIcon, badge: undefined },
@@ -87,36 +88,37 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
           { id: 'presets', label: 'Presets', icon: Layout, badge: undefined },
           { id: 'elements', label: 'UI Elements', icon: Settings, badge: undefined }
         ].map((tab) => {
-                    const IconComp = tab.icon;
-                    const isActive = customizerSubTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setCustomizerSubTab(tab.id as any)}
-                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                          isActive
-                            ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
-                            : 'text-neutral-400 hover:text-white hover:bg-neutral-900/90'
-                        }`}
-                      >
-                        <IconComp className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-neutral-950' : 'text-amber-400'}`} />
-                        <span>{tab.label}</span>
-                        {tab.badge && (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black leading-none shrink-0 ${
-                            isActive
-                              ? 'bg-neutral-950/25 text-neutral-950'
-                              : tab.badge === 'ON'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
-                          }`}>
-                            {tab.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-        </div>
+          const IconComp = tab.icon;
+          const isActive = customizerSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setCustomizerSubTab(tab.id as any)}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                isActive
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={isActive ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
+            >
+              <IconComp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-neutral-400'}`} />
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none shrink-0 ${
+                  isActive
+                    ? 'bg-neutral-900 text-neutral-300 border border-neutral-700'
+                    : tab.badge === 'ON'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
               {/* SUB-TAB 0: APP IDENTITY & LOGO MANAGER */}
               {customizerSubTab === 'identity' && (

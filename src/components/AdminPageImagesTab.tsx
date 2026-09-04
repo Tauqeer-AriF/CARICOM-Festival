@@ -28,32 +28,36 @@ export const AdminPageImagesTab: React.FC<AdminPageImagesTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 p-1.5 bg-neutral-950/80 border border-neutral-800/80 rounded-xl overflow-x-auto no-scrollbar">
+      {/* Main Sub-Navigation Bar matching Email Suite */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none">
         {[
-          { id: 'home', label: '🏠 Home Page', count: 4 },
-                  { id: 'about-grenada', label: '🌴 About Grenada', count: 3 },
-                  { id: 'about-mellowland', label: '🌊 About Mellowland', count: 3 },
-                  { id: 'banners', label: 'ℹ️ Header Banners', count: 5 }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setPageImagesSubTab(tab.id as any)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                      pageImagesSubTab === tab.id
-                        ? 'bg-amber-500 text-neutral-950 shadow-lg'
-                        : 'bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 border border-neutral-800/80'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                      pageImagesSubTab === tab.id ? 'bg-black/20 text-neutral-950' : 'bg-neutral-800 text-neutral-400'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          { id: 'home', label: 'Home Page', count: 4, icon: '🏠' },
+          { id: 'about-grenada', label: 'About Grenada', count: 3, icon: '🌴' },
+          { id: 'about-mellowland', label: 'About Mellowland', count: 3, icon: '🌊' },
+          { id: 'banners', label: 'Header Banners', count: 5, icon: 'ℹ️' }
+        ].map((tab) => {
+          const isActive = pageImagesSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setPageImagesSubTab(tab.id as any)}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                isActive
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={isActive ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-300 border border-neutral-750">
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
               {/* --- SUB-TAB: HOME PAGE --- */}
               {pageImagesSubTab === 'home' && (

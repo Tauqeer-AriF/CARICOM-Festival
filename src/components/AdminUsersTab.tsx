@@ -207,7 +207,46 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
   const suspendedCount = users.filter(u => u.status === 'suspended').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
+      {/* Sub-navigation bar matching Email Suite */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none w-full">
+        {[
+          { id: 'all', label: 'All Accounts', icon: Users, count: users.length },
+          { id: 'active', label: 'Active Operators', icon: UserCheck, count: activeCount },
+          { id: 'suspended', label: 'Suspended', icon: UserX, count: suspendedCount },
+          { id: 'matrix', label: 'Role Matrix', icon: ShieldCheck, count: (Object.keys(ROLE_PERMISSIONS) as AdminRole[]).length }
+        ].map((tab) => {
+          const IconComp = tab.icon;
+          const isActive = tab.id === 'matrix' ? showMatrix : (statusFilter === tab.id && !showMatrix);
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                if (tab.id === 'matrix') {
+                  setShowMatrix(!showMatrix);
+                } else {
+                  setShowMatrix(false);
+                  setStatusFilter(tab.id);
+                }
+              }}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                isActive
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={isActive ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
+            >
+              <IconComp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-neutral-400'}`} />
+              <span>{tab.label}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-300 border border-neutral-750">
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* HEADER HERO BAR */}
       <div className="bg-[#0C0F1E] border border-neutral-800/70 rounded-2xl p-6 relative overflow-hidden shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">

@@ -546,7 +546,40 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      {/* Media Type Filter Subtabs matching Email Suite */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none w-full">
+        {[
+          { id: 'all', label: 'All Media', icon: Film, count: media.length },
+          { id: 'image', label: 'Photos', icon: ImageIcon, count: media.filter(m => m.type === 'image').length },
+          { id: 'video', label: 'Videos', icon: Video, count: media.filter(m => m.type === 'video').length },
+          { id: 'used', label: 'In Use', icon: CheckCircle2, count: usedCount },
+          { id: 'unused', label: 'Unused', icon: AlertTriangle, count: unusedCount }
+        ].map((tab) => {
+          const IconComp = tab.icon;
+          const isActive = typeFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setTypeFilter(tab.id as any)}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                isActive
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={isActive ? { borderBottom: `2px solid #F59E0B` } : undefined}
+            >
+              <IconComp className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-amber-400' : 'text-neutral-400'}`} />
+              <span>{tab.label}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-300 border border-neutral-750">
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 w-full min-w-0 items-start">
         {/* Left column: Upload panel */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-sm">
@@ -658,82 +691,36 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
         </div>
 
         {/* Right column: Media grid & search & bulk bar */}
-        <div className="flex-1 space-y-4">
-          {/* Search and Media Type Filter */}
-          <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
-            <div className="relative w-full sm:w-72">
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          {/* Search Bar */}
+          <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 shadow-sm">
+            <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
                 placeholder="Search assets by name..."
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white p-1 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-
-            {/* Media Type Filter Pills */}
-            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end flex-wrap">
-              <button
-                onClick={() => setTypeFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
-                  typeFilter === 'all'
-                    ? 'bg-amber-500 text-neutral-950 shadow'
-                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
-                }`}
-              >
-                <Film className="w-3 h-3" />
-                <span>All ({media.length})</span>
-              </button>
-              <button
-                onClick={() => setTypeFilter('image')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
-                  typeFilter === 'image'
-                    ? 'bg-amber-500 text-neutral-950 shadow'
-                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
-                }`}
-              >
-                <ImageIcon className="w-3 h-3" />
-                <span>Photos</span>
-              </button>
-              <button
-                onClick={() => setTypeFilter('video')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1 ${
-                  typeFilter === 'video'
-                    ? 'bg-rose-500 text-white shadow'
-                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
-                }`}
-              >
-                <Video className="w-3 h-3" />
-                <span>Videos</span>
-              </button>
-              <button
-                onClick={() => setTypeFilter('used')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-all ${
-                  typeFilter === 'used'
-                    ? 'bg-emerald-500 text-neutral-950 shadow font-extrabold'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
-                }`}
-              >
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span>In Use ({usedCount})</span>
-              </button>
-              <button
-                onClick={() => setTypeFilter('unused')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-all ${
-                  typeFilter === 'unused'
-                    ? 'bg-amber-500 text-neutral-950 shadow font-extrabold'
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
-                }`}
-              >
-                <AlertTriangle className="w-3 h-3 text-amber-400" />
-                <span>Unused ({unusedCount})</span>
-              </button>
-            </div>
+            <span className="text-[10px] font-mono text-neutral-400 shrink-0 hidden sm:inline">
+              Showing <strong className="text-white">{filteredMedia.length}</strong> of <strong className="text-neutral-300">{media.length}</strong> items
+            </span>
           </div>
 
           {/* BULK ACTIONS TOOLBAR */}
-          <div className="bg-[#12162E] border border-amber-500/30 p-3 px-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+          <div className="bg-[#12162E] border border-amber-500/30 p-3 px-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md w-full">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 type="button"
@@ -756,7 +743,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
             </div>
 
             {selectedIds.length > 0 ? (
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                 <button
                   type="button"
                   onClick={handleBulkCopyUrls}
@@ -785,7 +772,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 </button>
               </div>
             ) : (
-              <span className="text-[11px] text-neutral-500 font-light hidden sm:inline">
+              <span className="text-[11px] text-neutral-400 font-light hidden sm:inline">
                 Check items to unlock bulk operations (copy URLs, batch deletion)
               </span>
             )}

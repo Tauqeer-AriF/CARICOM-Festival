@@ -48,6 +48,10 @@ import {
   ROLE_PERMISSIONS,
   } from '../services/adminUserService';
 import { 
+  dispatchEmail, 
+  getEmailSettings 
+} from '../services/emailService';
+import { 
   ShieldCheck,
   Search, 
   Filter, 
@@ -75,6 +79,7 @@ import {
   Eye, 
   EyeOff, 
   Send, 
+  Zap,
   Plane, 
   Ticket, 
   Truck, 
@@ -255,9 +260,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   // Concierge Executive Reply Desk Modal
   const [replyingSub, setReplyingSubState] = useState<FormSubmissionItem | null>(null);
+  const [replySubject, setReplySubject] = useState<string>('');
   const [replyMessage, setReplyMessage] = useState<string>('');
   const [replySent, setReplySent] = useState<boolean>(false);
-  const [replyMethod, setReplyMethod] = useState<'mailto' | 'gmail' | 'outlook' | 'in-app'>('mailto');
+  const [isSendingReply, setIsSendingReply] = useState<boolean>(false);
+  const [replyMethod, setReplyMethod] = useState<'email_suite' | 'mailto' | 'gmail' | 'outlook' | 'in-app'>('email_suite');
   const [replyCopied, setReplyCopied] = useState<boolean>(false);
   const [attachPassPdf, setAttachPassPdf] = useState<boolean>(true);
 
@@ -279,6 +286,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setReplyingSubState(sub);
     if (sub) {
       setAttachPassPdf(sub.type === 'pass-order' || sub.type === 'flight-registration');
+      setReplySubject(`Response to your inquiry (Ref: ${sub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
+      setReplyMethod('email_suite');
+      setIsSendingReply(false);
     }
   };
 
@@ -970,12 +980,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const topic = replyingSub.topicOrPass || 'your request';
 
     if (templateType === 'confirmation') {
+      setReplySubject(`Festival Pass Credentials Confirmed (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
       setReplyMessage(`Dear ${name},\n\nThank you for contacting Grenada CARICOM Festival 2027. We are pleased to confirm that your request regarding "${topic}" has been reviewed and approved by executive concierge.\n\nYour official festival credentials and hotel wristbands will be issued directly at your resort concierge desk upon arrival in Grenada.\n\nWarm regards,\nGrenada CARICOM Festival Executive Concierge Team`);
     } else if (templateType === 'flight') {
+      setReplySubject(`Airport Transfer & VIP Mobility Confirmed (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM 2027`);
       setReplyMessage(`Dear ${name},\n\nWe have received your flight arrival details ("${topic}"). Our official airport VIP transfer liaison will be waiting for you at Maurice Bishop International Airport (GND) arrivals with a dedicated festival shuttle.\n\nPlease keep your booking reference handy upon arrival.\n\nWarm regards,\nGrenada Logistics & Transport Concierge`);
     } else if (templateType === 'vip') {
+      setReplySubject(`VIP Cabana & Hospitality Host Allocation (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM 2027`);
       setReplyMessage(`Dear ${name},\n\nThank you for your inquiry regarding "${topic}". Our VIP Cabana & Hospitality team has placed your reservation on priority status.\n\nA dedicated hostess will reach out to finalize champagne, catering, and personal cabana host preferences.\n\nWarm regards,\nGrenada CARICOM VIP Services`);
     } else {
+      setReplySubject(`Response to your inquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
       setReplyMessage(`Dear ${name},\n\nThank you for contacting the Grenada CARICOM Festival 2027 team regarding "${topic}".\n\nWe have reviewed your message and updated your inquiry status to Resolved. Should you require any further assistance, please feel free to reply to this message or contact our official festival hotline.\n\nWarm regards,\nFestival Operations Team`);
     }
   };
@@ -989,58 +1003,94 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   const getMailtoUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(`Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `mailto:${encodeURIComponent(replyingSub.email)}?subject=${subject}&body=${body}`;
   };
 
   const getGmailUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(`Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(replyingSub.email)}&su=${subject}&body=${body}`;
   };
 
   const getOutlookUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(`Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(replyingSub.email)}&subject=${subject}&body=${body}`;
   };
 
-  const handleSendReply = (e?: React.FormEvent, methodOverride?: 'mailto' | 'gmail' | 'outlook' | 'in-app') => {
+  const handleSendReply = async (e?: React.FormEvent, methodOverride?: 'email_suite' | 'mailto' | 'gmail' | 'outlook' | 'in-app') => {
     if (e) e.preventDefault();
-    if (!replyingSub || !replyMessage.trim()) return;
+    if (!replyingSub || !replyMessage.trim() || isSendingReply) return;
 
     const method = methodOverride || replyMethod;
+    setIsSendingReply(true);
 
-    const attachmentObj = attachPassPdf ? {
-      name: `CARICOM_2027_Pass_${replyingSub.extraDetails?.OrderRef || replyingSub.id}.pdf`,
-      type: 'application/pdf',
-      size: '1.2 MB'
-    } : undefined;
+    try {
+      const attachmentObj = attachPassPdf ? {
+        name: `CARICOM_2027_Pass_${replyingSub.extraDetails?.OrderRef || replyingSub.id}.pdf`,
+        type: 'application/pdf',
+        size: '1.2 MB'
+      } : undefined;
 
-    // Persist real reply in submission storage
-    addSubmissionReply(replyingSub.id, replyMessage, 'Festival Concierge', method === 'in-app' ? 'in-app' : 'email', attachmentObj);
+      const emailSettings = getEmailSettings();
+      const subject = replySubject.trim() || `Response to your inquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`;
 
-    // Launch email dispatch based on selected method
-    if (method === 'gmail') {
-      window.open(getGmailUrl(), '_blank');
-    } else if (method === 'outlook') {
-      window.open(getOutlookUrl(), '_blank');
-    } else if (method === 'mailto') {
-      window.location.href = getMailtoUrl();
+      if (method === 'email_suite') {
+        await dispatchEmail({
+          recipientEmail: replyingSub.email,
+          recipientName: replyingSub.name || 'Festival Guest',
+          subject,
+          category: 'enquiry_reply',
+          headline: 'Festival Concierge Service',
+          introText: `Dear ${replyingSub.name || 'Guest'}, thank you for contacting the Grenada CARICOM Festival Secretariat regarding your ${replyingSub.topicOrPass || 'enquiry'}.`,
+          bodyText: replyMessage,
+          referenceId: replyingSub.id.toUpperCase(),
+          metadata: {
+            'Inquiry Reference': replyingSub.id.toUpperCase(),
+            'Original Topic': replyingSub.topicOrPass || 'Concierge Inquiry',
+            'Dispatched Via': `${emailSettings.engineMode.toUpperCase()} Gateway`,
+            'Sender': `${emailSettings.senderName} <${emailSettings.senderEmail}>`
+          },
+          primaryColor
+        });
+      }
+
+      // Persist real reply in submission storage
+      addSubmissionReply(replyingSub.id, replyMessage, 'Festival Concierge', method === 'in-app' ? 'in-app' : 'email', attachmentObj);
+
+      // Launch email dispatch based on selected method
+      if (method === 'gmail') {
+        window.open(getGmailUrl(), '_blank');
+      } else if (method === 'outlook') {
+        window.open(getOutlookUrl(), '_blank');
+      } else if (method === 'mailto') {
+        window.location.href = getMailtoUrl();
+      }
+
+      setReplySent(true);
+      setSaveToast(
+        method === 'email_suite'
+          ? `Dispatched official reply via Email Suite to ${replyingSub.email} & recorded in Outbox!`
+          : `Official reply recorded and dispatched for ${replyingSub.email}`
+      );
+      setTimeout(() => {
+        setReplySent(false);
+        setReplyingSub(null);
+        setReplyMessage('');
+        setReplySubject('');
+        setReplyCopied(false);
+        setIsSendingReply(false);
+        loadData();
+      }, 1400);
+    } catch (err: any) {
+      console.error('Failed to dispatch reply:', err);
+      setSaveToast(`Error sending reply: ${err?.message || 'Unknown error'}`);
+      setIsSendingReply(false);
     }
-
-    setReplySent(true);
-    setSaveToast(`Official reply recorded and dispatched to ${replyingSub.email}`);
-    setTimeout(() => {
-      setReplySent(false);
-      setReplyingSub(null);
-      setReplyMessage('');
-      setReplyCopied(false);
-      loadData();
-    }, 1400);
   };
 
   // --- MASTER FESTIVAL DATES & EVENTS SCHEDULE HANDLERS ---
@@ -1848,15 +1898,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('owner');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'owner'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/30'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-amber-300/80 hover:text-amber-200 hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'owner' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'owner' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
               <span className="flex items-center gap-2.5">
-                <Crown className="w-4 h-4 text-amber-400" /> Owner Control
+                <Crown className={`w-4 h-4 ${activeAdminTab === 'owner' ? 'text-amber-400' : 'text-amber-400/70'}`} /> Owner Control
               </span>
             </button>
           )}
@@ -1867,14 +1917,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('analytics');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'analytics'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'analytics' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'analytics' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <BarChart3 className="w-4 h-4" /> Analytics
+              <BarChart3 className={`w-4 h-4 ${activeAdminTab === 'analytics' ? 'text-amber-400' : 'text-neutral-400'}`} /> Analytics
             </button>
           )}
 
@@ -1884,24 +1934,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('submissions');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'submissions'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'submissions' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'submissions' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
               <span className="flex items-center gap-2.5">
-                <FileSpreadsheet className="w-4 h-4" /> Received Forms
+                <FileSpreadsheet className={`w-4 h-4 ${activeAdminTab === 'submissions' ? 'text-amber-400' : 'text-neutral-400'}`} /> Received Forms
               </span>
               {submissions.length > 0 && (
-                <span 
-                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
-                  style={{
-                    backgroundColor: activeAdminTab === 'submissions' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
-                    color: activeAdminTab === 'submissions' ? '#000000' : '#d4d4d4'
-                  }}
-                >
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-neutral-900 text-neutral-300 border border-neutral-750">
                   {submissions.length}
                 </span>
               )}
@@ -1914,21 +1958,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('orders');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'orders'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'orders' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'orders' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
               <span className="flex items-center gap-2.5">
-                <Ticket className="w-4 h-4" /> Pass Orders
+                <Ticket className={`w-4 h-4 ${activeAdminTab === 'orders' ? 'text-amber-400' : 'text-neutral-400'}`} /> Pass Orders
               </span>
               {submissions.filter(s => s.type === 'pass-order').length > 0 && (
-                <span 
-                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                  style={activeAdminTab === 'orders' ? { backgroundColor: 'rgba(0,0,0,0.25)', color: '#000000', borderColor: 'transparent' } : undefined}
-                >
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
                   {submissions.filter(s => s.type === 'pass-order').length}
                 </span>
               )}
@@ -1941,14 +1982,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('branding');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'branding'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'branding' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'branding' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Palette className="w-4 h-4" /> Customiser Studio
+              <Palette className={`w-4 h-4 ${activeAdminTab === 'branding' ? 'text-amber-400' : 'text-neutral-400'}`} /> Customiser Studio
             </button>
           )}
 
@@ -1958,14 +1999,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('page-images');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'page-images'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'page-images' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'page-images' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Image className="w-4 h-4" /> Page Images Manager
+              <Image className={`w-4 h-4 ${activeAdminTab === 'page-images' ? 'text-amber-400' : 'text-neutral-400'}`} /> Page Images Manager
             </button>
           )}
 
@@ -1975,14 +2016,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('events');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'events'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'events' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'events' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Calendar className="w-4 h-4" /> Event Manager
+              <Calendar className={`w-4 h-4 ${activeAdminTab === 'events' ? 'text-amber-400' : 'text-neutral-400'}`} /> Event Manager
             </button>
           )}
 
@@ -1992,14 +2033,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('gallery');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'gallery'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'gallery' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'gallery' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Image className="w-4 h-4" /> Gallery Media
+              <Image className={`w-4 h-4 ${activeAdminTab === 'gallery' ? 'text-amber-400' : 'text-neutral-400'}`} /> Gallery Media
             </button>
           )}
 
@@ -2009,14 +2050,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('passes');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'passes'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'passes' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'passes' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Ticket className="w-4 h-4" /> Pass Manager
+              <Ticket className={`w-4 h-4 ${activeAdminTab === 'passes' ? 'text-amber-400' : 'text-neutral-400'}`} /> Pass Manager
             </button>
           )}
 
@@ -2026,14 +2067,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('hotels');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'hotels'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'hotels' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'hotels' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Hotel className="w-4 h-4" /> Recommended Hotels
+              <Hotel className={`w-4 h-4 ${activeAdminTab === 'hotels' ? 'text-amber-400' : 'text-neutral-400'}`} /> Recommended Hotels
             </button>
           )}
 
@@ -2043,14 +2084,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('testimonials');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'testimonials'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'testimonials' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'testimonials' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <MessageSquare className="w-4 h-4" /> Testimonials
+              <MessageSquare className={`w-4 h-4 ${activeAdminTab === 'testimonials' ? 'text-amber-400' : 'text-neutral-400'}`} /> Testimonials
             </button>
           )}
 
@@ -2060,14 +2101,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('media');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'media'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'media' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'media' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <FolderOpen className="w-4 h-4" /> Media Library
+              <FolderOpen className={`w-4 h-4 ${activeAdminTab === 'media' ? 'text-amber-400' : 'text-neutral-400'}`} /> Media Library
             </button>
           )}
 
@@ -2077,23 +2118,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('users');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'users'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'users' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'users' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
               <span className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" /> Console Users
+                <Users className={`w-4 h-4 ${activeAdminTab === 'users' ? 'text-amber-400' : 'text-neutral-400'}`} /> Console Users
               </span>
-              <span 
-                className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
-                style={{
-                  backgroundColor: activeAdminTab === 'users' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: activeAdminTab === 'users' ? '#000000' : '#d4d4d4'
-                }}
-              >
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-neutral-900 text-neutral-300 border border-neutral-750">
                 {getAdminUsers().filter(u => u.role !== 'Owner' && u.username.toLowerCase() !== 'owner').length}
               </span>
             </button>
@@ -2105,23 +2140,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('emails');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'emails'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'emails' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'emails' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
               <span className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4" /> Email Suite
+                <Mail className={`w-4 h-4 ${activeAdminTab === 'emails' ? 'text-amber-400' : 'text-neutral-400'}`} /> Email Suite
               </span>
-              <span 
-                className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
-                style={{
-                  backgroundColor: activeAdminTab === 'emails' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: activeAdminTab === 'emails' ? '#000000' : '#d4d4d4'
-                }}
-              >
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-neutral-900 text-neutral-300 border border-neutral-750">
                 {getEmailLogs().length}
               </span>
             </button>
@@ -2133,14 +2162,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('system');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'system'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'system' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'system' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Settings className="w-4 h-4" /> Operations
+              <Settings className={`w-4 h-4 ${activeAdminTab === 'system' ? 'text-amber-400' : 'text-neutral-400'}`} /> Operations
             </button>
           )}
 
@@ -2150,14 +2179,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 setActiveAdminTab('backup');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeAdminTab === 'backup'
-                  ? 'text-neutral-950 shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
               }`}
-              style={activeAdminTab === 'backup' ? { backgroundColor: primaryColor } : undefined}
+              style={activeAdminTab === 'backup' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
             >
-              <Database className="w-4 h-4" /> Backup & Restore
+              <Database className={`w-4 h-4 ${activeAdminTab === 'backup' ? 'text-amber-400' : 'text-neutral-400'}`} /> Backup & Restore
             </button>
           )}
         </nav>
@@ -2183,7 +2212,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       </aside>
 
       {/* MAIN CONTENT WORKSPACE */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden min-w-0">
              {/* TOP ACTION & TOOLBAR ROW */}
         <header className="h-16 border-b border-neutral-800 bg-[#0C0F1E]/50 backdrop-blur-md px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -2292,7 +2321,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           key={activeAdminTab}
-          className="flex-1 p-6 md:p-8 space-y-8 max-w-6xl w-full mx-auto"
+          className="flex-1 p-4 sm:p-6 md:p-8 space-y-8 max-w-7xl w-full mx-auto min-w-0"
         >
           {/* Conditional Role-Based Access Guard */}
           {!hasRoleAccess(currentAdmin?.role, activeAdminTab) ? (
@@ -5256,8 +5285,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* MODAL: CONCIERGE EXECUTIVE RESPONSE DESK */}
       {replyingSub && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans">
-          <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-5 font-sans">
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+          <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-4 font-sans max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3.5 border-b border-neutral-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
                   <Send className="w-5 h-5" />
@@ -5278,15 +5307,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {replySent ? (
               <div className="py-10 text-center space-y-3 font-sans">
                 <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
-                <h4 className="text-lg font-bold text-white">Reply Recorded & Transmitted</h4>
+                <h4 className="text-lg font-bold text-white">Reply Recorded & Dispatched</h4>
                 <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-                  Response saved to system records. Status auto-updated to <span className="text-emerald-400 font-bold">'Resolved'</span>.
+                  Response processed via <span className="text-amber-400 font-semibold">{replyMethod === 'email_suite' ? 'Email Suite Gateway' : replyMethod.toUpperCase()}</span> and logged to outbox. Status auto-updated to <span className="text-emerald-400 font-bold">'Resolved'</span>.
                 </p>
               </div>
             ) : (
-              <form onSubmit={(e) => handleSendReply(e, replyMethod)} className="space-y-4 text-xs font-sans">
+              <form onSubmit={(e) => handleSendReply(e, replyMethod)} className="space-y-3.5 text-xs font-sans">
                 {/* Guest Context Summary */}
-                <div className="p-3.5 bg-neutral-950 rounded-xl border border-neutral-800/70 space-y-1.5">
+                <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800/70 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-neutral-500 text-[9px] uppercase tracking-wider font-bold">Recipient</span>
                     <a
@@ -5350,6 +5379,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
                 </div>
 
+                {/* Subject Line */}
+                <div className="space-y-1">
+                  <label className="text-neutral-400 font-bold uppercase text-[9px] tracking-wider block">
+                    Email Subject Line
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={replySubject}
+                    onChange={(e) => setReplySubject(e.target.value)}
+                    placeholder="Response subject..."
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-sans text-xs"
+                  />
+                </div>
+
                 {/* Response Textarea */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -5369,138 +5413,148 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
                   </div>
                   <textarea
-                    rows={5}
+                    rows={4}
                     required
                     placeholder="Type official executive message response or select a template above..."
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3.5 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-sans text-xs leading-relaxed"
                   />
-
-                  {/* Direct Mail Web / Client Quick Launchers */}
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 text-[10px]">
-                    <span className="text-neutral-500 text-[9px] font-bold uppercase">Direct Mail Launchers:</span>
-                    <div className="flex flex-wrap items-center gap-1.5 font-mono">
-                      <a
-                        href={getMailtoUrl()}
-                        target="_top"
-                        onClick={() => handleSendReply(undefined, 'mailto')}
-                        className={`px-2 py-0.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 rounded border border-neutral-800 hover:border-amber-500/40 flex items-center gap-1 transition-colors ${!replyMessage.trim() ? 'pointer-events-none opacity-40' : ''}`}
-                      >
-                        <Mail className="w-2.5 h-2.5 text-amber-400" /> Default Mail App
-                      </a>
-                      <a
-                        href={getGmailUrl()}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => handleSendReply(undefined, 'gmail')}
-                        className={`px-2 py-0.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 rounded border border-neutral-800 hover:border-amber-500/40 flex items-center gap-1 transition-colors ${!replyMessage.trim() ? 'pointer-events-none opacity-40' : ''}`}
-                      >
-                        <ExternalLink className="w-2.5 h-2.5 text-red-400" /> Gmail Web
-                      </a>
-                      <a
-                        href={getOutlookUrl()}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => handleSendReply(undefined, 'outlook')}
-                        className={`px-2 py-0.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 rounded border border-neutral-800 hover:border-amber-500/40 flex items-center gap-1 transition-colors ${!replyMessage.trim() ? 'pointer-events-none opacity-40' : ''}`}
-                      >
-                        <ExternalLink className="w-2.5 h-2.5 text-sky-400" /> Outlook Web
-                      </a>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Delivery Method Selection */}
-                <div className="p-3 bg-neutral-950/80 rounded-xl border border-neutral-800/70 space-y-2">
-                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">Default Submit Dispatch Method</span>
+                {/* PDF Pass Credential Attachment Toggle */}
+                {(replyingSub.type === 'pass-order' || replyingSub.type === 'flight-registration') && (
+                  <label className="flex items-center gap-2 p-2.5 bg-neutral-950/80 rounded-xl border border-neutral-800/80 cursor-pointer text-[11px] text-neutral-300 hover:border-amber-500/30 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={attachPassPdf}
+                      onChange={(e) => setAttachPassPdf(e.target.checked)}
+                      className="rounded border-neutral-700 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 accent-amber-500"
+                    />
+                    <Paperclip className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Attach Official Digital Festival Pass & Wristband Credential (PDF)</span>
+                  </label>
+                )}
+
+                {/* Email Suite Dispatch Method Section */}
+                <div className="p-3 bg-neutral-950/90 rounded-xl border border-neutral-800/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Zap className="w-3 h-3 text-amber-400" /> Email Suite Dispatch Channel
+                    </span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      {getEmailSettings().engineMode.toUpperCase()} Engine Active
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setReplyMethod('mailto')}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
-                        replyMethod === 'mailto'
-                          ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
-                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                      onClick={() => setReplyMethod('email_suite')}
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all col-span-2 sm:col-span-1 ${
+                        replyMethod === 'email_suite'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm shadow-amber-500/20'
+                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
                       }`}
                     >
-                      <div className="font-bold text-[10px] flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-amber-400" /> Mail App
+                      <div className="font-bold text-[10px] flex items-center gap-1.5 text-amber-400">
+                        <Zap className="w-3.5 h-3.5" /> Email Suite
                       </div>
-                      <div className="text-[8px] opacity-70 truncate">Native mailto link</div>
+                      <div className="text-[8px] opacity-75 mt-0.5">Automated Gateway & Outbox</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setReplyMethod('mailto')}
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        replyMethod === 'mailto'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm shadow-amber-500/20'
+                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
+                      }`}
+                    >
+                      <div className="font-bold text-[10px] flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-amber-400" /> Mail App
+                      </div>
+                      <div className="text-[8px] opacity-75 mt-0.5 truncate">Native mailto link</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setReplyMethod('gmail')}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                         replyMethod === 'gmail'
-                          ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
-                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm shadow-amber-500/20'
+                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
                       }`}
                     >
-                      <div className="font-bold text-[10px] flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3 text-red-400" /> Gmail
+                      <div className="font-bold text-[10px] flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5 text-red-400" /> Gmail
                       </div>
-                      <div className="text-[8px] opacity-70 truncate">Google Webmail tab</div>
+                      <div className="text-[8px] opacity-75 mt-0.5 truncate">Google Webmail tab</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setReplyMethod('outlook')}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                         replyMethod === 'outlook'
-                          ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
-                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm shadow-amber-500/20'
+                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
                       }`}
                     >
-                      <div className="font-bold text-[10px] flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3 text-sky-400" /> Outlook
+                      <div className="font-bold text-[10px] flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5 text-sky-400" /> Outlook
                       </div>
-                      <div className="text-[8px] opacity-70 truncate">Microsoft Webmail tab</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setReplyMethod('in-app')}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
-                        replyMethod === 'in-app'
-                          ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
-                          : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <div className="font-bold text-[10px] flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> In-App
-                      </div>
-                      <div className="text-[8px] opacity-70 truncate">In-App log only</div>
+                      <div className="text-[8px] opacity-75 mt-0.5 truncate">Microsoft Webmail tab</div>
                     </button>
                   </div>
                 </div>
 
                 {/* Form Footer Actions */}
                 <div className="pt-2 flex items-center justify-between border-t border-neutral-800">
-                  <span className="text-[10px] text-neutral-500 font-medium">Auto-marks status as Resolved</span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-medium">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span>Auto-marks status as Resolved & logs to Outbox</span>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setReplyingSub(null)}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-slate-300 rounded-xl font-bold cursor-pointer transition-colors"
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-slate-300 rounded-xl font-bold cursor-pointer transition-colors text-xs"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      disabled={!replyMessage.trim()}
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-950 rounded-xl font-black flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02]"
+                      disabled={!replyMessage.trim() || isSendingReply}
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-950 rounded-xl font-black flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02] text-xs"
                     >
-                      <Send className="w-3.5 h-3.5" /> 
-                      {replyMethod === 'gmail'
-                        ? 'Open in Gmail Web'
-                        : replyMethod === 'outlook'
-                        ? 'Open in Outlook Web'
-                        : replyMethod === 'mailto'
-                        ? 'Launch Mail App'
-                        : 'Log Reply & Resolve'}
+                      {isSendingReply ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Dispatching...</span>
+                        </>
+                      ) : (
+                        <>
+                          {replyMethod === 'email_suite' ? (
+                            <Zap className="w-3.5 h-3.5" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5" />
+                          )}
+                          <span>
+                            {replyMethod === 'email_suite'
+                              ? 'Send via Email Suite'
+                              : replyMethod === 'gmail'
+                              ? 'Open in Gmail Web'
+                              : replyMethod === 'outlook'
+                              ? 'Open in Outlook Web'
+                              : replyMethod === 'mailto'
+                              ? 'Launch Mail App'
+                              : 'Log Reply & Resolve'}
+                          </span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

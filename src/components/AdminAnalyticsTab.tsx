@@ -434,7 +434,7 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                   {/* Timeframe Selectors & Custom Date Range Pickers */}
                   <div className="bg-neutral-950 p-3 sm:p-4 rounded-xl border border-neutral-900 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded-xl border border-neutral-800 overflow-x-auto max-w-full scrollbar-none">
+                      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none max-w-full">
                         {([
                           { id: '7d', label: '7 Days' },
                           { id: '30d', label: '30 Days' },
@@ -446,11 +446,12 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                             key={tab.id}
                             type="button"
                             onClick={() => setAnalyticsRange(tab.id)}
-                            className={`px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                               analyticsRange === tab.id
-                                ? 'bg-amber-500 text-neutral-950 shadow-sm'
-                                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+                                ? 'bg-neutral-800 text-white shadow-sm'
+                                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
                             }`}
+                            style={analyticsRange === tab.id ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
                           >
                              {tab.label}
                           </button>
