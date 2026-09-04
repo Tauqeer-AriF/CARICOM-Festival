@@ -430,7 +430,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                 />
                 {formData.imageUrl && (
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
+                    <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 relative">
                       <GalleryThumbnail
                         item={formData}
                         className="w-full h-full"

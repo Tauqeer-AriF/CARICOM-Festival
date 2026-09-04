@@ -266,10 +266,10 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
                     className="break-inside-avoid relative group rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-amber-500/10"
                   >
                     {/* Image/Video Container */}
-                    <div className={`w-full ${item.aspectRatio} relative overflow-hidden bg-neutral-950`}>
+                    <div className={`w-full ${item.aspectRatio || 'aspect-video'} relative overflow-hidden bg-neutral-950`}>
                       <GalleryThumbnail
                         item={item}
-                        className="w-full h-full"
+                        className="absolute inset-0 w-full h-full"
                         imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                         alt={item.title}
                         loading="lazy"

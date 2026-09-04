@@ -20,10 +20,18 @@ export function getYouTubeThumbnail(url: string | undefined | null): string | nu
 export function isDirectVideoUrl(url: string | undefined | null): boolean {
   if (!url) return false;
   const clean = url.trim().toLowerCase();
+  
+  // Explicit image extensions or data URI images are NEVER videos
+  if (
+    /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|tiff)$/i.test(clean) ||
+    clean.startsWith('data:image/')
+  ) {
+    return false;
+  }
+
   return (
     clean.startsWith('data:video') ||
     clean.startsWith('blob:') ||
-    clean.includes('/uploads/') ||
     /\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i.test(clean)
   );
 }
@@ -93,9 +101,9 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
   const [errorCount, setErrorCount] = useState<number>(0);
 
-  // Determine container positioning safely without relative/absolute class conflicts
+  // Determine wrapper class cleanly
   const isAbsolute = className.includes('absolute');
-  const wrapperClass = `${isAbsolute ? '' : 'relative'} overflow-hidden bg-neutral-950 ${className}`.trim();
+  const wrapperClass = `${isAbsolute ? 'absolute inset-0' : 'relative'} w-full h-full overflow-hidden bg-neutral-950 ${className}`.trim();
 
   // Sync state if props change
   useEffect(() => {

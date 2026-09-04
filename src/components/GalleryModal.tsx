@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
+import { getFallbackImage, isDirectVideoUrl } from './GalleryThumbnail';
 import { 
   X, 
   ChevronLeft, 
@@ -143,8 +144,8 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
         );
       }
 
-      // Direct video file (MP4, WebM, MOV, blob, data:video, /uploads/, etc.)
-      const directVideoSrc = rawVideoUrl || (rawImageUrl.includes('data:video') || rawImageUrl.includes('/uploads/') || /\.(mp4|webm|mov|m4v|avi)$/i.test(rawImageUrl) ? rawImageUrl : '');
+      // Direct video file (MP4, WebM, MOV, blob, data:video, etc.)
+      const directVideoSrc = rawVideoUrl || (isDirectVideoUrl(rawImageUrl) ? rawImageUrl : '');
 
       if (directVideoSrc) {
         return (
@@ -175,25 +176,15 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
       );
     }
 
-    if (!item.imageUrl) {
-      return (
-        <div className="w-full max-w-xl h-[50vh] flex flex-col items-center justify-center bg-neutral-900/90 rounded-2xl border border-amber-500/20 text-center p-8 gap-3 shadow-2xl">
-          <Camera className="w-12 h-12 text-amber-400 opacity-80" />
-          <h4 className="text-base font-bold text-white font-serif">{item.title}</h4>
-          <p className="text-xs text-neutral-400 max-w-sm leading-relaxed">
-            No photo image uploaded yet for this gallery item.
-          </p>
-        </div>
-      );
-    }
+    const photoSrc = (item.imageUrl || '').trim() || getFallbackImage(item);
 
     return (
       <img
-        src={item.imageUrl}
+        src={photoSrc}
         alt={item.title}
         referrerPolicy="no-referrer"
         onError={(e) => {
-          (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
+          (e.currentTarget as HTMLImageElement).src = getFallbackImage(item);
         }}
         className="max-h-[65vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 ease-out border border-amber-500/20"
         style={{ transform: `scale(${zoomLevel})` }}
