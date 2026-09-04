@@ -1839,12 +1839,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           )}
 
           <div className="pt-4 border-t border-neutral-800 flex items-center justify-end text-xs">
-            <button
-              onClick={() => setActiveTab('home')}
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-slate-400 font-semibold underline cursor-pointer transition-colors hover:text-white"
             >
               Return to Website →
-            </button>
+            </a>
           </div>
         </div>
       </div>
@@ -2219,14 +2221,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
         {/* Sidebar Footer Controls */}
         <div className="p-4 border-t border-neutral-800/80 space-y-2">
-          <button
-            onClick={() => setActiveTab('home')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 border border-neutral-800 text-xs font-bold rounded-xl transition-all cursor-pointer"
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 border border-neutral-800 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
             onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
             onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
           >
             ← Public Website
-          </button>
+          </a>
 
           <button
             onClick={handleLogout}

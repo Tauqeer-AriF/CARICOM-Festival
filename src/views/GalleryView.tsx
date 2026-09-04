@@ -28,7 +28,7 @@ interface GalleryViewProps {
   galleryItems?: GalleryItem[];
 }
 
-type CategoryFilter = 'All' | 'VIP Beach Fete' | 'Mellowland Village' | 'Soca & Concerts' | 'Island Excursions' | 'Luxury & Resort';
+type CategoryFilter = 'All' | 'VIP Beach Fete' | 'Mellowland Village' | 'Soca & Concerts' | 'Island Excursions' | 'Luxury & Resort' | 'Meet and Greet' | 'Culture';
 type MediaTypeFilter = 'all' | 'video' | 'image';
 
 // Custom animation presets for a premium aesthetic
@@ -79,7 +79,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
     'Mellowland Village',
     'Soca & Concerts',
     'Island Excursions',
-    'Luxury & Resort'
+    'Luxury & Resort',
+    'Meet and Greet',
+    'Culture'
   ];
 
   const filteredItems = activeItems.filter((item) => {

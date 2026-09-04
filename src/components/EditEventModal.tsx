@@ -46,6 +46,8 @@ const CATEGORY_PRESETS = [
   'Music',
   'Adventure',
   'Cultural',
+  'Culture',
+  'Meet and Greet',
   'Gala',
   'VIP Beach Fete',
   'Boat Cruise',

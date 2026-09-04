@@ -34,7 +34,9 @@ const GALLERY_CATEGORIES: Array<GalleryItem['category']> = [
   'Mellowland Village',
   'Soca & Concerts',
   'Island Excursions',
-  'Luxury & Resort'
+  'Luxury & Resort',
+  'Meet and Greet',
+  'Culture'
 ];
 
 const ASPECT_RATIOS: Array<{ value: GalleryItem['aspectRatio']; label: string }> = [

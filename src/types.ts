@@ -165,7 +165,7 @@ export interface SiteConfig {
 export interface GalleryItem {
   id: string;
   title: string;
-  category: 'VIP Beach Fete' | 'Mellowland Village' | 'Soca & Concerts' | 'Island Excursions' | 'Luxury & Resort';
+  category: 'VIP Beach Fete' | 'Mellowland Village' | 'Soca & Concerts' | 'Island Excursions' | 'Luxury & Resort' | 'Meet and Greet' | 'Culture' | string;
   location: string;
   year: string;
   imageUrl: string;
