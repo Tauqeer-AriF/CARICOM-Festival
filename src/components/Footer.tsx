@@ -364,7 +364,15 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                 <MapPin className="w-4 h-4 text-teal-400 mt-0.5 shrink-0" />
                 <div>
                   <span className="block font-medium text-white">Mellowland Complex:</span>
-                  <span className="text-slate-400">Balthazar River, St. Andrew, Grenada</span>
+                  <a 
+                    href="https://maps.google.com/?q=Balthazar+River,+St.+Andrew,+Grenada" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-slate-400 hover:text-amber-400 transition-colors underline decoration-amber-500/20 hover:decoration-amber-400"
+                    title="View Location on Google Maps"
+                  >
+                    Balthazar River, St. Andrew, Grenada
+                  </a>
                 </div>
               </div>
             </div>

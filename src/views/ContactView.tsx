@@ -74,13 +74,19 @@ export const ContactView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 text-neutral-300 p-3 bg-neutral-950 rounded-xl border border-neutral-800">
-                <MapPin className="w-5 h-5 text-amber-400 shrink-0" />
+              <a 
+                href="https://maps.google.com/?q=Mellows+Entertainment+Complex,+St.+David's,+Grenada"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 text-neutral-300 p-3 bg-neutral-950 rounded-xl border border-neutral-800 hover:border-amber-500/50 hover:bg-neutral-900/60 transition-all group cursor-pointer"
+                title="View Festival Headquarters on Google Maps"
+              >
+                <MapPin className="w-5 h-5 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
                 <div>
                   <span className="text-[10px] text-neutral-500 uppercase block font-mono">Festival Headquarters</span>
-                  <span className="font-bold text-white">Mellows Entertainment Complex, St. David's, Grenada</span>
+                  <span className="font-bold text-white group-hover:text-amber-400 transition-colors underline decoration-amber-500/20">Mellows Entertainment Complex, St. David's, Grenada</span>
                 </div>
-              </div>
+              </a>
             </div>
           </div>
         </div>
