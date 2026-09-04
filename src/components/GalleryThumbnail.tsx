@@ -96,8 +96,8 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   const cleanImageUrl = (item.imageUrl || '').trim();
   const cleanVideoUrl = (item.videoUrl || '').trim();
 
-  // Initial source determination: if cleanImageUrl is missing, use contextual fallback image
-  const initialSrc = cleanImageUrl || getFallbackImage(item);
+  // Initial source determination: if cleanImageUrl is missing on a video, do not use preset fallback image
+  const initialSrc = isVideo ? cleanImageUrl : (cleanImageUrl || getFallbackImage(item));
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
   const [errorCount, setErrorCount] = useState<number>(0);
 
@@ -107,7 +107,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
 
   // Sync state if props change
   useEffect(() => {
-    const nextSrc = cleanImageUrl || getFallbackImage(item);
+    const nextSrc = isVideo ? cleanImageUrl : (cleanImageUrl || getFallbackImage(item));
     setCurrentSrc(nextSrc);
     setErrorCount(0);
   }, [cleanImageUrl, isVideo, item.title, item.category]);

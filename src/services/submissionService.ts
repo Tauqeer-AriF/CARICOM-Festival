@@ -1401,15 +1401,10 @@ export const getGalleryItems = (): GalleryItem[] => {
     // Sanitize any broken, missing, or outdated URLs
     const sanitized = parsed.map((item) => {
       let updatedItem = { ...item };
+      const isVideoItem = updatedItem.mediaType === 'video' || Boolean(updatedItem.videoUrl);
       
       // Match with static default list if present
       const defaultMatch = GALLERY_ITEMS.find((d) => d.id === updatedItem.id);
-
-      // Restore image from default list if missing or broken
-      if (defaultMatch && (!updatedItem.imageUrl || updatedItem.imageUrl.trim() === '')) {
-        updatedItem.imageUrl = defaultMatch.imageUrl;
-        hasUpdates = true;
-      }
 
       // Fix known dead Unsplash URLs from earlier versions
       if (updatedItem.imageUrl) {
@@ -1425,8 +1420,20 @@ export const getGalleryItems = (): GalleryItem[] => {
         }
       }
 
-      // If an item still has no image URL, set it to a contextual high-res festival image
-      if (!updatedItem.imageUrl || updatedItem.imageUrl.trim() === '') {
+      // For video items, if imageUrl matches old default static images, clear it so video frame thumbnail renders
+      if (isVideoItem && defaultMatch && !defaultMatch.imageUrl) {
+        if (
+          updatedItem.imageUrl === FESTIVAL_IMAGES.gallery1 ||
+          updatedItem.imageUrl === FESTIVAL_IMAGES.gallery2 ||
+          updatedItem.imageUrl === FESTIVAL_IMAGES.gallery5
+        ) {
+          updatedItem.imageUrl = '';
+          hasUpdates = true;
+        }
+      }
+
+      // For non-video items ONLY, restore image from default list if missing or broken
+      if (!isVideoItem && (!updatedItem.imageUrl || updatedItem.imageUrl.trim() === '')) {
         if (defaultMatch && defaultMatch.imageUrl) {
           updatedItem.imageUrl = defaultMatch.imageUrl;
         } else {

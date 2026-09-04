@@ -428,7 +428,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                   className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
                   placeholder={isVideo ? "Optional thumbnail photo (leave blank to use MP4 video frame)" : "https://..."}
                 />
-                {formData.imageUrl && (
+                {(formData.imageUrl || (isVideo && formData.videoUrl)) && (
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 relative">
                       <GalleryThumbnail
@@ -437,7 +437,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                         imageClassName="w-full h-full object-cover"
                       />
                     </div>
-                    {isVideo && (
+                    {isVideo && formData.imageUrl && (
                       <button
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
