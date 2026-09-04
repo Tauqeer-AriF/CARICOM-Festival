@@ -66,8 +66,10 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
     photographer: ''
   });
 
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -112,14 +114,17 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const cleanImageUrl = (formData.imageUrl || '').trim();
+    const cleanVideoUrl = (formData.videoUrl || '').trim();
+
     const savedItem: GalleryItem = {
       id: item?.id || `gallery-${Date.now()}`,
       title: (formData.title || '').trim(),
       category: formData.category || 'VIP Beach Fete',
       location: (formData.location || '').trim(),
       year: (formData.year || '2027').trim(),
-      imageUrl: (formData.imageUrl || '').trim() || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80',
-      videoUrl: isVideo && formData.videoUrl ? formData.videoUrl.trim() : undefined,
+      imageUrl: cleanImageUrl || (isVideo ? '' : 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80'),
+      videoUrl: isVideo && cleanVideoUrl ? cleanVideoUrl : undefined,
       mediaType: formData.mediaType || (isVideo ? 'video' : 'image'),
       aspectRatio: formData.aspectRatio || 'aspect-[16/9]',
       caption: (formData.caption || '').trim(),
@@ -132,24 +137,42 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
     onClose();
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploading(true);
+    if (file.type.startsWith('video/')) {
+      alert('Videos cannot be uploaded as image thumbnails. Please upload an image file (JPG, PNG, WebP).');
+      if (imageFileInputRef.current) imageFileInputRef.current.value = '';
+      return;
+    }
+    setIsUploadingImage(true);
     try {
       const res = await uploadFileToServer(file);
       if (res && res.url) {
-        if (file.type.startsWith('video/')) {
-          setFormData(prev => ({ ...prev, videoUrl: res.url, mediaType: 'video' }));
-        } else {
-          setFormData(prev => ({ ...prev, imageUrl: res.url }));
-        }
+        setFormData(prev => ({ ...prev, imageUrl: res.url }));
       }
     } catch (err) {
-      console.error('File upload error:', err);
+      console.error('Image upload error:', err);
     } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setIsUploadingImage(false);
+      if (imageFileInputRef.current) imageFileInputRef.current.value = '';
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingVideo(true);
+    try {
+      const res = await uploadFileToServer(file);
+      if (res && res.url) {
+        setFormData(prev => ({ ...prev, videoUrl: res.url, mediaType: 'video' }));
+      }
+    } catch (err) {
+      console.error('Video upload error:', err);
+    } finally {
+      setIsUploadingVideo(false);
+      if (videoFileInputRef.current) videoFileInputRef.current.value = '';
     }
   };
 
@@ -290,23 +313,41 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
               </div>
             </div>
 
-            {/* Video URL (if Video) */}
+            {/* Video URL & Upload (if Video) */}
             {isVideo && (
-              <div className="space-y-2 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-amber-400 font-bold uppercase text-xs flex items-center gap-1.5">
                     <VideoIcon className="w-3.5 h-3.5 text-amber-400" />
-                    Video URL (YouTube, Vimeo, or MP4) <span className="text-rose-400">*</span>
+                    Video Media / Reel Source <span className="text-rose-400">*</span>
                   </label>
-                  {onOpenMediaLibrary && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={videoFileInputRef}
+                      onChange={handleVideoUpload}
+                      accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/avi"
+                      className="hidden"
+                    />
                     <button
                       type="button"
-                      onClick={() => handleOpenLibrary('video')}
-                      className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      onClick={() => videoFileInputRef.current?.click()}
+                      disabled={isUploadingVideo}
+                      className="text-[10px] font-bold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 px-2.5 py-1 rounded border border-neutral-800 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                     >
-                      <VideoIcon className="w-3 h-3" /> Select Video File
+                      <Upload className="w-3 h-3 text-amber-400" />
+                      {isUploadingVideo ? 'Uploading MP4...' : 'Upload Video'}
                     </button>
-                  )}
+                    {onOpenMediaLibrary && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLibrary('video')}
+                        className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      >
+                        <VideoIcon className="w-3 h-3" /> Select Video
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -314,20 +355,20 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                   value={formData.videoUrl || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, videoUrl: e.target.value }))}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs font-mono"
-                  placeholder="e.g. https://www.youtube.com/watch?v=... or .mp4 URL"
+                  placeholder="e.g. /uploads/video.mp4 or https://www.youtube.com/watch?v=..."
                 />
               </div>
             )}
 
             {/* Image URL / Poster Thumbnail */}
-            <div className="space-y-2 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl">
-              <div className="flex items-center justify-between">
+            <div className="space-y-3 bg-neutral-950/70 border border-neutral-800 p-4 rounded-xl">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-neutral-400 font-bold uppercase text-xs flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
                   {isVideo ? (
                     <>
-                      <span>Poster Thumbnail Image URL</span>
-                      <span className="text-neutral-500 font-normal text-[11px] lowercase">(optional)</span>
+                      <span>Poster Thumbnail Image</span>
+                      <span className="text-neutral-500 font-normal text-[11px] lowercase">(optional — uses MP4 video if empty)</span>
                     </>
                   ) : (
                     <>
@@ -339,19 +380,19 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="image/*,video/*"
+                    ref={imageFileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                     className="hidden"
                   />
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
+                    onClick={() => imageFileInputRef.current?.click()}
+                    disabled={isUploadingImage}
                     className="text-[10px] font-bold text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 px-2.5 py-1 rounded border border-neutral-800 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
                     <Upload className="w-3 h-3 text-amber-400" />
-                    {isUploading ? 'Uploading...' : 'Upload File'}
+                    {isUploadingImage ? 'Uploading Photo...' : 'Upload Photo'}
                   </button>
                   {onOpenMediaLibrary && (
                     <button
@@ -359,7 +400,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                       onClick={() => handleOpenLibrary('image')}
                       className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                     >
-                      <ImageIcon className="w-3 h-3" /> Select from Library
+                      <ImageIcon className="w-3 h-3" /> Select Photo
                     </button>
                   )}
                 </div>
@@ -372,20 +413,54 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                   value={formData.imageUrl || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
                   className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
-                  placeholder={isVideo ? "Optional preview poster image (e.g. https://...)" : "https://..."}
+                  placeholder={isVideo ? "Optional thumbnail photo (leave blank to use MP4 video frame)" : "https://..."}
                 />
                 {formData.imageUrl && (
-                  <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 shrink-0 bg-neutral-900">
-                    <img 
-                      src={formData.imageUrl} 
-                      alt="Thumbnail preview" 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80'; }}
-                    />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
+                      <img 
+                        src={formData.imageUrl} 
+                        alt="Thumbnail preview" 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80'; }}
+                      />
+                    </div>
+                    {isVideo && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                        className="text-[10px] text-neutral-400 hover:text-rose-400 px-1.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded cursor-pointer transition-colors"
+                        title="Remove photo thumbnail and use MP4 video directly"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Video Fallback Helper Box */}
+              {isVideo && !formData.imageUrl && formData.videoUrl && (
+                <div className="flex items-center gap-3 p-3 bg-neutral-900/60 border border-neutral-800 rounded-lg">
+                  <div className="w-16 h-11 rounded overflow-hidden border border-neutral-700/60 bg-black shrink-0 relative flex items-center justify-center">
+                    <video
+                      src={formData.videoUrl}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-neutral-950/20 flex items-center justify-center pointer-events-none">
+                      <VideoIcon className="w-4 h-4 text-amber-400" />
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-neutral-400 leading-snug">
+                    <span className="text-amber-400 font-bold block">Using MP4 Video as Thumbnail</span>
+                    No poster photo specified. The gallery and lightbox will display the selected MP4 video directly.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Location & Year */}

@@ -455,20 +455,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
     'event' | 'gallery' | 'gallery_video' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | 'custom_callback' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
+  const [mediaSelectorAllowedTypes, setMediaSelectorAllowedTypes] = useState<'all' | 'image' | 'video'>('all');
   const mediaSelectorCallbackRef = useRef<((url: string) => void) | null>(null);
 
   const openMediaLibraryWithCallback = (
     arg1: string | ((url: string) => void),
-    arg2?: (url: string) => void
+    arg2?: ((url: string) => void) | string
   ) => {
     let callback: ((url: string) => void) | null = null;
+    let allowed: 'all' | 'image' | 'video' = 'image';
+
     if (typeof arg1 === 'function') {
       callback = arg1;
+      allowed = 'image';
     } else if (typeof arg2 === 'function') {
       callback = arg2;
+      if (arg1 === 'video') allowed = 'video';
+      else if (arg1 === 'all') allowed = 'all';
+      else allowed = 'image';
     }
+
     if (callback) {
       mediaSelectorCallbackRef.current = callback;
+      setMediaSelectorAllowedTypes(allowed);
       setMediaSelectorTarget('custom_callback');
     }
   };
@@ -4111,15 +4120,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                           return (
                             <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
-                              <img
-                                src={item.imageUrl}
-                                alt={item.title}
-                                referrerPolicy="no-referrer"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                                }}
-                                className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
-                              />
+                              {isVideo && !item.imageUrl && item.videoUrl ? (
+                                <video
+                                  src={item.videoUrl}
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                                />
+                              ) : (
+                                <img
+                                  src={item.imageUrl || (isVideo ? undefined : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80')}
+                                  alt={item.title}
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
+                                  }}
+                                  className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                                />
+                              )}
                               <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
                               
                               <div className="p-2 z-10 flex items-center justify-between w-full">
@@ -5599,6 +5618,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         }}
         onSelect={handleMediaSelect}
         primaryColor={primaryColor}
+        allowedTypes={
+          mediaSelectorTarget === 'gallery_video'
+            ? 'video'
+            : mediaSelectorTarget === 'custom_callback'
+            ? mediaSelectorAllowedTypes
+            : 'image'
+        }
       />
 
       {/* Pass Badge & Wristband PDF Studio Modal */}

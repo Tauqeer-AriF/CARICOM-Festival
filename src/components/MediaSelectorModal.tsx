@@ -19,24 +19,37 @@ interface MediaSelectorModalProps {
   onClose: () => void;
   onSelect: (url: string) => void;
   primaryColor?: string;
+  allowedTypes?: 'all' | 'image' | 'video';
 }
 
 export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
   isOpen,
   onClose,
   onSelect,
-  primaryColor = '#F59E0B'
+  primaryColor = '#F59E0B',
+  allowedTypes = 'all'
 }) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [search, setSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadStats, setUploadStats] = useState<{ original: number; compressed: number; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video'>('all');
 
   useEffect(() => {
     if (isOpen) {
       setMedia(getMediaItems());
+      setErrorMessage(null);
+      if (allowedTypes === 'image') {
+        setTypeFilter('image');
+      } else if (allowedTypes === 'video') {
+        setTypeFilter('video');
+      } else {
+        setTypeFilter('all');
+      }
     }
 
     const handleUpdate = () => loadMedia();
@@ -44,7 +57,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
     return () => {
       window.removeEventListener('media_updated', handleUpdate);
     };
-  }, [isOpen]);
+  }, [isOpen, allowedTypes]);
 
   const loadMedia = () => {
     setMedia(getMediaItems());
@@ -103,6 +116,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    setErrorMessage(null);
     setUploading(true);
     setUploadStats(null);
     const totalFiles = files.length;
@@ -113,11 +127,26 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
 
     for (let i = 0; i < totalFiles; i++) {
       const file = files[i];
+      const isVideoFile = file.type.startsWith('video/') || Boolean(file.name.match(/\.(mp4|mov|avi|webm|mkv|m4v)$/i));
+
+      if (allowedTypes === 'image' && isVideoFile) {
+        setErrorMessage('Video files cannot be used as image thumbnails or covers. Please upload a photo/image (JPG, PNG, WebP) instead.');
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      if (allowedTypes === 'video' && !isVideoFile) {
+        setErrorMessage('Only video files (MP4, WebM, MOV) can be uploaded here. Please select a video file.');
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
 
       try {
         let url = '';
         let compressedSize = file.size;
-        let fileType = file.type || (file.name.match(/\.(mp4|mov|avi|webm|mkv)$/i) ? 'video/mp4' : 'image/jpeg');
+        let fileType = file.type || (isVideoFile ? 'video/mp4' : 'image/jpeg');
 
         const serverRes = await uploadFileToServer(file);
         if (serverRes && serverRes.url) {
@@ -177,7 +206,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
       }, 4000);
     }
 
-    // Auto select the newly uploaded item if onSelect is defined
+    // Auto select the newly uploaded item if onSelect is defined and type matches
     if (lastUploadedUrl && onSelect) {
       onSelect(lastUploadedUrl);
       onClose();
@@ -212,13 +241,41 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
     }
   };
 
-  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video'>('all');
+  const isItemVideo = (item: MediaItem): boolean => {
+    return Boolean(
+      item.type?.startsWith('video/') ||
+      item.url?.includes('data:video') ||
+      item.url?.includes('/uploads/') && /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url) ||
+      /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url)
+    );
+  };
+
+  const handleSelectMedia = (item: MediaItem) => {
+    const isVideo = isItemVideo(item);
+    if (allowedTypes === 'image' && isVideo) {
+      setErrorMessage('MP4 / Video files cannot be selected as image thumbnails or covers. Please select a photo or image.');
+      return;
+    }
+    if (allowedTypes === 'video' && !isVideo) {
+      setErrorMessage('Photos cannot be selected as video media. Please select a video file.');
+      return;
+    }
+    onSelect(item.url);
+    onClose();
+  };
 
   const filteredMedia = media.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
+    const isVideo = isItemVideo(item);
+    
+    // Strict allowedTypes restriction
+    if (allowedTypes === 'image' && isVideo) return false;
+    if (allowedTypes === 'video' && !isVideo) return false;
+
+    // User-selected tab filter
     if (typeFilter === 'image' && isVideo) return false;
     if (typeFilter === 'video' && !isVideo) return false;
+    
     return matchesSearch;
   });
 
@@ -243,8 +300,20 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
             {/* Header */}
             <div className="p-5 border-b border-neutral-800 flex justify-between items-center bg-[#070911]">
               <div>
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Media Library Asset selector</span>
-                <h3 className="text-base font-bold text-white font-sans mt-0.5">Choose Cover & Showcase Media</h3>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
+                  {allowedTypes === 'image'
+                    ? 'Photo & Poster Thumbnail Selector'
+                    : allowedTypes === 'video'
+                    ? 'Video Reel & Media Selector'
+                    : 'Media Library Asset selector'}
+                </span>
+                <h3 className="text-base font-bold text-white font-sans mt-0.5">
+                  {allowedTypes === 'image'
+                    ? 'Choose Photo / Thumbnail Image (Images Only)'
+                    : allowedTypes === 'video'
+                    ? 'Choose Video File (MP4, WebM)'
+                    : 'Choose Cover & Showcase Media'}
+                </h3>
               </div>
               <button
                 onClick={onClose}
@@ -254,13 +323,40 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
               </button>
             </div>
 
+            {/* Error Message Toast/Banner */}
+            {errorMessage && (
+              <div className="bg-rose-500/10 border-b border-rose-500/20 px-5 py-2.5 flex items-center justify-between text-rose-400 text-xs font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  <span>{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-[11px] underline hover:text-rose-300 ml-4 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-5 space-y-6 flex flex-col md:flex-row gap-6 min-h-0">
               {/* Left Side: Upload Zone */}
               <div className="w-full md:w-80 shrink-0 space-y-4">
                 <div className="bg-neutral-950/40 p-4 border border-neutral-800/80 rounded-xl space-y-3">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Upload New Image</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    {allowedTypes === 'image'
+                      ? 'Upload Thumbnail Photo'
+                      : allowedTypes === 'video'
+                      ? 'Upload Video File'
+                      : 'Upload New Media'}
+                  </h4>
                   <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-                    Files are compressed directly inside your browser prior to saving, protecting disk quotas and ensuring high speed loading times.
+                    {allowedTypes === 'image'
+                      ? 'Select JPG, PNG, or WebP images. MP4 video files are filtered out to keep thumbnails lightweight.'
+                      : allowedTypes === 'video'
+                      ? 'Select MP4 or WebM video files to store in the festival media library.'
+                      : 'Files are compressed directly inside your browser prior to saving, protecting disk quotas and ensuring high speed loading times.'}
                   </p>
 
                   <div
@@ -277,7 +373,13 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*,video/*"
+                      accept={
+                        allowedTypes === 'image'
+                          ? 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml'
+                          : allowedTypes === 'video'
+                          ? 'video/mp4,video/webm,video/quicktime,video/x-matroska,video/avi'
+                          : 'image/*,video/*'
+                      }
                       className="hidden"
                       onChange={(e) => handleFileUpload(e.target.files)}
                     />
@@ -294,7 +396,13 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                         </div>
                         <div className="space-y-0.5">
                           <p className="text-xs font-bold text-white">Click to Browse</p>
-                          <p className="text-[10px] text-neutral-500 font-light">or drag and drop images</p>
+                          <p className="text-[10px] text-neutral-500 font-light">
+                            {allowedTypes === 'image'
+                              ? 'or drag and drop photo images'
+                              : allowedTypes === 'video'
+                              ? 'or drag and drop MP4/video files'
+                              : 'or drag and drop images'}
+                          </p>
                         </div>
                       </>
                     )}
@@ -310,7 +418,7 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                   >
                     <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
                       <Sparkles className="w-4 h-4" />
-                      <span>Compression Complete!</span>
+                      <span>Upload & Optimization Complete!</span>
                     </div>
                     <p className="text-[10px] text-neutral-300 font-light leading-snug truncate" title={uploadStats.name}>
                       {uploadStats.name}
@@ -347,29 +455,41 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                       placeholder="Search media files by name..."
                     />
                   </div>
-                  <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl p-1 gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setTypeFilter('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'all' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTypeFilter('image')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'image' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
-                    >
-                      📷 Photos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTypeFilter('video')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'video' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
-                    >
-                      🎥 Videos
-                    </button>
-                  </div>
+                  {allowedTypes === 'all' && (
+                    <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl p-1 gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setTypeFilter('all')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'all' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTypeFilter('image')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'image' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                      >
+                        📷 Photos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTypeFilter('video')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${typeFilter === 'video' ? 'bg-amber-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                      >
+                        🎥 Videos
+                      </button>
+                    </div>
+                  )}
+                  {allowedTypes === 'image' && (
+                    <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 items-center gap-1.5 text-xs font-bold text-amber-400 shrink-0">
+                      <span>📷 Photos Only</span>
+                    </div>
+                  )}
+                  {allowedTypes === 'video' && (
+                    <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 items-center gap-1.5 text-xs font-bold text-rose-400 shrink-0">
+                      <span>🎥 Videos Only</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Media Grid */}
@@ -380,9 +500,17 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                         <ImageIcon className="w-6 h-6" />
                       </div>
                       <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-white">No Assets Found</h4>
+                        <h4 className="text-xs font-bold text-white">
+                          {allowedTypes === 'image'
+                            ? 'No Image Assets Found'
+                            : allowedTypes === 'video'
+                            ? 'No Video Assets Found'
+                            : 'No Assets Found'}
+                        </h4>
                         <p className="text-[11px] text-neutral-500 font-light max-w-xs">
-                          Try searching for another keyword or upload new files on the left panel.
+                          {allowedTypes === 'image'
+                            ? 'Upload a new photo on the left panel or search by another name.'
+                            : 'Try searching for another keyword or upload new files on the left panel.'}
                         </p>
                       </div>
                     </div>
@@ -390,14 +518,11 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {filteredMedia.map((item) => {
                         const compressionRatio = Math.round((1 - item.compressedSize / item.originalSize) * 100);
-                        const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
+                        const isVideo = isItemVideo(item);
                         return (
                           <div
                             key={item.id}
-                            onClick={() => {
-                              onSelect(item.url);
-                              onClose();
-                            }}
+                            onClick={() => handleSelectMedia(item)}
                             className="group relative border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950 aspect-video flex flex-col justify-end shadow-sm cursor-pointer hover:border-amber-500/60 transition-all hover:shadow-lg"
                           >
                             {isVideo ? (
@@ -422,10 +547,23 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                             {/* Overlay Gradient */}
                             <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent pointer-events-none" />
 
+                            {/* Badge Top Left */}
+                            <div className="absolute top-2 left-2 z-10">
+                              {isVideo ? (
+                                <span className="bg-rose-500/90 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded shadow">
+                                  VIDEO
+                                </span>
+                              ) : (
+                                <span className="bg-neutral-950/80 border border-neutral-700 text-neutral-300 text-[8px] font-bold px-1.5 py-0.5 rounded shadow">
+                                  PHOTO
+                                </span>
+                              )}
+                            </div>
+
                             {/* Select Feedback on hover */}
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-950/40 pointer-events-none">
                               <span className="bg-amber-500 text-neutral-950 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-md">
-                                Use This Image
+                                {isVideo ? 'Use This Video' : 'Use This Image'}
                               </span>
                             </div>
 
