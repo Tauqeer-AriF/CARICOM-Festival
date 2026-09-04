@@ -265,16 +265,16 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
                     key={item.id}
                     variants={fadeInUp}
                     onClick={() => setSelectedPhotoIndex(globalIndex)}
-                    className="break-inside-avoid relative group rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-amber-500/10"
+                    className="break-inside-avoid relative group rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transform-gpu isolate"
                   >
                     {/* Image/Video Container */}
-                    <div className={`w-full ${item.aspectRatio || 'aspect-video'} relative overflow-hidden bg-neutral-950`}>
+                    <div className={`w-full ${item.aspectRatio || 'aspect-video'} relative overflow-hidden bg-neutral-950 transform-gpu`}>
                       <GalleryThumbnail
                         item={item}
                         className="absolute inset-0 w-full h-full"
-                        imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                        imageClassName="w-full h-full object-cover transform-gpu transition-transform duration-500 ease-out group-hover:scale-110"
                         alt={item.title}
-                        loading="lazy"
+                        loading="eager"
                       />
 
                       {/* Permanent Video Indicator Badge */}

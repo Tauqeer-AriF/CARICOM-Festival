@@ -90,7 +90,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   className = 'w-full h-full',
   imageClassName = 'w-full h-full object-cover',
   alt,
-  loading = 'lazy'
+  loading = 'eager'
 }) => {
   const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
   const cleanImageUrl = (item.imageUrl || '').trim();
@@ -103,7 +103,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
 
   // Determine wrapper class cleanly
   const isAbsolute = className.includes('absolute');
-  const wrapperClass = `${isAbsolute ? 'absolute inset-0' : 'relative'} w-full h-full overflow-hidden bg-neutral-950 ${className}`.trim();
+  const wrapperClass = `${isAbsolute ? 'absolute inset-0' : 'relative'} w-full h-full overflow-hidden bg-neutral-950 transform-gpu isolate ${className}`.trim();
 
   // Sync state if props change
   useEffect(() => {
@@ -145,7 +145,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
             loading={loading}
             referrerPolicy="no-referrer"
             onError={handleImageError}
-            className={imageClassName}
+            className={`${imageClassName} transform-gpu`}
           />
         </div>
       );
@@ -155,10 +155,13 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
       <div className={wrapperClass}>
         <video
           src={`${cleanVideoUrl}#t=0.001`}
-          preload="metadata"
+          poster={getFallbackImage(item)}
+          autoPlay
+          loop
           muted
           playsInline
-          className={imageClassName}
+          preload="auto"
+          className={`${imageClassName} transform-gpu`}
         />
       </div>
     );
@@ -170,10 +173,13 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
       <div className={wrapperClass}>
         <video
           src={`${currentSrc}#t=0.001`}
-          preload="metadata"
+          poster={getFallbackImage(item)}
+          autoPlay
+          loop
           muted
           playsInline
-          className={imageClassName}
+          preload="auto"
+          className={`${imageClassName} transform-gpu`}
         />
       </div>
     );
@@ -189,7 +195,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
           loading={loading}
           referrerPolicy="no-referrer"
           onError={handleImageError}
-          className={imageClassName}
+          className={`${imageClassName} transform-gpu`}
         />
       </div>
     );
@@ -201,10 +207,13 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
       <div className={wrapperClass}>
         <video
           src={`${cleanVideoUrl}#t=0.001`}
-          preload="metadata"
+          poster={getFallbackImage(item)}
+          autoPlay
+          loop
           muted
           playsInline
-          className={imageClassName}
+          preload="auto"
+          className={`${imageClassName} transform-gpu`}
         />
       </div>
     );
@@ -218,7 +227,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
         alt={alt || item.title || 'Festival Media'}
         loading={loading}
         referrerPolicy="no-referrer"
-        className={imageClassName}
+        className={`${imageClassName} transform-gpu`}
       />
     </div>
   );
