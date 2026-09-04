@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GalleryItem, ActiveTab } from '../types';
 import { GalleryModal } from '../components/GalleryModal';
+import { GalleryThumbnail } from '../components/GalleryThumbnail';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
 import { 
   Sparkles, 
@@ -266,26 +267,13 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
                   >
                     {/* Image/Video Container */}
                     <div className={`w-full ${item.aspectRatio} relative overflow-hidden bg-neutral-950`}>
-                      {isVideo && !item.imageUrl && item.videoUrl ? (
-                        <video
-                          src={item.videoUrl}
-                          preload="metadata"
-                          muted
-                          playsInline
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                        />
-                      ) : (
-                        <img
-                          src={item.imageUrl || FESTIVAL_IMAGES.mellowlandGarden}
-                          alt={item.title}
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = FESTIVAL_IMAGES.mellowlandGarden;
-                          }}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                          loading="lazy"
-                        />
-                      )}
+                      <GalleryThumbnail
+                        item={item}
+                        className="w-full h-full"
+                        imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                        alt={item.title}
+                        loading="lazy"
+                      />
 
                       {/* Permanent Video Indicator Badge */}
                       {isVideo && (

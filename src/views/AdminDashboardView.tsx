@@ -152,6 +152,7 @@ import { ImportCsvModal } from '../components/ImportCsvModal';
 import { EditSubmissionModal } from '../components/EditSubmissionModal';
 import { EditEventModal } from '../components/EditEventModal';
 import { EditGalleryItemModal } from '../components/EditGalleryItemModal';
+import { GalleryThumbnail } from '../components/GalleryThumbnail';
 import { EditPassModal } from '../components/EditPassModal';
 import { EditHotelModal } from '../components/EditHotelModal';
 import { EditTestimonialModal } from '../components/EditTestimonialModal';
@@ -667,7 +668,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     category: 'VIP Beach Fete',
     mediaType: 'image',
     videoUrl: '',
-    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
+    imageUrl: '',
     likesCount: 0,
     location: 'St. George\'s, Grenada',
     year: '2027 Highlight',
@@ -1304,7 +1305,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         category: 'VIP Beach Fete',
         mediaType: 'image',
         videoUrl: '',
-        imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80',
+        imageUrl: '',
         likesCount: 0,
         location: 'St. George\'s, Grenada',
         year: '2027 Highlight',
@@ -4120,25 +4121,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                           return (
                             <div key={item.id} className="relative group rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-video flex flex-col justify-between shadow-sm">
-                              {isVideo && !item.imageUrl && item.videoUrl ? (
-                                <video
-                                  src={item.videoUrl}
-                                  preload="metadata"
-                                  muted
-                                  playsInline
-                                  className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
-                                />
-                              ) : (
-                                <img
-                                  src={item.imageUrl || (isVideo ? undefined : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80')}
-                                  alt={item.title}
-                                  referrerPolicy="no-referrer"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80';
-                                  }}
-                                  className="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
-                                />
-                              )}
+                              <GalleryThumbnail
+                                item={item}
+                                className="absolute inset-0 w-full h-full"
+                                imageClassName="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                              />
                               <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
                               
                               <div className="p-2 z-10 flex items-center justify-between w-full">

@@ -175,6 +175,18 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
       );
     }
 
+    if (!item.imageUrl) {
+      return (
+        <div className="w-full max-w-xl h-[50vh] flex flex-col items-center justify-center bg-neutral-900/90 rounded-2xl border border-amber-500/20 text-center p-8 gap-3 shadow-2xl">
+          <Camera className="w-12 h-12 text-amber-400 opacity-80" />
+          <h4 className="text-base font-bold text-white font-serif">{item.title}</h4>
+          <p className="text-xs text-neutral-400 max-w-sm leading-relaxed">
+            No photo image uploaded yet for this gallery item.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <img
         src={item.imageUrl}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { GalleryItem } from '../types';
 import { uploadFileToServer } from '../services/submissionService';
+import { GalleryThumbnail } from './GalleryThumbnail';
 
 interface EditGalleryItemModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
     category: 'VIP Beach Fete',
     location: "Grand Anse Beach, Grenada",
     year: '2027',
-    imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80',
+    imageUrl: '',
     videoUrl: '',
     mediaType: 'image',
     aspectRatio: 'aspect-[16/9]',
@@ -76,6 +77,8 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
       if (item) {
         setFormData({
           ...item,
+          imageUrl: item.imageUrl || '',
+          videoUrl: item.videoUrl || '',
           mediaType: item.mediaType || (item.videoUrl ? 'video' : 'image')
         });
       } else {
@@ -84,7 +87,7 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
           category: 'VIP Beach Fete',
           location: "Grand Anse Beach, Grenada",
           year: '2027',
-          imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80',
+          imageUrl: '',
           videoUrl: '',
           mediaType: 'image',
           aspectRatio: 'aspect-[16/9]',
@@ -117,13 +120,23 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
     const cleanImageUrl = (formData.imageUrl || '').trim();
     const cleanVideoUrl = (formData.videoUrl || '').trim();
 
+    if (!isVideo && !cleanImageUrl) {
+      alert('Please provide or upload a photo image URL for this photo item.');
+      return;
+    }
+
+    if (isVideo && !cleanVideoUrl && !cleanImageUrl) {
+      alert('Please provide a video file or video URL for this video item.');
+      return;
+    }
+
     const savedItem: GalleryItem = {
       id: item?.id || `gallery-${Date.now()}`,
       title: (formData.title || '').trim(),
       category: formData.category || 'VIP Beach Fete',
       location: (formData.location || '').trim(),
       year: (formData.year || '2027').trim(),
-      imageUrl: cleanImageUrl || (isVideo ? '' : 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80'),
+      imageUrl: cleanImageUrl,
       videoUrl: isVideo && cleanVideoUrl ? cleanVideoUrl : undefined,
       mediaType: formData.mediaType || (isVideo ? 'video' : 'image'),
       aspectRatio: formData.aspectRatio || 'aspect-[16/9]',
@@ -418,12 +431,10 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
                 {formData.imageUrl && (
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
-                      <img 
-                        src={formData.imageUrl} 
-                        alt="Thumbnail preview" 
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80'; }}
+                      <GalleryThumbnail
+                        item={formData}
+                        className="w-full h-full"
+                        imageClassName="w-full h-full object-cover"
                       />
                     </div>
                     {isVideo && (
@@ -443,21 +454,19 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
               {/* Video Fallback Helper Box */}
               {isVideo && !formData.imageUrl && formData.videoUrl && (
                 <div className="flex items-center gap-3 p-3 bg-neutral-900/60 border border-neutral-800 rounded-lg">
-                  <div className="w-16 h-11 rounded overflow-hidden border border-neutral-700/60 bg-black shrink-0 relative flex items-center justify-center">
-                    <video
-                      src={formData.videoUrl}
-                      preload="metadata"
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
+                  <div className="w-16 h-11 rounded overflow-hidden border border-neutral-700/60 bg-black shrink-0 relative">
+                    <GalleryThumbnail
+                      item={{ ...formData, imageUrl: '' }}
+                      className="w-full h-full"
+                      imageClassName="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-neutral-950/20 flex items-center justify-center pointer-events-none">
                       <VideoIcon className="w-4 h-4 text-amber-400" />
                     </div>
                   </div>
                   <div className="text-[11px] text-neutral-400 leading-snug">
-                    <span className="text-amber-400 font-bold block">Using MP4 Video as Thumbnail</span>
-                    No poster photo specified. The gallery and lightbox will display the selected MP4 video directly.
+                    <span className="text-amber-400 font-bold block">Using Video Directly as Thumbnail</span>
+                    No poster photo specified. The gallery cards and lightbox will display the video stream/first frame automatically.
                   </div>
                 </div>
               )}
