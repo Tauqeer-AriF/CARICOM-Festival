@@ -296,6 +296,9 @@ export type EmailCategory =
   | 'order_confirmation' 
   | 'welcome_registration' 
   | 'enquiry_reply' 
+  | 'contact_acknowledgement'
+  | 'transport_confirmation'
+  | 'newsletter_welcome'
   | 'vendor_application' 
   | 'vip_invitation' 
   | 'broadcast_campaign' 
@@ -358,6 +361,9 @@ export interface EmailSettings {
   autoSendOrderConfirmation: boolean;
   autoSendWelcomeRegistration: boolean;
   autoSendEnquiryReply: boolean;
+  autoSendContactAcknowledgement?: boolean;
+  autoSendTransportConfirmation?: boolean;
+  autoSendNewsletterWelcome?: boolean;
   bccSecretariatOnOrders: boolean;
   secretariatBccEmail?: string;
 }

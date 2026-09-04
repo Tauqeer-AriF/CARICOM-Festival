@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActiveTab, SiteConfig } from '../types';
 import { getEffectiveFestivalDateRange } from '../utils/dateUtils';
+import { addSubmission } from '../services/submissionService';
 import { 
   Palmtree, 
   Instagram, 
@@ -18,7 +19,9 @@ import {
   Globe,
   Shield,
   Compass,
-  Sun
+  Sun,
+  CheckCircle,
+  Send
 } from 'lucide-react';
 import { GrenadaWeatherWidget } from './GrenadaWeatherWidget';
 
@@ -40,6 +43,25 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterName, setNewsletterName] = useState('');
+  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim()) return;
+
+    addSubmission({
+      type: 'newsletter',
+      name: newsletterName.trim() || 'VIP Reveler',
+      email: newsletterEmail.trim(),
+      topicOrPass: 'VIP Newsletter & Lineup Drops',
+      messageOrDetails: 'Subscribed for London DJ headline lineup drops, secret VIP tickets, and Caricom event updates.'
+    });
+
+    setNewsletterSubmitted(true);
+  };
+
   const handleTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -278,6 +300,62 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
             </div>
           </div>
 
+        </div>
+
+        {/* VIP Newsletter & Lineup Drops Subscription */}
+        <div className="py-8 border-b border-white/10 my-4">
+          <div className="bg-gradient-to-r from-amber-500/10 via-neutral-900 to-amber-500/5 border border-amber-500/20 rounded-2xl p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="space-y-1.5 text-center lg:text-left max-w-xl">
+              <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-bold font-mono uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" /> VIP Insider Access
+              </div>
+              <h4 className="text-xl font-bold text-white font-serif">
+                Join the CARICOM 2027 VIP Insider List
+              </h4>
+              <p className="text-xs text-neutral-300 font-light leading-relaxed">
+                Receive secret London DJ lineup drops, exclusive Carnival boat cruise ticket alerts, and instant welcome confirmation straight to your inbox.
+              </p>
+            </div>
+
+            <div className="w-full lg:w-auto">
+              {newsletterSubmitted ? (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3 text-left">
+                  <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
+                  <div>
+                    <h5 className="text-xs font-bold text-white">Welcome to the VIP Circle!</h5>
+                    <p className="text-[11px] text-neutral-300">
+                      An official welcome dossier and festival lineup preview has been automatically dispatched to <span className="text-amber-400 font-semibold">{newsletterEmail}</span>.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-md">
+                  <input
+                    type="text"
+                    value={newsletterName}
+                    onChange={(e) => setNewsletterName(e.target.value)}
+                    placeholder="Your Name"
+                    className="w-full sm:w-36 px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                  />
+                  <input
+                    type="email"
+                    required
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    placeholder="name@domain.com"
+                    className="w-full sm:w-56 px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Join</span>
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Bottom Bar */}

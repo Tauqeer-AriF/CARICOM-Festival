@@ -10,7 +10,11 @@ import {
 import { 
   dispatchOrderConfirmationEmail, 
   dispatchWelcomeRegistrationEmail, 
-  dispatchEnquiryReplyEmail 
+  dispatchEnquiryReplyEmail,
+  dispatchContactAcknowledgementEmail,
+  dispatchTransportConfirmationEmail,
+  dispatchNewsletterWelcomeEmail,
+  dispatchAutomaticSubmissionEmail
 } from './emailService';
 
 const SUBMISSIONS_KEY = 'grenada_caricom_submissions_v1';
@@ -675,13 +679,11 @@ export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt'
     body: JSON.stringify(newSub)
   });
 
-  // Automated transactional email triggers
+  // Automated transactional email triggers for all received form submissions and pass orders
   try {
-    if (newSub.type === 'pass-order') {
-      dispatchOrderConfirmationEmail(newSub).catch(e => console.warn('Order confirmation email trigger:', e));
-    } else if (newSub.type === 'flight-registration') {
-      dispatchWelcomeRegistrationEmail(newSub).catch(e => console.warn('Welcome registration email trigger:', e));
-    }
+    dispatchAutomaticSubmissionEmail(newSub).catch(e => 
+      console.warn('Automatic transactional email dispatch notice:', e)
+    );
   } catch (err) {
     console.warn('Non-blocking transactional email dispatch notice:', err);
   }

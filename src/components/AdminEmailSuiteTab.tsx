@@ -387,22 +387,22 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-5 sm:space-y-6 pb-12">
       {/* Top Banner & Header */}
-      <div className="bg-gradient-to-r from-neutral-900 via-neutral-900/90 to-neutral-950 border border-neutral-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-neutral-900 via-neutral-900/90 to-neutral-950 border border-neutral-800/80 rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 relative z-10">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
                 <Mail className="w-3 h-3" /> Live Transactional Dispatch
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                 <ShieldCheck className="w-3 h-3" /> UK Standard English
               </span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-serif font-bold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-white tracking-tight">
               Communications &amp; Email Suite
             </h1>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1 max-w-2xl font-light leading-relaxed">
@@ -411,19 +411,19 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
           </div>
 
           {/* Quick Engine Indicator & Top Actions */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="px-4 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl flex items-center gap-3">
-              <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full xl:w-auto shrink-0">
+            <div className="px-3.5 py-2 bg-neutral-950/80 border border-neutral-800 rounded-xl flex items-center gap-3">
+              <div className="relative shrink-0">
                 <div className={`w-2.5 h-2.5 rounded-full ${isEngineConfigured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                 {isEngineConfigured && (
                   <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-400/40 animate-ping" />
                 )}
               </div>
-              <div className="text-left">
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+              <div className="text-left min-w-0">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block truncate">
                   {isEngineConfigured ? 'Live Provider Connected' : 'Setup Required'}
                 </span>
-                <span className="text-xs font-semibold text-neutral-200">
+                <span className="text-xs font-semibold text-neutral-200 truncate block">
                   {getEngineModeLabel(settings.engineMode)}
                 </span>
               </div>
@@ -432,49 +432,51 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             <button
               type="button"
               onClick={() => setActiveSubTab('compose')}
-              className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center gap-2 transition-all hover:scale-105 shadow-lg"
+              className="px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shrink-0 whitespace-nowrap"
               style={{ backgroundColor: primaryColor }}
             >
-              <Send className="w-3.5 h-3.5" /> Dispatch Communiqué
+              <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Dispatch Communiqué</span>
             </button>
           </div>
         </div>
 
         {/* Statistical Overview Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-neutral-800/60">
-          <div className="bg-neutral-950/50 p-3.5 rounded-xl border border-neutral-800/40">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-neutral-800/60">
+          <div className="bg-neutral-950/50 p-3 sm:p-3.5 rounded-xl border border-neutral-800/40">
             <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider block mb-1">Total Dispatched</span>
-            <div className="text-xl font-bold text-white font-mono">{stats.total}</div>
+            <div className="text-lg sm:text-xl font-bold text-white font-mono">{stats.total}</div>
           </div>
-          <div className="bg-neutral-950/50 p-3.5 rounded-xl border border-neutral-800/40">
-            <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block mb-1">Pass Confirmations</span>
-            <div className="text-xl font-bold text-amber-300 font-mono">{stats.orders}</div>
+          <div className="bg-neutral-950/50 p-3 sm:p-3.5 rounded-xl border border-neutral-800/40">
+            <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block mb-1">Pass Orders</span>
+            <div className="text-lg sm:text-xl font-bold text-amber-300 font-mono">{stats.orders}</div>
           </div>
-          <div className="bg-neutral-950/50 p-3.5 rounded-xl border border-neutral-800/40">
-            <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block mb-1">Welcome Registrations</span>
-            <div className="text-xl font-bold text-emerald-300 font-mono">{stats.registrations}</div>
+          <div className="bg-neutral-950/50 p-3 sm:p-3.5 rounded-xl border border-neutral-800/40">
+            <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block mb-1">Registrations</span>
+            <div className="text-lg sm:text-xl font-bold text-emerald-300 font-mono">{stats.registrations}</div>
           </div>
-          <div className="bg-neutral-950/50 p-3.5 rounded-xl border border-neutral-800/40">
+          <div className="bg-neutral-950/50 p-3 sm:p-3.5 rounded-xl border border-neutral-800/40">
             <span className="text-[10px] uppercase font-bold text-sky-400 tracking-wider block mb-1">Concierge Replies</span>
-            <div className="text-xl font-bold text-sky-300 font-mono">{stats.replies}</div>
+            <div className="text-lg sm:text-xl font-bold text-sky-300 font-mono">{stats.replies}</div>
           </div>
         </div>
       </div>
 
       {/* Main Sub-Navigation Bar */}
-      <div className="flex items-center justify-between gap-4 border-b border-neutral-800 pb-1 overflow-x-auto">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
           <button
             type="button"
             onClick={() => setActiveSubTab('outbox')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubTab === 'outbox'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
             style={activeSubTab === 'outbox' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Inbox className="w-4 h-4" /> Dispatched Outbox
+            <Inbox className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> 
+            <span>Outbox</span>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-300 border border-neutral-750">
               {logs.length}
             </span>
@@ -483,40 +485,43 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
           <button
             type="button"
             onClick={() => setActiveSubTab('compose')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubTab === 'compose'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
             style={activeSubTab === 'compose' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Send className="w-4 h-4" /> New Communiqué
+            <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Compose</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('templates')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubTab === 'templates'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
             style={activeSubTab === 'templates' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <FileText className="w-4 h-4" /> Template Studio
+            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Templates</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubTab === 'settings'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
             style={activeSubTab === 'settings' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Sliders className="w-4 h-4" /> Setup &amp; Mailbox
+            <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Setup &amp; Mailbox</span>
           </button>
         </div>
 
@@ -538,79 +543,88 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       {activeSubTab === 'outbox' && (
         <div className="space-y-4">
           {/* Controls & Filter Strip */}
-          <div className="bg-neutral-900/80 border border-neutral-800/80 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-80">
+          <div className="bg-neutral-900/80 border border-neutral-800/80 p-3.5 sm:p-4 rounded-2xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
+            <div className="relative w-full lg:w-80">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
               <input
                 type="text"
-                placeholder="Search by recipient, subject, or reference code..."
+                placeholder="Search recipient, subject, reference..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
               />
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-              <div className="flex items-center gap-2">
-                <Filter className="w-3.5 h-3.5 text-neutral-400" />
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="bg-neutral-950 border border-neutral-800 text-xs text-neutral-300 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 cursor-pointer"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="order_confirmation">Pass Orders</option>
-                  <option value="welcome_registration">Registrations</option>
-                  <option value="enquiry_reply">Concierge Replies</option>
-                  <option value="vendor_application">Vendor Notices</option>
-                  <option value="vip_invitation">VIP Protocol</option>
-                  <option value="broadcast_campaign">Broadcasts</option>
-                </select>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto flex-wrap">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                  <Filter className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="bg-transparent text-xs text-neutral-300 w-full focus:outline-none cursor-pointer"
+                  >
+                    <option value="all" className="bg-neutral-900">All Categories</option>
+                    <option value="order_confirmation" className="bg-neutral-900">Pass Orders</option>
+                    <option value="welcome_registration" className="bg-neutral-900">Registrations</option>
+                    <option value="contact_acknowledgement" className="bg-neutral-900">Contact Inquiries</option>
+                    <option value="transport_confirmation" className="bg-neutral-900">Transport Requests</option>
+                    <option value="newsletter_welcome" className="bg-neutral-900">VIP Newsletter</option>
+                    <option value="enquiry_reply" className="bg-neutral-900">Concierge Replies</option>
+                    <option value="vendor_application" className="bg-neutral-900">Vendor Notices</option>
+                    <option value="vip_invitation" className="bg-neutral-900">VIP Protocol</option>
+                    <option value="broadcast_campaign" className="bg-neutral-900">Broadcasts</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="bg-transparent text-xs text-neutral-300 w-full focus:outline-none cursor-pointer"
+                  >
+                    <option value="all" className="bg-neutral-900">All Statuses</option>
+                    <option value="delivered" className="bg-neutral-900">Delivered (Live)</option>
+                    <option value="dispatched" className="bg-neutral-900">Dispatched</option>
+                    <option value="queued" className="bg-neutral-900">Queued</option>
+                    <option value="failed" className="bg-neutral-900">Failed Delivery</option>
+                  </select>
+                </div>
               </div>
 
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="bg-neutral-950 border border-neutral-800 text-xs text-neutral-300 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 cursor-pointer"
-              >
-                <option value="all">All Statuses</option>
-                <option value="delivered">Delivered (Live)</option>
-                <option value="dispatched">Dispatched</option>
-                <option value="queued">Queued</option>
-                <option value="failed">Failed Delivery</option>
-              </select>
-
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="px-3 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Export Outbox to CSV"
-              >
-                <Download className="w-3.5 h-3.5" /> Export
-              </button>
-
-              {logs.length > 0 && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={handleClearAllLogs}
-                  className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Clear all outbox logs"
+                  onClick={handleExportCsv}
+                  className="flex-1 sm:flex-none px-3 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  title="Export Outbox to CSV"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Clear All
+                  <Download className="w-3.5 h-3.5 shrink-0" /> Export CSV
                 </button>
-              )}
+
+                {logs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllLogs}
+                    className="flex-1 sm:flex-none px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    title="Clear all outbox logs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> Clear All
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Outbox Table */}
+          {/* Outbox Table & Mobile Card View */}
           <div className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden">
             {filteredLogs.length === 0 ? (
-              <div className="py-16 px-4 text-center">
+              <div className="py-12 sm:py-16 px-4 text-center">
                 <div className="w-12 h-12 rounded-full bg-neutral-800/60 flex items-center justify-center mx-auto mb-3 text-neutral-500">
                   <Mail className="w-6 h-6" />
                 </div>
                 <h3 className="text-base font-bold text-neutral-300">No Dispatched Communiqués Found</h3>
-                <p className="text-xs text-neutral-500 max-w-md mx-auto mt-1">
+                <p className="text-xs text-neutral-500 max-w-md mx-auto mt-1 leading-relaxed">
                   {searchTerm || selectedCategory !== 'all' 
                     ? 'No email records matched your current query or category filter.' 
                     : 'Your outbox is currently clear. New pass purchases and registrations will generate branded festival emails automatically.'}
@@ -624,132 +638,254 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-neutral-800 bg-neutral-950/40 text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                      <th className="py-3 px-4">Reference</th>
-                      <th className="py-3 px-4">Recipient</th>
-                      <th className="py-3 px-4">Subject &amp; Category</th>
-                      <th className="py-3 px-4">Dispatched Time</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-800/50 text-xs text-neutral-300">
-                    {filteredLogs.map((log) => {
-                      const dateObj = new Date(log.dispatchedAt);
-                      const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                      const formattedTime = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+              <>
+                {/* Mobile Cards View (Visible on screens < md) */}
+                <div className="md:hidden divide-y divide-neutral-800/60">
+                  {filteredLogs.map((log) => {
+                    const dateObj = new Date(log.dispatchedAt);
+                    const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const formattedTime = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-                      const categoryBadge = {
-                        order_confirmation: { label: 'Pass Order', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
-                        welcome_registration: { label: 'Registration', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' },
-                        enquiry_reply: { label: 'Concierge Reply', color: 'bg-sky-500/10 text-sky-300 border-sky-500/30' },
-                        vendor_application: { label: 'Vendor Notice', color: 'bg-purple-500/10 text-purple-300 border-purple-500/30' },
-                        vip_invitation: { label: 'VIP Protocol', color: 'bg-rose-500/10 text-rose-300 border-rose-500/30' },
-                        broadcast_campaign: { label: 'Broadcast', color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' },
-                        test_dispatch: { label: 'Test Dispatch', color: 'bg-neutral-800 text-neutral-300 border-neutral-700' },
-                        system_alert: { label: 'System Notice', color: 'bg-neutral-800 text-neutral-400 border-neutral-700' }
-                      }[log.category] || { label: log.category, color: 'bg-neutral-800 text-neutral-400 border-neutral-700' };
+                    const categoryBadge = {
+                      order_confirmation: { label: 'Pass Order', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
+                      welcome_registration: { label: 'Registration', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' },
+                      contact_acknowledgement: { label: 'Contact Enquiry', color: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' },
+                      transport_confirmation: { label: 'Transport Booking', color: 'bg-teal-500/10 text-teal-300 border-teal-500/30' },
+                      newsletter_welcome: { label: 'VIP Newsletter', color: 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30' },
+                      enquiry_reply: { label: 'Concierge Reply', color: 'bg-sky-500/10 text-sky-300 border-sky-500/30' },
+                      vendor_application: { label: 'Vendor Notice', color: 'bg-purple-500/10 text-purple-300 border-purple-500/30' },
+                      vip_invitation: { label: 'VIP Protocol', color: 'bg-rose-500/10 text-rose-300 border-rose-500/30' },
+                      broadcast_campaign: { label: 'Broadcast', color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' },
+                      test_dispatch: { label: 'Test Dispatch', color: 'bg-neutral-800 text-neutral-300 border-neutral-700' },
+                      system_alert: { label: 'System Notice', color: 'bg-neutral-800 text-neutral-400 border-neutral-700' }
+                    }[log.category] || { label: log.category, color: 'bg-neutral-800 text-neutral-400 border-neutral-700' };
 
-                      return (
-                        <tr key={log.id} className="hover:bg-neutral-800/30 transition-colors">
-                          <td className="py-3 px-4">
-                            <span className="font-mono font-bold text-amber-400 text-[11px] block">
+                    return (
+                      <div key={log.id} className="p-4 space-y-3">
+                        {/* Reference & Status */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-mono font-bold text-amber-400 text-xs block truncate">
                               {log.referenceId || log.id.slice(0, 12)}
                             </span>
-                            <span className="text-[10px] text-neutral-500 block mt-0.5">
+                            <span className="text-[10px] text-neutral-500 block truncate">
                               {log.senderName}
                             </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-white">{log.recipientName || 'Patron'}</div>
-                            <div className="text-neutral-400 text-[11px] flex items-center gap-1">
-                              {log.recipientEmail}
-                              <button
-                                type="button"
-                                onClick={() => copyToClipboard(log.recipientEmail, log.id)}
-                                className="text-neutral-500 hover:text-neutral-300 p-0.5"
-                                title="Copy Email Address"
-                              >
-                                {copiedId === log.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 max-w-xs">
-                            <div className="font-medium text-neutral-200 truncate" title={log.subject}>
-                              {log.subject}
-                            </div>
-                            <div className="mt-1">
-                              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border ${categoryBadge.color}`}>
-                                {categoryBadge.label}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap text-neutral-400">
-                            <div>{formattedDate}</div>
-                            <div className="text-[10px] text-neutral-500 font-mono">{formattedTime} BST</div>
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          </div>
+                          <div>
                             {log.status === 'delivered' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle2 className="w-3 h-3" /> Delivered
                               </span>
                             )}
                             {log.status === 'dispatched' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                                <Send className="w-3.5 h-3.5" /> Dispatched
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                <Send className="w-3 h-3" /> Dispatched
                               </span>
                             )}
                             {log.status === 'queued' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                <Clock className="w-3.5 h-3.5" /> Queued
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <Clock className="w-3 h-3" /> Queued
                               </span>
                             )}
                             {log.status === 'failed' && (
-                              <span
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                                title={log.errorDetails || 'Email delivery failed. Check credentials.'}
-                              >
-                                <AlertTriangle className="w-3.5 h-3.5" /> Failed
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                <AlertTriangle className="w-3 h-3" /> Failed
                               </span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setViewingLog(log)}
-                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg cursor-pointer transition-colors"
-                                title="View Rendered Email"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleResend(log)}
-                                className="p-1.5 bg-neutral-800 hover:bg-amber-500 hover:text-neutral-950 text-neutral-200 rounded-lg cursor-pointer transition-colors"
-                                title="Re-dispatch Copy"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteLog(log.id)}
-                                className="p-1.5 bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-400 rounded-lg cursor-pointer transition-colors"
-                                title="Delete Log Record"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        </div>
+
+                        {/* Recipient Box */}
+                        <div className="bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-800/80">
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mb-0.5">Recipient</div>
+                          <div className="font-semibold text-white text-xs">{log.recipientName || 'Patron'}</div>
+                          <div className="text-neutral-400 text-xs flex items-center justify-between gap-1 mt-0.5">
+                            <span className="truncate text-[11px]">{log.recipientEmail}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(log.recipientEmail, log.id)}
+                              className="text-neutral-400 hover:text-white p-1 shrink-0 cursor-pointer"
+                              title="Copy Email Address"
+                            >
+                              {copiedId === log.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Subject & Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-neutral-200 leading-snug line-clamp-2">{log.subject}</div>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border ${categoryBadge.color}`}>
+                              {categoryBadge.label}
+                            </span>
+                            <span className="text-[10px] text-neutral-500 font-mono">
+                              {formattedDate} • {formattedTime} BST
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Touch Actions Bar */}
+                        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-neutral-800/50">
+                          <button
+                            type="button"
+                            onClick={() => setViewingLog(log)}
+                            className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-amber-400" /> View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleResend(log)}
+                            className="py-2 px-2 bg-neutral-800 hover:bg-amber-500 hover:text-neutral-950 text-neutral-200 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-sky-400" /> Resend
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLog(log.id)}
+                            className="py-2 px-2 bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-400 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop & Tablet Table View (Hidden on screens < md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-800 bg-neutral-950/40 text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                        <th className="py-3 px-4">Reference</th>
+                        <th className="py-3 px-4">Recipient</th>
+                        <th className="py-3 px-4">Subject &amp; Category</th>
+                        <th className="py-3 px-4">Dispatched Time</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800/50 text-xs text-neutral-300">
+                      {filteredLogs.map((log) => {
+                        const dateObj = new Date(log.dispatchedAt);
+                        const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                        const formattedTime = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+                        const categoryBadge = {
+                          order_confirmation: { label: 'Pass Order', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
+                          welcome_registration: { label: 'Registration', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' },
+                          contact_acknowledgement: { label: 'Contact Enquiry', color: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' },
+                          transport_confirmation: { label: 'Transport Booking', color: 'bg-teal-500/10 text-teal-300 border-teal-500/30' },
+                          newsletter_welcome: { label: 'VIP Newsletter', color: 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30' },
+                          enquiry_reply: { label: 'Concierge Reply', color: 'bg-sky-500/10 text-sky-300 border-sky-500/30' },
+                          vendor_application: { label: 'Vendor Notice', color: 'bg-purple-500/10 text-purple-300 border-purple-500/30' },
+                          vip_invitation: { label: 'VIP Protocol', color: 'bg-rose-500/10 text-rose-300 border-rose-500/30' },
+                          broadcast_campaign: { label: 'Broadcast', color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' },
+                          test_dispatch: { label: 'Test Dispatch', color: 'bg-neutral-800 text-neutral-300 border-neutral-700' },
+                          system_alert: { label: 'System Notice', color: 'bg-neutral-800 text-neutral-400 border-neutral-700' }
+                        }[log.category] || { label: log.category, color: 'bg-neutral-800 text-neutral-400 border-neutral-700' };
+
+                        return (
+                          <tr key={log.id} className="hover:bg-neutral-800/30 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="font-mono font-bold text-amber-400 text-[11px] block">
+                                {log.referenceId || log.id.slice(0, 12)}
+                              </span>
+                              <span className="text-[10px] text-neutral-500 block mt-0.5">
+                                {log.senderName}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-white">{log.recipientName || 'Patron'}</div>
+                              <div className="text-neutral-400 text-[11px] flex items-center gap-1">
+                                {log.recipientEmail}
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(log.recipientEmail, log.id)}
+                                  className="text-neutral-500 hover:text-neutral-300 p-0.5"
+                                  title="Copy Email Address"
+                                >
+                                  {copiedId === log.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 max-w-xs">
+                              <div className="font-medium text-neutral-200 truncate" title={log.subject}>
+                                {log.subject}
+                              </div>
+                              <div className="mt-1">
+                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border ${categoryBadge.color}`}>
+                                  {categoryBadge.label}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-neutral-400">
+                              <div>{formattedDate}</div>
+                              <div className="text-[10px] text-neutral-500 font-mono">{formattedTime} BST</div>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {log.status === 'delivered' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                                </span>
+                              )}
+                              {log.status === 'dispatched' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                  <Send className="w-3.5 h-3.5" /> Dispatched
+                                </span>
+                              )}
+                              {log.status === 'queued' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  <Clock className="w-3.5 h-3.5" /> Queued
+                                </span>
+                              )}
+                              {log.status === 'failed' && (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                  title={log.errorDetails || 'Email delivery failed. Check credentials.'}
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5" /> Failed
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingLog(log)}
+                                  className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg cursor-pointer transition-colors"
+                                  title="View Rendered Email"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleResend(log)}
+                                  className="p-1.5 bg-neutral-800 hover:bg-amber-500 hover:text-neutral-950 text-neutral-200 rounded-lg cursor-pointer transition-colors"
+                                  title="Re-dispatch Copy"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteLog(log.id)}
+                                  className="p-1.5 bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-400 rounded-lg cursor-pointer transition-colors"
+                                  title="Delete Log Record"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -759,13 +895,13 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       {/* SUB-TAB 2: NEW COMMUNIQUÉ / BROADCAST COMPOSER */}
       {/* ========================================================================= */}
       {activeSubTab === 'compose' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* Left Form: Composer Controls */}
-          <div className="lg:col-span-6 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-5">
+          <div className="lg:col-span-6 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
             <div>
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">Broadcaster Studio</span>
-              <h2 className="text-xl font-bold text-white font-serif">Compose Official Communiqué</h2>
-              <p className="text-xs text-neutral-400 mt-1">
+              <h2 className="text-lg sm:text-xl font-bold text-white font-serif">Compose Official Communiqué</h2>
+              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
                 Dispatch an announcement, schedule notice, or bespoke message directly to individual or grouped festival delegates.
               </p>
             </div>
@@ -775,7 +911,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-2">
                 Target Audience Group
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setComposeRecipientType('individual')}
@@ -836,7 +972,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
             {/* Individual / Custom Recipient Inputs */}
             {(composeRecipientType === 'individual' || composeRecipientType === 'custom') && (
-              <div className="space-y-3 bg-neutral-950/60 p-4 rounded-xl border border-neutral-800/80">
+              <div className="space-y-3 bg-neutral-950/60 p-3.5 sm:p-4 rounded-xl border border-neutral-800/80">
                 {composeRecipientType === 'individual' ? (
                   <>
                     <div>
@@ -922,10 +1058,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
                   Message Content (UK English)
                 </label>
-                <span className="text-[10px] text-neutral-500">Supports line breaks &amp; paragraphs</span>
+                <span className="text-[10px] text-neutral-500">Supports line breaks</span>
               </div>
               <textarea
-                rows={5}
+                rows={4}
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 className="w-full p-3.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-neutral-200 leading-relaxed focus:outline-none focus:border-amber-500"
@@ -959,15 +1095,15 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             </div>
 
             {/* Dispatch Action */}
-            <div className="pt-3 border-t border-neutral-800 flex items-center justify-between">
-              <span className="text-[11px] text-neutral-400">
+            <div className="pt-3 border-t border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="text-[11px] text-neutral-400 truncate">
                 Dispatched via {getEngineModeLabel(settings.engineMode)}.
               </span>
               <button
                 type="button"
                 disabled={isSending}
                 onClick={handleDispatchCommuniqué}
-                className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center gap-2 transition-all hover:scale-105 disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-105 disabled:opacity-50 shrink-0"
                 style={{ backgroundColor: primaryColor }}
               >
                 {isSending ? (
@@ -985,7 +1121,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
           {/* Right Preview: Real-Time Live HTML Render Preview */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Template Preview</span>
                 <span className="text-xs font-bold text-white">Live Branded Email Render</span>
@@ -1011,15 +1147,15 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             </div>
 
             {/* Rendered Frame */}
-            <div className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-4 flex justify-center overflow-hidden min-h-[560px]">
+            <div className="bg-neutral-950 border border-neutral-800/80 rounded-2xl p-2 sm:p-4 flex justify-center overflow-hidden min-h-[440px] sm:min-h-[560px]">
               <div
                 className={`transition-all duration-300 w-full ${
-                  previewDevice === 'mobile' ? 'max-w-sm shadow-2xl border-4 border-neutral-800 rounded-3xl p-2 bg-neutral-900' : 'max-w-xl'
+                  previewDevice === 'mobile' ? 'max-w-xs sm:max-w-sm shadow-2xl border-2 sm:border-4 border-neutral-800 rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 bg-neutral-900' : 'max-w-xl'
                 }`}
               >
                 <iframe
                   title="Live Email Preview"
-                  className="w-full h-[580px] rounded-xl bg-transparent border-0"
+                  className="w-full h-[460px] sm:h-[580px] rounded-xl bg-transparent border-0"
                   srcDoc={renderFestivalHtmlEmail({
                     recipientName: composeName || 'Eleanor Vance',
                     recipientEmail: composeEmail || 'eleanor.vance@example.co.uk',
@@ -1043,7 +1179,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       {/* SUB-TAB 3: TEMPLATE STUDIO */}
       {/* ========================================================================= */}
       {activeSubTab === 'templates' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* Left Column: Template Selection List */}
           <div className="lg:col-span-4 space-y-3">
             <div className="flex items-center justify-between mb-2">
@@ -1059,34 +1195,36 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               </button>
             </div>
 
-            {templates.map((tpl) => (
-              <div
-                key={tpl.id}
-                onClick={() => setSelectedTemplateId(tpl.id)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                  selectedTemplateId === tpl.id
-                    ? 'border-amber-500 bg-amber-500/10 shadow-md'
-                    : 'border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/40'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="font-bold text-xs text-white">{tpl.name}</h4>
-                  <span className="text-[10px] font-mono text-neutral-400 uppercase">
-                    {tpl.category.replace('_', ' ')}
-                  </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 sm:gap-3">
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  onClick={() => setSelectedTemplateId(tpl.id)}
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer ${
+                    selectedTemplateId === tpl.id
+                      ? 'border-amber-500 bg-amber-500/10 shadow-md'
+                      : 'border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <h4 className="font-bold text-xs text-white truncate">{tpl.name}</h4>
+                    <span className="text-[10px] font-mono text-neutral-400 uppercase shrink-0">
+                      {tpl.category.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">
+                    {tpl.description}
+                  </p>
+                  <div className="mt-2 text-[10px] text-neutral-500 truncate">
+                    Subject: <span className="text-neutral-300">{tpl.subject.slice(0, 45)}...</span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">
-                  {tpl.description}
-                </p>
-                <div className="mt-2 text-[10px] text-neutral-500">
-                  Subject: <span className="text-neutral-300">{tpl.subject.slice(0, 45)}...</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Right Column: Template Editor & Live Preview */}
-          <div className="lg:col-span-8 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-5">
+          <div className="lg:col-span-8 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
             {editingTemplate ? (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
@@ -1094,13 +1232,13 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-0.5">
                       Template Customiser
                     </span>
-                    <h3 className="text-lg font-bold text-white">{editingTemplate.name}</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-white">{editingTemplate.name}</h3>
                     <p className="text-xs text-neutral-400">{editingTemplate.description}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleSaveTemplate}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-1.5 shadow-md"
+                    className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-md shrink-0"
                   >
                     <Check className="w-4 h-4" /> Save Template
                   </button>
@@ -1119,7 +1257,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                         Header Title
@@ -1149,14 +1287,14 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       Body Copy (UK Grammar)
                     </label>
                     <textarea
-                      rows={5}
+                      rows={4}
                       value={editingTemplate.bodyText}
                       onChange={(e) => setEditingTemplate({ ...editingTemplate, bodyText: e.target.value })}
                       className="w-full p-3.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-neutral-200 leading-relaxed focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                         Button Label
@@ -1196,7 +1334,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
                 {/* Live Preview of Selected Template */}
                 <div className="pt-4 border-t border-neutral-800">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
                       Instant Render Preview
                     </span>
@@ -1226,7 +1364,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     </button>
                   </div>
 
-                  <div className="h-72 bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden">
+                  <div className="h-64 sm:h-72 bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden">
                     <iframe
                       title="Template Preview"
                       className="w-full h-full border-0"
@@ -1260,24 +1398,24 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       {/* SUB-TAB 4: ZERO-FUSS SETUP & MAILBOX CONFIGURATION */}
       {/* ========================================================================= */}
       {activeSubTab === 'settings' && (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           {/* Engine Mode Selection Cards */}
-          <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6">
-            <div className="max-w-2xl mb-6">
+          <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6">
+            <div className="max-w-2xl mb-5 sm:mb-6">
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
                 Dispatch Engine Provider
               </span>
-              <h2 className="text-xl font-bold text-white font-serif">Select Outgoing Mail Mechanism</h2>
-              <p className="text-xs text-neutral-400 mt-1">
+              <h2 className="text-lg sm:text-xl font-bold text-white font-serif">Select Outgoing Mail Mechanism</h2>
+              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
                 Select your authenticated email delivery provider. All pass order confirmations, welcome dossiers, and concierge announcements are transmitted through your configured provider.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
               {/* Option 1: Resend (Recommended) */}
               <div
                 onClick={() => setSettings({ ...settings, engineMode: 'resend' })}
-                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                   settings.engineMode === 'resend'
                     ? 'border-amber-500 bg-amber-500/10 shadow-lg'
                     : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
@@ -1286,8 +1424,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center">
-                        <Zap className="w-5 h-5 text-amber-400" />
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center shrink-0">
+                        <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                       </div>
                       <div>
                         <h3 className="font-bold text-sm text-white">Resend</h3>
@@ -1295,8 +1433,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       </div>
                     </div>
                     {settings.engineMode === 'resend' && (
-                      <div className="w-6 h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center">
-                        <Check className="w-4 h-4 stroke-[3]" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </div>
                     )}
                   </div>
@@ -1308,10 +1446,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
                 <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Uses secure Resend API Key (<code className="text-amber-400 font-mono">re_...</code>)
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses Resend API Key (<code className="text-amber-400 font-mono">re_...</code>)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Real-time transactional HTTP dispatch
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Real-time HTTP dispatch</span>
                   </div>
                 </div>
               </div>
@@ -1319,7 +1457,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               {/* Option 2: Twilio SendGrid */}
               <div
                 onClick={() => setSettings({ ...settings, engineMode: 'sendgrid' })}
-                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                   settings.engineMode === 'sendgrid'
                     ? 'border-amber-500 bg-amber-500/10 shadow-lg'
                     : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
@@ -1328,8 +1466,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center">
-                        <ShieldCheck className="w-5 h-5 text-amber-400" />
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                       </div>
                       <div>
                         <h3 className="font-bold text-sm text-white">Twilio SendGrid</h3>
@@ -1337,8 +1475,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       </div>
                     </div>
                     {settings.engineMode === 'sendgrid' && (
-                      <div className="w-6 h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center">
-                        <Check className="w-4 h-4 stroke-[3]" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </div>
                     )}
                   </div>
@@ -1350,10 +1488,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
                 <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Uses Twilio SendGrid API Key (<code className="text-amber-400 font-mono">SG....</code>)
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses SendGrid Key (<code className="text-amber-400 font-mono">SG....</code>)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Requires verified Sender Identity in SendGrid
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Requires Single Sender</span>
                   </div>
                 </div>
               </div>
@@ -1361,7 +1499,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               {/* Option 3: Mailchimp Transactional / Mandrill */}
               <div
                 onClick={() => setSettings({ ...settings, engineMode: 'mailchimp' })}
-                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                   settings.engineMode === 'mailchimp'
                     ? 'border-amber-500 bg-amber-500/10 shadow-lg'
                     : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
@@ -1370,17 +1508,17 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-amber-400" />
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center shrink-0">
+                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-sm text-white">Mailchimp (Mandrill)</h3>
-                        <span className="text-[10px] text-amber-400 font-semibold block">Transactional SaaS</span>
+                        <h3 className="font-bold text-sm text-white">Mailchimp</h3>
+                        <span className="text-[10px] text-amber-400 font-semibold block">Transactional Mandrill</span>
                       </div>
                     </div>
                     {settings.engineMode === 'mailchimp' && (
-                      <div className="w-6 h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center">
-                        <Check className="w-4 h-4 stroke-[3]" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </div>
                     )}
                   </div>
@@ -1392,10 +1530,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
                 <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Uses Mailchimp Mandrill API Key
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Uses Mandrill API Key</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Direct Mandrill transactional relay
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Transactional relay</span>
                   </div>
                 </div>
               </div>
@@ -1403,7 +1541,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               {/* Option 4: Custom SMTP Gateway */}
               <div
                 onClick={() => setSettings({ ...settings, engineMode: 'smtp' })}
-                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                   settings.engineMode === 'smtp'
                     ? 'border-amber-500 bg-amber-500/10 shadow-lg'
                     : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
@@ -1412,17 +1550,17 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center">
-                        <Globe className="w-5 h-5 text-amber-400" />
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-800 text-neutral-200 flex items-center justify-center shrink-0">
+                        <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-sm text-white">Custom SMTP Mailbox</h3>
+                        <h3 className="font-bold text-sm text-white">Custom SMTP</h3>
                         <span className="text-[10px] text-neutral-400 font-semibold block">Mailbox Relay Hook</span>
                       </div>
                     </div>
                     {settings.engineMode === 'smtp' && (
-                      <div className="w-6 h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center">
-                        <Check className="w-4 h-4 stroke-[3]" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                       </div>
                     )}
                   </div>
@@ -1434,10 +1572,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
                 <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Compatible with Google &amp; Microsoft accounts
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Google &amp; Microsoft accounts</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Direct TLS connection to port 587/465
+                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Port 587/465 TLS Relay</span>
                   </div>
                 </div>
               </div>
@@ -1445,12 +1583,12 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
           </div>
 
           {/* Form Settings */}
-          <form onSubmit={handleSaveSettings} className="space-y-6">
+          <form onSubmit={handleSaveSettings} className="space-y-5 sm:space-y-6">
 
             {/* Mode 2 Details: Resend API Configuration */}
             {settings.engineMode === 'resend' && (
-              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-amber-400" />
@@ -1462,7 +1600,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     href="https://resend.com/api-keys" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
                   >
                     Resend Console <ExternalLink className="w-3 h-3" />
                   </a>
@@ -1497,8 +1635,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
             {/* Mode 3 Details: Twilio SendGrid Configuration */}
             {settings.engineMode === 'sendgrid' && (
-              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-amber-400" />
@@ -1510,7 +1648,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     href="https://app.sendgrid.com/settings/api_keys" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
                   >
                     SendGrid Console <ExternalLink className="w-3 h-3" />
                   </a>
@@ -1545,8 +1683,8 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
             {/* Mode 4 Details: Mailchimp Mandrill Configuration */}
             {settings.engineMode === 'mailchimp' && (
-              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-amber-400" />
@@ -1558,7 +1696,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     href="https://mandrillapp.com/settings" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
                   >
                     Mandrill Console <ExternalLink className="w-3 h-3" />
                   </a>
@@ -1593,13 +1731,13 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
             {/* Mode 5 Details: SMTP Details (if enabled) */}
             {settings.engineMode === 'smtp' && (
-              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
                   <div>
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Mailbox Connection Parameters</h3>
                     <p className="text-xs text-neutral-400">Standard outgoing mail configuration for Gmail or Microsoft 365.</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setSettings({
@@ -1622,12 +1760,12 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       })}
                       className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
                     >
-                      Outlook 365 UK Preset
+                      Outlook 365 Preset
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div className="sm:col-span-2">
                     <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                       SMTP Host
@@ -1653,7 +1791,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                       Mailbox Username or Email Address
@@ -1683,12 +1821,12 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             )}
 
             {/* Secretariat & Sender Identity */}
-            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
+            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3">
                 Secretariat Sender Identity
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                     Display Sender Name
@@ -1713,7 +1851,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider block mb-1">
                     Reply-To Email Address
@@ -1752,13 +1890,13 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             </div>
 
             {/* Automated Dispatch Triggers */}
-            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 space-y-4">
+            <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-neutral-800 pb-3">
                 Automated Trigger Rules
               </h3>
 
               <div className="space-y-3">
-                <label className="flex items-center justify-between p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer">
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
                   <div>
                     <span className="font-bold text-xs text-white block">Auto-dispatch Pass Order Confirmation</span>
                     <span className="text-[11px] text-neutral-400">
@@ -1769,26 +1907,71 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     type="checkbox"
                     checked={settings.autoSendOrderConfirmation}
                     onChange={(e) => setSettings({ ...settings, autoSendOrderConfirmation: e.target.checked })}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer">
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
                   <div>
                     <span className="font-bold text-xs text-white block">Auto-dispatch Welcome Registration Dossier</span>
                     <span className="text-[11px] text-neutral-400">
-                      Sends welcome greetings and cultural preview when a visitor registers via the website.
+                      Sends welcome greetings and cultural preview when a visitor registers flight or travel details.
                     </span>
                   </div>
                   <input
                     type="checkbox"
                     checked={settings.autoSendWelcomeRegistration}
                     onChange={(e) => setSettings({ ...settings, autoSendWelcomeRegistration: e.target.checked })}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer">
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
+                  <div>
+                    <span className="font-bold text-xs text-white block">Auto-dispatch Contact Enquiry Acknowledgement</span>
+                    <span className="text-[11px] text-neutral-400">
+                      Instantly sends a branded confirmation with reference tracking code when a visitor submits the contact form.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoSendContactAcknowledgement !== false}
+                    onChange={(e) => setSettings({ ...settings, autoSendContactAcknowledgement: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                  />
+                </label>
+
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
+                  <div>
+                    <span className="font-bold text-xs text-white block">Auto-dispatch Airport &amp; Shuttle Transport Confirmation</span>
+                    <span className="text-[11px] text-neutral-400">
+                      Dispatches official mobility dossier, pickup instructions, and booking reference upon transfer request.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoSendTransportConfirmation !== false}
+                    onChange={(e) => setSettings({ ...settings, autoSendTransportConfirmation: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                  />
+                </label>
+
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
+                  <div>
+                    <span className="font-bold text-xs text-white block">Auto-dispatch VIP Newsletter &amp; Insider Welcome</span>
+                    <span className="text-[11px] text-neutral-400">
+                      Welcomes new subscribers with VIP ticket perks, early access passes, and secret lineup alerts.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoSendNewsletterWelcome !== false}
+                    onChange={(e) => setSettings({ ...settings, autoSendNewsletterWelcome: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                  />
+                </label>
+
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
                   <div>
                     <span className="font-bold text-xs text-white block">Auto-dispatch Concierge Enquiry Response</span>
                     <span className="text-[11px] text-neutral-400">
@@ -1799,11 +1982,11 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     type="checkbox"
                     checked={settings.autoSendEnquiryReply}
                     onChange={(e) => setSettings({ ...settings, autoSendEnquiryReply: e.target.checked })}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer">
+                <label className="flex items-start sm:items-center justify-between p-3 sm:p-3.5 bg-neutral-950/60 rounded-xl border border-neutral-800/80 cursor-pointer gap-3">
                   <div>
                     <span className="font-bold text-xs text-white block">Bcc Secretariat Records on All Pass Orders</span>
                     <span className="text-[11px] text-neutral-400">
@@ -1814,7 +1997,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     type="checkbox"
                     checked={settings.bccSecretariatOnOrders}
                     onChange={(e) => setSettings({ ...settings, bccSecretariatOnOrders: e.target.checked })}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 accent-amber-500 cursor-pointer mt-0.5 sm:mt-0 shrink-0"
                   />
                 </label>
               </div>
@@ -1824,7 +2007,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-neutral-950 cursor-pointer flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-transform"
                 style={{ backgroundColor: primaryColor }}
               >
                 <Check className="w-4 h-4" /> Save Configuration Settings
@@ -1833,19 +2016,19 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
           </form>
 
           {/* Test Dispatch Diagnostic Card */}
-          <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6">
+          <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-2">
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Test Dispatch &amp; Connectivity Diagnostic</h3>
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Test Dispatch Diagnostic</h3>
             </div>
-            <p className="text-xs text-neutral-400 mb-4">
+            <p className="text-xs text-neutral-400 mb-4 leading-relaxed">
               Enter an email address to send a real-time verification test through your selected engine mode.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <input
                 type="email"
-                placeholder="Enter recipient email (e.g. director@grenadacaricom2027.com)"
+                placeholder="Enter email (e.g. director@grenadacaricom2027.com)"
                 value={testRecipient}
                 onChange={(e) => setTestRecipient(e.target.value)}
                 className="w-full sm:w-80 px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
@@ -1854,7 +2037,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 type="button"
                 disabled={isTestingSmtp}
                 onClick={handleTestDispatch}
-                className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shrink-0"
               >
                 {isTestingSmtp ? (
                   <>
@@ -1875,7 +2058,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
 
             {testResult && (
               <div
-                className={`mt-4 p-4 rounded-xl border text-xs flex items-start gap-2.5 ${
+                className={`mt-4 p-3.5 sm:p-4 rounded-xl border text-xs flex items-start gap-2.5 ${
                   testResult.success
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                     : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
@@ -1884,7 +2067,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
                 <div>
                   <div className="font-bold mb-0.5">{testResult.success ? 'Diagnostic Passed' : 'Diagnostic Warning'}</div>
-                  <div>{testResult.message}</div>
+                  <div className="leading-relaxed">{testResult.message}</div>
                 </div>
               </div>
             )}
@@ -1896,30 +2079,30 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       {/* MODAL: VIEW RENDERED EMAIL */}
       {/* ========================================================================= */}
       {viewingLog && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[96vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-950/60">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                  <Mail className="w-5 h-5" />
+            <div className="p-3 sm:px-6 sm:py-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-950/60">
+              <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20 shrink-0">
+                  <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">{viewingLog.subject}</h3>
-                  <div className="text-[11px] text-neutral-400 flex items-center gap-2 mt-0.5">
-                    <span>To: <strong className="text-neutral-200">{viewingLog.recipientName || 'Patron'}</strong> &lt;{viewingLog.recipientEmail}&gt;</span>
-                    <span>•</span>
-                    <span className="font-mono text-amber-400">{viewingLog.referenceId}</span>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-xs sm:text-sm text-white truncate">{viewingLog.subject}</h3>
+                  <div className="text-[10px] sm:text-[11px] text-neutral-400 flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">
+                    <span className="truncate">To: <strong className="text-neutral-200">{viewingLog.recipientName || 'Patron'}</strong> &lt;{viewingLog.recipientEmail}&gt;</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="font-mono text-amber-400 truncate">{viewingLog.referenceId}</span>
                   </div>
                 </div>
               </div>
 
               {/* View Switchers */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-neutral-800/60">
                 <button
                   type="button"
                   onClick={() => setShowRawHtml(!showRawHtml)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
                     showRawHtml
                       ? 'bg-amber-500 text-neutral-950 border-amber-500'
                       : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:bg-neutral-700'
@@ -1939,15 +2122,15 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       printWin.print();
                     }
                   }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 cursor-pointer flex items-center gap-1.5"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 cursor-pointer flex items-center gap-1.5"
                 >
-                  <Download className="w-3.5 h-3.5" /> Print / Save
+                  <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Print / </span>Save
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setViewingLog(null)}
-                  className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 cursor-pointer"
+                  className="p-1.5 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 cursor-pointer ml-auto sm:ml-0"
                 >
                   ✕
                 </button>
@@ -1955,9 +2138,9 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto flex-1 bg-neutral-950">
+            <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-neutral-950">
               {showRawHtml ? (
-                <div className="bg-neutral-900 p-4 rounded-xl font-mono text-xs text-neutral-300 border border-neutral-800 whitespace-pre-wrap select-all overflow-x-auto max-h-[600px]">
+                <div className="bg-neutral-900 p-3 sm:p-4 rounded-xl font-mono text-[11px] sm:text-xs text-neutral-300 border border-neutral-800 whitespace-pre-wrap select-all overflow-x-auto max-h-[500px] sm:max-h-[600px]">
                   {viewingLog.contentHtml || renderFestivalHtmlEmail({
                     recipientName: viewingLog.recipientName,
                     recipientEmail: viewingLog.recipientEmail,
@@ -1970,10 +2153,10 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                 </div>
               ) : (
                 <div className="flex justify-center">
-                  <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-xl min-h-[500px]">
+                  <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl min-h-[400px] sm:min-h-[500px]">
                     <iframe
                       title="Dispatched Email View"
-                      className="w-full h-[580px] border-0"
+                      className="w-full h-[450px] sm:h-[580px] border-0"
                       srcDoc={viewingLog.contentHtml || renderFestivalHtmlEmail({
                         recipientName: viewingLog.recipientName,
                         recipientEmail: viewingLog.recipientEmail,
@@ -1990,9 +2173,9 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-neutral-800 bg-neutral-950/80 flex items-center justify-between text-xs text-neutral-400">
-              <div>
-                Dispatched at: <strong className="text-neutral-200">{new Date(viewingLog.dispatchedAt).toLocaleString('en-GB')}</strong>
+            <div className="p-3 sm:px-6 sm:py-3 border-t border-neutral-800 bg-neutral-950/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs text-neutral-400">
+              <div className="text-[11px] sm:text-xs truncate">
+                Dispatched: <strong className="text-neutral-200">{new Date(viewingLog.dispatchedAt).toLocaleString('en-GB')}</strong>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2001,14 +2184,14 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     handleResend(viewingLog);
                     setViewingLog(null);
                   }}
-                  className="px-3 py-1.5 bg-amber-500 text-neutral-950 font-bold rounded-xl cursor-pointer hover:bg-amber-400 flex items-center gap-1.5"
+                  className="flex-1 sm:flex-none px-3 py-1.5 bg-amber-500 text-neutral-950 font-bold rounded-xl cursor-pointer hover:bg-amber-400 flex items-center justify-center gap-1.5"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Re-dispatch Copy
+                  <RotateCcw className="w-3.5 h-3.5" /> Re-dispatch
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewingLog(null)}
-                  className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl cursor-pointer text-center"
                 >
                   Close
                 </button>

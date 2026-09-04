@@ -108,9 +108,9 @@ export const TransportationView: React.FC<TransportationViewProps> = ({ setActiv
         {submitted ? (
           <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center space-y-3">
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-            <h3 className="text-lg font-bold text-white">Transfer Request Submitted!</h3>
-            <p className="text-xs text-neutral-300">
-              Thank you! Our transport concierge will contact you via WhatsApp/Email shortly with rates and schedule confirmation.
+            <h3 className="text-lg font-bold text-white">Transfer Request Confirmed &amp; Logged!</h3>
+            <p className="text-xs text-neutral-300 leading-relaxed max-w-lg mx-auto">
+              Thank you, <strong className="text-amber-400">{fullName}</strong>! An official island transfer confirmation email with your booking reference and airport greeting instructions has been automatically dispatched to <strong className="text-white">{email}</strong>. Our transport concierge team will align with your flight schedule.
             </p>
           </div>
         ) : (

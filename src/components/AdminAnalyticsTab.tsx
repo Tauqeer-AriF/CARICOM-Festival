@@ -305,102 +305,110 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                 </div>
 
                 {/* 2. Key Performance Metrics Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   
                   {/* Card 1: Ticket Revenue */}
-                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Total Gross Sales</span>
-                      <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                        <Ticket className="w-4 h-4 text-amber-400" />
+                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-4 sm:p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Total Gross Sales</span>
+                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                          <Ticket className="w-4 h-4 text-amber-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1 mt-2.5">
+                        <span className="block text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                          £{gbpRevenueVal.toLocaleString()}
+                        </span>
+                        <span className="block text-[10px] sm:text-[11px] text-amber-500 font-mono">
+                          ≈ ${Math.round(usdRevenueVal).toLocaleString()} USD
+                        </span>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="block text-2xl font-black text-white font-mono tracking-tight">
-                        £{gbpRevenueVal.toLocaleString()}
-                      </span>
-                      <span className="block text-[11px] text-amber-500 font-mono">
-                        ≈ ${Math.round(usdRevenueVal).toLocaleString()} USD
-                      </span>
-                    </div>
-                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between gap-1 text-[10px] text-neutral-400 font-mono">
                       <span>Paid Orders:</span>
-                      <span className="font-bold text-white">{orders.length} passes</span>
+                      <span className="font-bold text-white whitespace-nowrap">{orders.length} passes</span>
                     </div>
                   </div>
 
                   {/* Card 2: Received Forms & Processing */}
-                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Inbound Registrations</span>
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-4 sm:p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Inbound Registrations</span>
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1 mt-2.5">
+                        <span className="block text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                          {totalSubmissions}
+                        </span>
+                        <span className="block text-[10px] sm:text-[11px] text-emerald-500 font-mono">
+                          {responseRate}% Resolution Rate
+                        </span>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="block text-2xl font-black text-white font-mono tracking-tight">
-                        {totalSubmissions}
-                      </span>
-                      <span className="block text-[11px] text-emerald-500 font-mono">
-                        {responseRate}% Resolution Rate
-                      </span>
-                    </div>
-                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between gap-1 text-[10px] text-neutral-400 font-mono">
                       <span>Status (N/R):</span>
-                      <span className="font-bold text-white">
+                      <span className="font-bold text-white whitespace-nowrap">
                         <span className="text-rose-400">{statusNew}</span>/{statusResolved}
                       </span>
                     </div>
                   </div>
 
                   {/* Card 3: Event Coordinator Statistics */}
-                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Festival Events</span>
-                      <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-purple-400" />
+                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-4 sm:p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Festival Events</span>
+                        <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                          <Calendar className="w-4 h-4 text-purple-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1 mt-2.5">
+                        <span className="block text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                          {totalEventsCount}
+                        </span>
+                        <span className="block text-[10px] sm:text-[11px] text-purple-400 font-mono">
+                          Across 5 categories
+                        </span>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="block text-2xl font-black text-white font-mono tracking-tight">
-                        {totalEventsCount}
-                      </span>
-                      <span className="block text-[11px] text-purple-400 font-mono">
-                        Across 5 categories
-                      </span>
-                    </div>
-                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between gap-1 text-[10px] text-neutral-400 font-mono">
                       <span>Music / Fetes:</span>
-                      <span className="font-bold text-white">{categoryMusic} / {categoryParty}</span>
+                      <span className="font-bold text-white whitespace-nowrap">{categoryMusic} / {categoryParty}</span>
                     </div>
                   </div>
 
                   {/* Card 4: Partner Hotels Summary */}
-                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Accommodations</span>
-                      <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                        <Hotel className="w-4 h-4 text-cyan-400" />
+                  <div className="bg-neutral-900/60 border border-neutral-800/80 p-4 sm:p-5 rounded-2xl space-y-3 hover:border-neutral-700 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Accommodations</span>
+                        <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                          <Hotel className="w-4 h-4 text-cyan-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1 mt-2.5">
+                        <span className="block text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                          {totalHotelsCount}
+                        </span>
+                        <span className="block text-[10px] sm:text-[11px] text-cyan-500 font-mono">
+                          ★ {avgStars} average rating
+                        </span>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="block text-2xl font-black text-white font-mono tracking-tight">
-                        {totalHotelsCount}
-                      </span>
-                      <span className="block text-[11px] text-cyan-500 font-mono">
-                        ★ {avgStars} average rating
-                      </span>
-                    </div>
-                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                    <div className="pt-2.5 border-t border-neutral-900 flex items-center justify-between gap-1 text-[10px] text-neutral-400 font-mono">
                       <span>Recommended:</span>
-                      <span className="font-bold text-white">{recommendedCount} luxury partners</span>
+                      <span className="font-bold text-white whitespace-nowrap">{recommendedCount} luxury</span>
                     </div>
                   </div>
 
                 </div>
 
                 {/* 3. Advanced Charts Section (Interactive Area & Bar Chart Combo) */}
-                <div className="bg-[#0A0D1A] border border-neutral-800/80 rounded-2xl p-6 space-y-6">
+                <div className="bg-[#0A0D1A] border border-neutral-800/80 rounded-2xl p-4 sm:p-6 space-y-6">
                   
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -411,7 +419,7 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                       <p className="text-[11px] text-neutral-400 font-light">Interactive tracking of daily ticket purchases and newsletter conversions.</p>
                     </div>
 
-                    <div className="bg-neutral-950 p-2 rounded-xl border border-neutral-900 flex items-center gap-6 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
+                    <div className="bg-neutral-950 p-2 rounded-xl border border-neutral-900 flex items-center gap-4 sm:gap-6 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: primaryColor }} />
                         <span>Sales (£ GBP)</span>
@@ -424,24 +432,24 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                   </div>
 
                   {/* Timeframe Selectors & Custom Date Range Pickers */}
-                  <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-900 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-1.5 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                  <div className="bg-neutral-950 p-3 sm:p-4 rounded-xl border border-neutral-900 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded-xl border border-neutral-800 overflow-x-auto max-w-full scrollbar-none">
                         {([
                           { id: '7d', label: '7 Days' },
                           { id: '30d', label: '30 Days' },
                           { id: '90d', label: '90 Days' },
                           { id: '1y', label: '1 Year' },
-                          { id: 'custom', label: '✨ Custom Range' }
+                          { id: 'custom', label: '✨ Custom' }
                         ] as const).map((tab) => (
                           <button
                             key={tab.id}
                             type="button"
                             onClick={() => setAnalyticsRange(tab.id)}
-                            className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
+                            className={`px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                               analyticsRange === tab.id
-                                ? 'bg-amber-500 text-neutral-950 shadow'
-                                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'
+                                ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
                             }`}
                           >
                              {tab.label}
@@ -449,7 +457,7 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                         ))}
                       </div>
 
-                      <div className="text-[10px] text-neutral-400 font-mono">
+                      <div className="text-[10px] text-neutral-400 font-mono shrink-0">
                         Timeline points: <span className="font-bold text-white">{chartDays.length} days</span>
                       </div>
                     </div>

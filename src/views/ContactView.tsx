@@ -92,8 +92,10 @@ export const ContactView: React.FC = () => {
           {submitted ? (
             <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center space-y-2">
               <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-              <h4 className="text-base font-bold text-white">Message Delivered!</h4>
-              <p className="text-xs text-neutral-300">Thank you! Our concierge team will respond within 24 hours.</p>
+              <h4 className="text-base font-bold text-white">Enquiry Received &amp; Tracking Logged!</h4>
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                Thank you, <strong className="text-amber-400">{name}</strong>! An official acknowledgement email with your tracking reference has been automatically dispatched to <strong className="text-white">{email}</strong>. Our concierge team will review and respond within 2–4 hours.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3 text-xs">

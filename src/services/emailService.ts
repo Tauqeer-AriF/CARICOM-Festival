@@ -22,6 +22,9 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   autoSendOrderConfirmation: true,
   autoSendWelcomeRegistration: true,
   autoSendEnquiryReply: true,
+  autoSendContactAcknowledgement: true,
+  autoSendTransportConfirmation: true,
+  autoSendNewsletterWelcome: true,
   bccSecretariatOnOrders: true,
   secretariatBccEmail: 'records@grenadacaricom2027.com'
 };
@@ -45,7 +48,7 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
     id: 'tpl-welcome-registration',
     category: 'welcome_registration',
     name: 'Delegate Welcome & Travel Dossier',
-    description: 'Sent upon general festival registration and attendee community sign-up.',
+    description: 'Sent upon flight and hotel registration or attendee community sign-up.',
     subject: 'Warm Greetings from the Spice Isle — Your Festival Registration Dossier',
     headline: 'Greetings {name}, your registration is confirmed',
     introText: 'We are delighted to welcome you to the community of the Grenada CARICOM Festival 2027, celebrating the union of British Caribbean culture and Spice Isle hospitality.',
@@ -53,6 +56,48 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
     ctaLabel: 'Explore Curated Accommodations',
     ctaUrl: 'https://grenadacaricom2027.com',
     footerNote: 'Official Festival Liaison Office • St. George\'s, Grenada',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'tpl-contact-acknowledgement',
+    category: 'contact_acknowledgement',
+    name: 'Contact Enquiry Acknowledgement',
+    description: 'Dispatched automatically whenever an attendee submits an inquiry or contact form.',
+    subject: 'Enquiry Received (Ref: {reference_id}) — Grenada CARICOM Festival 2027',
+    headline: 'Thank You for Contacting Concierge, {name}',
+    introText: 'We have received your enquiry regarding {topic}. The Festival Secretariat and Concierge Team have logged your request.',
+    bodyText: 'Your enquiry has been assigned reference code {reference_id}.\n\nEnquiry Summary:\n• Category / Subject: {topic}\n• Reference Code: {reference_id}\n\nOur concierge liaison team will review your message and respond directly to this email address within 2–4 hours during standard operational hours.\n\nFor immediate travel assistance or urgent pass verification, please contact our 24/7 UK & Grenada hotline: +44 (0)7900 123 456.',
+    ctaLabel: 'Visit Festival Information Centre',
+    ctaUrl: 'https://grenadacaricom2027.com',
+    footerNote: 'Grenada CARICOM Festival Concierge Desk • St. George\'s, Grenada',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'tpl-transport-confirmation',
+    category: 'transport_confirmation',
+    name: 'Airport Transfer & Island Mobility Confirmation',
+    description: 'Dispatched automatically when an attendee submits an airport transfer or shuttle request.',
+    subject: 'Transfer Request Confirmed (Ref: {reference_id}) — Grenada CARICOM Festival 2027',
+    headline: 'Island Transfer Request Received, {name}!',
+    introText: 'Thank you for requesting transportation with the official Grenada CARICOM Festival 2027 mobility fleet.',
+    bodyText: 'Your transfer booking has been logged under reference code {reference_id}.\n\nTransfer Booking Summary:\n• Service Type: {transfer_type}\n• Passenger Count: {passengers}\n• Itinerary Notes: {notes}\n\nOur transport coordinator will match your flight and hotel arrival schedules. A festival representative holding official Grenada CARICOM Festival signage will meet you at the Maurice Bishop International Airport (GND) arrivals hall or your hotel lobby.',
+    ctaLabel: 'View Festival Shuttle & Route Details',
+    ctaUrl: 'https://grenadacaricom2027.com',
+    footerNote: 'Official Festival Transport & Logistics Team • Maurice Bishop International Airport & Mellowland Station',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'tpl-newsletter-welcome',
+    category: 'newsletter_welcome',
+    name: 'VIP Insider Circle Welcome & Lineup Alerts',
+    description: 'Dispatched automatically when an attendee subscribes to the VIP newsletter or updates.',
+    subject: 'Welcome to the VIP Insider Circle — Grenada CARICOM Festival 2027',
+    headline: 'You\'re on the VIP Guestlist, {name}!',
+    introText: 'Thank you for subscribing to official bulletins for the Grenada CARICOM Festival 2027. You have unlocked priority insider access to lineup drops, early-bird pass releases, and exclusive gala invitations.',
+    bodyText: 'As a verified member of our VIP Insider Circle, you will enjoy:\n• Priority 48-Hour Head-Start on all Limited Tier VIP & VVIP Wristband releases\n• Secret DJ Lineup announcements featuring London\'s premier sound systems & Caribbean legends\n• Mellowland River Tubing expedition schedules and private group slots\n• Exclusive luxury resort package discounts at the Royalton and boutique Spice Isle villas\n\nStay tuned — the official festival calendar drops shortly!',
+    ctaLabel: 'Explore Official Pass Packages',
+    ctaUrl: 'https://grenadacaricom2027.com',
+    footerNote: 'Issued by the Grenada CARICOM Festival 2027 Organising Committee • St. George\'s, Grenada',
     updatedAt: new Date().toISOString()
   },
   {
@@ -589,3 +634,199 @@ export const dispatchEnquiryReplyEmail = async (
     primaryColor
   });
 };
+
+export const dispatchContactAcknowledgementEmail = async (
+  submission: FormSubmissionItem, 
+  primaryColor = '#F59E0B'
+) => {
+  const settings = getEmailSettings();
+  if (settings.autoSendContactAcknowledgement === false) return null;
+  if (!submission.email) return null;
+
+  const templates = getEmailTemplates();
+  const tpl = templates.find(t => t.category === 'contact_acknowledgement') || DEFAULT_EMAIL_TEMPLATES.find(t => t.category === 'contact_acknowledgement')!;
+  const attendeeName = submission.name || 'Festival Guest';
+  const topic = submission.topicOrPass || 'General Concierge Enquiry';
+  const refCode = submission.id.toUpperCase().replace('SUB-', 'INQ-');
+
+  const headline = tpl.headline.replace('{name}', attendeeName);
+  const intro = tpl.introText.replace('{name}', attendeeName).replace('{topic}', topic);
+  const body = tpl.bodyText
+    .replace(/{reference_id}/g, refCode)
+    .replace(/{topic}/g, topic)
+    .replace(/{name}/g, attendeeName)
+    .replace(/{message}/g, submission.messageOrDetails || 'General inquiry logged.');
+
+  return await dispatchEmail({
+    recipientEmail: submission.email,
+    recipientName: attendeeName,
+    subject: tpl.subject.replace('{reference_id}', refCode),
+    category: 'contact_acknowledgement',
+    headline,
+    introText: intro,
+    bodyText: body,
+    ctaLabel: tpl.ctaLabel,
+    ctaUrl: tpl.ctaUrl,
+    footerNote: tpl.footerNote,
+    referenceId: refCode,
+    metadata: {
+      'Enquiry Reference': refCode,
+      'Subject Category': topic,
+      'Phone / WhatsApp': submission.phone || 'Not provided',
+      'Target Response Time': 'Within 2–4 Hours'
+    },
+    primaryColor
+  });
+};
+
+export const dispatchTransportConfirmationEmail = async (
+  submission: FormSubmissionItem, 
+  primaryColor = '#F59E0B'
+) => {
+  const settings = getEmailSettings();
+  if (settings.autoSendTransportConfirmation === false) return null;
+  if (!submission.email) return null;
+
+  const templates = getEmailTemplates();
+  const tpl = templates.find(t => t.category === 'transport_confirmation') || DEFAULT_EMAIL_TEMPLATES.find(t => t.category === 'transport_confirmation')!;
+  const attendeeName = submission.name || 'Festival Passenger';
+  const transferType = submission.topicOrPass === 'airport-shuttle' 
+    ? 'Complimentary Airport Transfer (GND Airport ⇄ Hotel)' 
+    : submission.topicOrPass === 'daily-island-pass' 
+      ? 'Daily Island Event & Mellowland Shuttle Pass' 
+      : (submission.topicOrPass || 'Island Mobility Transfer');
+  const refCode = submission.id.toUpperCase().replace('SUB-', 'TRN-');
+  const passengers = submission.extraDetails?.Passengers || '1 Passenger';
+  const notes = submission.messageOrDetails || 'Standard transfer scheduling';
+
+  const headline = tpl.headline.replace('{name}', attendeeName);
+  const intro = tpl.introText.replace('{name}', attendeeName);
+  const body = tpl.bodyText
+    .replace(/{reference_id}/g, refCode)
+    .replace(/{name}/g, attendeeName)
+    .replace(/{transfer_type}/g, transferType)
+    .replace(/{passengers}/g, passengers)
+    .replace(/{notes}/g, notes);
+
+  return await dispatchEmail({
+    recipientEmail: submission.email,
+    recipientName: attendeeName,
+    subject: tpl.subject.replace('{reference_id}', refCode),
+    category: 'transport_confirmation',
+    headline,
+    introText: intro,
+    bodyText: body,
+    ctaLabel: tpl.ctaLabel,
+    ctaUrl: tpl.ctaUrl,
+    footerNote: tpl.footerNote,
+    referenceId: refCode,
+    metadata: {
+      'Service Type': transferType,
+      'Passenger Count': passengers,
+      'Transport Reference': refCode,
+      'Operating Terminal': 'Maurice Bishop International Airport (GND) & Mellowland Hub'
+    },
+    primaryColor
+  });
+};
+
+export const dispatchNewsletterWelcomeEmail = async (
+  submission: FormSubmissionItem, 
+  primaryColor = '#F59E0B'
+) => {
+  const settings = getEmailSettings();
+  if (settings.autoSendNewsletterWelcome === false) return null;
+  if (!submission.email) return null;
+
+  const templates = getEmailTemplates();
+  const tpl = templates.find(t => t.category === 'newsletter_welcome') || DEFAULT_EMAIL_TEMPLATES.find(t => t.category === 'newsletter_welcome')!;
+  const attendeeName = submission.name || submission.email.split('@')[0] || 'VIP Festival Insider';
+  const refCode = submission.id.toUpperCase().replace('SUB-', 'VIP-');
+
+  const headline = tpl.headline.replace('{name}', attendeeName);
+  const intro = tpl.introText.replace('{name}', attendeeName);
+
+  return await dispatchEmail({
+    recipientEmail: submission.email,
+    recipientName: attendeeName,
+    subject: tpl.subject,
+    category: 'newsletter_welcome',
+    headline,
+    introText: intro,
+    bodyText: tpl.bodyText,
+    ctaLabel: tpl.ctaLabel,
+    ctaUrl: tpl.ctaUrl,
+    footerNote: tpl.footerNote,
+    referenceId: refCode,
+    metadata: {
+      'Membership Tier': 'VIP Festival Insider',
+      'Alert Priority': 'Immediate (Email & SMS)',
+      'Subscribed Date': new Date().toLocaleDateString('en-GB')
+    },
+    primaryColor
+  });
+};
+
+export const dispatchGeneralSubmissionConfirmationEmail = async (
+  submission: FormSubmissionItem, 
+  primaryColor = '#F59E0B'
+) => {
+  if (!submission.email) return null;
+  const attendeeName = submission.name || 'Festival Guest';
+  const refCode = submission.id.toUpperCase().replace('SUB-', 'GCF-');
+
+  return await dispatchEmail({
+    recipientEmail: submission.email,
+    recipientName: attendeeName,
+    subject: `Submission Acknowledged (Ref: ${refCode}) — Grenada CARICOM Festival 2027`,
+    category: 'system_alert',
+    headline: `Submission Received, ${attendeeName}`,
+    introText: 'Thank you for submitting your information to the Grenada CARICOM Festival 2027 Secretariat.',
+    bodyText: `Your submission has been safely received and logged under reference ${refCode}.\n\nCategory: ${submission.type.toUpperCase()}\nDetails Logged: ${submission.messageOrDetails || submission.topicOrPass || 'Submission details recorded.'}\n\nOur festival concierge team is reviewing your entry. If additional documentation or verification is required, a liaison officer will reach out directly.`,
+    ctaLabel: 'Visit Festival Portal',
+    ctaUrl: 'https://grenadacaricom2027.com',
+    footerNote: 'Grenada CARICOM Festival 2027 Secretariat • St. George\'s, Grenada',
+    referenceId: refCode,
+    metadata: {
+      'Submission Type': submission.type,
+      'Reference ID': refCode,
+      'Status': 'Logged & Under Review'
+    },
+    primaryColor
+  });
+};
+
+/**
+ * Universal Automatic Submission Dispatcher
+ * Automatically inspects the submission type and routes to the dedicated transactional template.
+ * Covers: pass-order, flight-registration, contact, transport-request, newsletter, and generic custom forms.
+ */
+export const dispatchAutomaticSubmissionEmail = async (
+  submission: FormSubmissionItem,
+  primaryColor = '#F59E0B'
+): Promise<{ success: boolean; log?: EmailLog; message?: string } | null> => {
+  if (!submission || !submission.email) {
+    return null;
+  }
+
+  try {
+    switch (submission.type) {
+      case 'pass-order':
+        return await dispatchOrderConfirmationEmail(submission, primaryColor);
+      case 'flight-registration':
+        return await dispatchWelcomeRegistrationEmail(submission, primaryColor);
+      case 'contact':
+        return await dispatchContactAcknowledgementEmail(submission, primaryColor);
+      case 'transport-request':
+        return await dispatchTransportConfirmationEmail(submission, primaryColor);
+      case 'newsletter':
+        return await dispatchNewsletterWelcomeEmail(submission, primaryColor);
+      default:
+        return await dispatchGeneralSubmissionConfirmationEmail(submission, primaryColor);
+    }
+  } catch (err: any) {
+    console.error(`[AUTOMATIC EMAIL TRIGGER ERROR] Type: ${submission.type}, SubId: ${submission.id}:`, err?.message || err);
+    return null;
+  }
+};
+

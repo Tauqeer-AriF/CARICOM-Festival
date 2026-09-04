@@ -118,7 +118,8 @@ import {
   ShieldAlert,
   Sliders,
   CalendarCheck,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
@@ -2185,42 +2186,75 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
              {/* TOP ACTION & TOOLBAR ROW */}
         <header className="h-16 border-b border-neutral-800 bg-[#0C0F1E]/50 backdrop-blur-md px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button 
               onClick={() => setMobileSidebarOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-neutral-400 hover:text-white"
+              className="lg:hidden p-2 -ml-2 text-neutral-400 hover:text-white shrink-0 cursor-pointer"
+              title="Open Navigation Menu"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="hidden sm:flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">Workspace</span>
+            <div className="hidden sm:flex items-center gap-2.5 text-xs font-bold text-slate-400 uppercase tracking-widest font-mono shrink-0">
+              <span>Workspace</span>
               <span className="text-neutral-600">/</span>
             </div>
-            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider truncate max-w-[120px] sm:max-w-none">
-              {activeAdminTab === 'submissions' && 'Submissions Repository'}
-              {activeAdminTab === 'orders' && 'Pass Orders & Reservations'}
-              {activeAdminTab === 'branding' && 'Visual Identity Lab'}
-              {activeAdminTab === 'analytics' && 'Analytics Dashboard'}
-              {activeAdminTab === 'events' && 'Event Coordinator'}
-              {activeAdminTab === 'gallery' && 'Curator Board'}
-              {activeAdminTab === 'passes' && 'Ticketing Packages'}
-              {activeAdminTab === 'hotels' && 'Partner Accommodations'}
-              {activeAdminTab === 'media' && 'Asset & Media Library'}
-              {activeAdminTab === 'system' && 'Infrastructure & Operations'}
-              {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
-              {activeAdminTab === 'backup' && 'System Backup & Recovery'}
-              {activeAdminTab === 'users' && 'Console Users & Access Control'}
-              {activeAdminTab === 'owner' && 'Owner Control Center'}
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
+                {activeAdminTab === 'submissions' && 'Submissions Repository'}
+                {activeAdminTab === 'orders' && 'Pass Orders & Reservations'}
+                {activeAdminTab === 'branding' && 'Visual Identity Lab'}
+                {activeAdminTab === 'analytics' && 'Analytics Dashboard'}
+                {activeAdminTab === 'events' && 'Event Coordinator'}
+                {activeAdminTab === 'gallery' && 'Curator Board'}
+                {activeAdminTab === 'passes' && 'Ticketing Packages'}
+                {activeAdminTab === 'hotels' && 'Partner Accommodations'}
+                {activeAdminTab === 'media' && 'Asset & Media Library'}
+                {activeAdminTab === 'system' && 'Infrastructure & Operations'}
+                {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
+                {activeAdminTab === 'backup' && 'System Backup & Recovery'}
+                {activeAdminTab === 'users' && 'Console Users & Access Control'}
+                {activeAdminTab === 'owner' && 'Owner Control Center'}
+              </span>
+              {activeAdminTab === 'submissions' && submissions.length > 0 && (
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-neutral-800/80 text-neutral-300 border border-neutral-700/60 shrink-0">
+                  {submissions.length} total
+                </span>
+              )}
+              {activeAdminTab === 'orders' && submissions.filter(s => s.type === 'pass-order').length > 0 && (
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
+                  {submissions.filter(s => s.type === 'pass-order').length} orders
+                </span>
+              )}
+            </div>
           </div>
 
           {/* ALL ACTION BUTTONS & SYNC CONTROLLER ALIGNED TO THE RIGHT */}
-          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto shrink-0">
+            {/* Persistent Real-Time Sync Controller */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-neutral-950/60 border border-neutral-800/80 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shrink-0">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span className="hidden lg:inline text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest font-mono">
+                Live DB
+              </span>
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                title="Force sync entire application state with server"
+              >
+                <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
+              </button>
+            </div>
+
             {/* Current Logged In User Pill */}
             {currentAdmin && (
               <div 
                 onClick={() => setActiveAdminTab('users')}
-                className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-neutral-950/80 border border-neutral-800 text-xs cursor-pointer hover:border-amber-500/40 transition-colors"
+                className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-neutral-950/80 border border-neutral-800 text-xs cursor-pointer hover:border-amber-500/40 transition-colors shrink-0"
                 title="View & manage console user accounts"
               >
                 <div 
@@ -2235,72 +2269,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </span>
               </div>
             )}
-            {(activeAdminTab === 'submissions' || activeAdminTab === 'orders') && (
-              <div className="flex items-center gap-2">
-                {/* 1. Export CSV */}
-                <button
-                  onClick={() => {
-                    const isOrders = activeAdminTab === 'orders';
-                    const targetSubmissions = submissions.filter(s => isOrders ? s.type === 'pass-order' : true);
-                    exportSubmissionsCSV(targetSubmissions, isOrders ? 'Grenada_Festival_Pass_Orders' : 'Grenada_Festival_Received_Forms');
-                  }}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-                  title="Download CSV spreadsheet"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Export CSV</span>
-                  <span className="sm:hidden">Export</span>
-                </button>
 
-                {/* 2. Import CSV */}
-                <button
-                  onClick={() => setShowImportCsvModal(true)}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-slate-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-lg border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-                  title="Bulk import submissions or orders from CSV"
-                >
-                  <Upload className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="hidden sm:inline">Import CSV</span>
-                  <span className="sm:hidden">Import</span>
-                </button>
-
-                {/* 3. New Record / Pass Order */}
-                <button
-                  onClick={() => {
-                    if (activeAdminTab === 'orders') {
-                      setNewSubForm(prev => ({ ...prev, type: 'pass-order' }));
-                    }
-                    setShowAddModal(true);
-                  }}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-transform active:scale-[0.98] cursor-pointer flex items-center gap-1 shadow-sm"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{activeAdminTab === 'orders' ? 'New Pass Order' : 'New Record'}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Persistent Real-Time Sync Controller */}
-            <div className="flex items-center gap-2 bg-neutral-950/60 border border-neutral-800/80 px-3 py-1.5 rounded-xl text-xs">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              <span className="hidden md:inline text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest font-mono">
-                Live DB
-              </span>
-              <button
-                onClick={handleManualSync}
-                disabled={isSyncing}
-                className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
-                title="Force sync entire application state with server"
-              >
-                <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
-              </button>
-            </div>
-
-            {/* Dark / Light Mode Toggle Button (Matching Front Header) */}
+            {/* Dark / Light Mode Toggle Button */}
             <button
               onClick={handleToggleTheme}
               id="admin-dashboard-theme-toggle"
@@ -2401,64 +2371,144 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
           {/* TAB 1: WORKSPACE SUBMISSIONS REPOSITORY */}
           {activeAdminTab === 'submissions' && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               
-              {/* FILTERS & SEARCH ROW */}
-              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-xl p-3 flex flex-col md:flex-row gap-3 justify-between items-center shadow-sm">
-                {/* Clean Search Input */}
-                <div className="relative w-full md:w-80">
-                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, details..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-amber-500 focus:outline-none"
-                  />
+              {/* COMPREHENSIVE ACTION & FILTER TOOLBAR */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
+                {/* Top Action Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-neutral-800/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-white tracking-wide">Received Submissions &amp; Records</h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-neutral-900 border border-neutral-800 text-neutral-300">
+                          {filteredSubmissions.length} of {submissions.length}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400">Manage contact inquiries, flight registrations, shuttle requests, and VIP forms</p>
+                    </div>
+                  </div>
+
+                  {/* Actions Group */}
+                  <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
+                    <button
+                      onClick={handleRefreshData}
+                      disabled={isRefreshing}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Reload latest records from database"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowImportCsvModal(true)}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Bulk import submissions from CSV file"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Import CSV</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        exportSubmissionsCSV(submissions, 'Grenada_Festival_Received_Forms');
+                      }}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Download complete submissions spreadsheet"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Export CSV</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowAddModal(true);
+                      }}
+                      className="px-3.5 py-1.5 font-black text-[11px] uppercase tracking-wider text-neutral-950 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-md ml-auto sm:ml-0"
+                      style={{ backgroundColor: primaryColor }}
+                      title="Add a manual record entry"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>New Record</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Refined Dropdowns */}
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-3 h-3 text-neutral-400" />
-                    <span className="text-[10px] text-neutral-400 font-bold uppercase font-sans">Form:</span>
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => setTypeFilter(e.target.value)}
-                      className="bg-neutral-950 border border-neutral-800 text-[11px] text-neutral-200 rounded-lg px-2 py-1.5 focus:border-amber-500 focus:outline-none"
-                    >
-                      <option value="all">All Submissions ({submissions.length})</option>
-                      <option value="contact">Contact Requests</option>
-                      <option value="flight-registration">Flight Registrations</option>
-                      <option value="pass-order">Pass Packages</option>
-                      <option value="transport-request">Shuttle Requests</option>
-                      <option value="newsletter">VIP newsletter</option>
-                    </select>
+                {/* Filter & Search Controls Row */}
+                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                  {/* Search input */}
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, details, ref number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-neutral-500 focus:border-amber-500 focus:outline-none transition-colors"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white p-0.5 rounded cursor-pointer"
+                        title="Clear search query"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-neutral-400 font-bold uppercase font-sans">Status:</span>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-neutral-950 border border-neutral-800 text-[11px] text-neutral-200 rounded-lg px-2 py-1.5 focus:border-amber-500 focus:outline-none"
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="new">New ({newCount})</option>
-                      <option value="in-review">In Review ({inReviewCount})</option>
-                      <option value="resolved">Resolved ({resolvedCount})</option>
-                    </select>
-                  </div>
+                  {/* Dropdowns & Reset */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                      <Filter className="w-3 h-3 text-neutral-400" />
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Form:</span>
+                      <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="bg-transparent border-0 text-[11px] text-neutral-200 font-medium focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="all" className="bg-neutral-950 text-white">All Types ({submissions.length})</option>
+                        <option value="contact" className="bg-neutral-950 text-white">Contact Requests</option>
+                        <option value="flight-registration" className="bg-neutral-950 text-white">Flight Registrations</option>
+                        <option value="pass-order" className="bg-neutral-950 text-white">Pass Packages</option>
+                        <option value="transport-request" className="bg-neutral-950 text-white">Shuttle Requests</option>
+                        <option value="newsletter" className="bg-neutral-950 text-white">VIP Newsletter</option>
+                      </select>
+                    </div>
 
-                  <button
-                    onClick={handleRefreshData}
-                    disabled={isRefreshing}
-                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 active:scale-95 text-neutral-300 hover:text-amber-400 rounded-lg border border-neutral-800 hover:border-amber-500/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm text-[11px] font-semibold"
-                    title="Refresh Data & Submissions"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">Refresh Data</span>
-                  </button>
+                    <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Status:</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="bg-transparent border-0 text-[11px] text-neutral-200 font-medium focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="all" className="bg-neutral-950 text-white">All Statuses</option>
+                        <option value="new" className="bg-neutral-950 text-white">New ({newCount})</option>
+                        <option value="in-review" className="bg-neutral-950 text-white">In Review ({inReviewCount})</option>
+                        <option value="resolved" className="bg-neutral-950 text-white">Resolved ({resolvedCount})</option>
+                      </select>
+                    </div>
+
+                    {(searchQuery || typeFilter !== 'all' || statusFilter !== 'all') && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setTypeFilter('all');
+                          setStatusFilter('all');
+                        }}
+                        className="px-2.5 py-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                        title="Reset all active filters"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -3152,32 +3202,127 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </section>
 
-              {/* Filters Bar */}
-              <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-sm">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search by Guest Name, Email, Order Ref, Pass Title..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 font-sans"
-                  />
+              {/* COMPREHENSIVE PASS ORDERS ACTION & FILTER TOOLBAR */}
+              <div className="bg-[#0C0F1E] border border-neutral-800/85 rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
+                {/* Top Action Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-neutral-800/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
+                      <Ticket className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-white tracking-wide">Pass Orders &amp; Delegate Dossiers</h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-neutral-900 border border-neutral-800 text-neutral-300">
+                          {submissions.filter(s => s.type === 'pass-order').length} orders
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400">Manage VIP packages, verified payments, wristband passes, and delegate manifests</p>
+                    </div>
+                  </div>
+
+                  {/* Actions Group */}
+                  <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
+                    <button
+                      onClick={handleRefreshData}
+                      disabled={isRefreshing}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Reload latest orders from database"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowImportCsvModal(true)}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Bulk import pass orders from CSV file"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Import CSV</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const targetSubmissions = submissions.filter(s => s.type === 'pass-order');
+                        exportSubmissionsCSV(targetSubmissions, 'Grenada_Festival_Pass_Orders');
+                      }}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-[11px] uppercase tracking-wider rounded-xl border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      title="Download pass orders spreadsheet"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Export CSV</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setNewSubForm(prev => ({ ...prev, type: 'pass-order' }));
+                        setShowAddModal(true);
+                      }}
+                      className="px-3.5 py-1.5 font-black text-[11px] uppercase tracking-wider text-neutral-950 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-md ml-auto sm:ml-0"
+                      style={{ backgroundColor: primaryColor }}
+                      title="Create a new pass reservation"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>New Pass Order</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Status:</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500 cursor-pointer font-bold"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="confirmed">Confirmed / Paid</option>
-                    <option value="in-review">In Review</option>
-                    <option value="new">New</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
+                {/* Filter & Search Controls Row */}
+                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                  {/* Search input */}
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search by Guest Name, Email, Order Ref, Pass Title..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-neutral-500 focus:border-amber-500 focus:outline-none transition-colors"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white p-0.5 rounded cursor-pointer"
+                        title="Clear search query"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Dropdown & Reset */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Status:</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="bg-transparent border-0 text-[11px] text-neutral-200 font-medium focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="all" className="bg-neutral-950 text-white">All Statuses</option>
+                        <option value="confirmed" className="bg-neutral-950 text-white">Confirmed / Paid</option>
+                        <option value="in-review" className="bg-neutral-950 text-white">In Review</option>
+                        <option value="new" className="bg-neutral-950 text-white">New</option>
+                        <option value="resolved" className="bg-neutral-950 text-white">Resolved</option>
+                      </select>
+                    </div>
+
+                    {(searchQuery || statusFilter !== 'all') && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setStatusFilter('all');
+                        }}
+                        className="px-2.5 py-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                        title="Reset filters"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
