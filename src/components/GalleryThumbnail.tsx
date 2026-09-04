@@ -88,14 +88,18 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   const cleanImageUrl = (item.imageUrl || '').trim();
   const cleanVideoUrl = (item.videoUrl || '').trim();
 
-  // Initial source determination
-  const initialSrc = cleanImageUrl || (!isVideo ? getFallbackImage(item) : '');
+  // Initial source determination: if cleanImageUrl is missing, use contextual fallback image
+  const initialSrc = cleanImageUrl || getFallbackImage(item);
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
   const [errorCount, setErrorCount] = useState<number>(0);
 
+  // Determine container positioning safely without relative/absolute class conflicts
+  const isAbsolute = className.includes('absolute');
+  const wrapperClass = `${isAbsolute ? '' : 'relative'} overflow-hidden bg-neutral-950 ${className}`.trim();
+
   // Sync state if props change
   useEffect(() => {
-    const nextSrc = cleanImageUrl || (!isVideo ? getFallbackImage(item) : '');
+    const nextSrc = cleanImageUrl || getFallbackImage(item);
     setCurrentSrc(nextSrc);
     setErrorCount(0);
   }, [cleanImageUrl, isVideo, item.title, item.category]);
@@ -126,7 +130,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     const ytThumb = getYouTubeThumbnail(cleanVideoUrl);
     if (ytThumb && errorCount < 2) {
       return (
-        <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+        <div className={wrapperClass}>
           <img
             src={ytThumb}
             alt={alt || item.title || 'Video Preview'}
@@ -140,7 +144,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     }
 
     return (
-      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <div className={wrapperClass}>
         <video
           src={`${cleanVideoUrl}#t=0.001`}
           preload="metadata"
@@ -155,7 +159,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   // 2. Direct Video File in imageUrl string
   if (currentSrc && isDirectVideoUrl(currentSrc)) {
     return (
-      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <div className={wrapperClass}>
         <video
           src={`${currentSrc}#t=0.001`}
           preload="metadata"
@@ -170,7 +174,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   // 3. Render Image
   if (currentSrc && errorCount < 3) {
     return (
-      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <div className={wrapperClass}>
         <img
           src={currentSrc}
           alt={alt || item.title || 'Festival Media'}
@@ -186,7 +190,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   // 4. Video Fallback if image failed
   if (isVideo && cleanVideoUrl) {
     return (
-      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <div className={wrapperClass}>
         <video
           src={`${cleanVideoUrl}#t=0.001`}
           preload="metadata"
@@ -200,7 +204,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
 
   // 5. Absolute fallback to verified festival image
   return (
-    <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+    <div className={wrapperClass}>
       <img
         src={FESTIVAL_IMAGES.gallery1}
         alt={alt || item.title || 'Festival Media'}

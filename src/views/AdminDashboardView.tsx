@@ -4124,9 +4124,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               <GalleryThumbnail
                                 item={item}
                                 className="absolute inset-0 w-full h-full"
-                                imageClassName="absolute inset-0 w-full h-full object-cover opacity-60 hover:opacity-80 transition-opacity"
+                                imageClassName="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent pointer-events-none" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/50 to-transparent pointer-events-none" />
                               
                               <div className="p-2 z-10 flex items-center justify-between w-full">
                                 <div className="flex items-center gap-1">

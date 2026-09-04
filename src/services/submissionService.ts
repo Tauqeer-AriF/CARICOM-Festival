@@ -1398,30 +1398,43 @@ export const getGalleryItems = (): GalleryItem[] => {
     const parsed: GalleryItem[] = JSON.parse(raw);
     let hasUpdates = false;
 
-    // Sanitize any broken or outdated URLs
+    // Sanitize any broken, missing, or outdated URLs
     const sanitized = parsed.map((item) => {
       let updatedItem = { ...item };
-      // Check if item has the old 404 Unsplash ID or empty image on a photo item
-      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1530731141654-5961b695817a')) {
-        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery2;
+      
+      // Match with static default list if present
+      const defaultMatch = GALLERY_ITEMS.find((d) => d.id === updatedItem.id);
+
+      // Restore image from default list if missing or broken
+      if (defaultMatch && (!updatedItem.imageUrl || updatedItem.imageUrl.trim() === '')) {
+        updatedItem.imageUrl = defaultMatch.imageUrl;
         hasUpdates = true;
       }
-      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1682687220063-4742bd7fd538')) {
-        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery6;
-        hasUpdates = true;
-      }
-      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1534447677768-be436bb09401')) {
-        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery10;
-        hasUpdates = true;
-      }
-      // If a non-video item has no image at all, restore default high-res image
-      if (updatedItem.mediaType !== 'video' && !updatedItem.videoUrl && !updatedItem.imageUrl) {
-        const defaultMatch = GALLERY_ITEMS.find((d) => d.id === updatedItem.id);
-        if (defaultMatch && defaultMatch.imageUrl) {
-          updatedItem.imageUrl = defaultMatch.imageUrl;
+
+      // Fix known dead Unsplash URLs from earlier versions
+      if (updatedItem.imageUrl) {
+        if (updatedItem.imageUrl.includes('photo-1530731141654-5961b695817a')) {
+          updatedItem.imageUrl = FESTIVAL_IMAGES.gallery2;
+          hasUpdates = true;
+        } else if (updatedItem.imageUrl.includes('photo-1682687220063-4742bd7fd538')) {
+          updatedItem.imageUrl = FESTIVAL_IMAGES.gallery6;
+          hasUpdates = true;
+        } else if (updatedItem.imageUrl.includes('photo-1534447677768-be436bb09401')) {
+          updatedItem.imageUrl = FESTIVAL_IMAGES.gallery10;
           hasUpdates = true;
         }
       }
+
+      // If an item still has no image URL, set it to a contextual high-res festival image
+      if (!updatedItem.imageUrl || updatedItem.imageUrl.trim() === '') {
+        if (defaultMatch && defaultMatch.imageUrl) {
+          updatedItem.imageUrl = defaultMatch.imageUrl;
+        } else {
+          updatedItem.imageUrl = FESTIVAL_IMAGES.gallery1;
+        }
+        hasUpdates = true;
+      }
+
       return updatedItem;
     });
 
