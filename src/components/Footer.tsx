@@ -82,36 +82,106 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
     <footer className="bg-[#05070A] text-slate-300 border-t border-white/10 pt-16 pb-12 mt-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Top CTA Card */}
+        {/* Top CTA Card with Integrated VIP Newsletter Form */}
         <div className="glass-card-amber rounded-3xl p-8 sm:p-10 mb-16 shadow-2xl relative overflow-hidden">
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-[0.2em] mb-3">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            
+            {/* Left Column: Heading & Description & Quick Action Buttons */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-[0.2em]">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" /> {festivalDateDisplay.toUpperCase()} • SPICE ISLE
               </div>
               <h3 className="text-2xl sm:text-4xl font-bold text-white font-serif tracking-tight">
                 Ready for London's Finest in Grenada?
               </h3>
-              <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-xl font-light">
-                Lock in your official festival passes, submit flight details for complimentary hotel transfer, and join us for an unforgettable celebration of Caribbean unity.
+              <p className="text-slate-300 text-xs sm:text-sm font-light leading-relaxed max-w-xl">
+                Lock in your official festival passes, submit flight details for complimentary hotel transfer, and join our VIP insider list for secret lineup drops and priority event access.
               </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  onClick={() => handleTab('shop')}
+                  className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg hover:scale-[1.02] cursor-pointer flex items-center gap-2"
+                >
+                  Get Festival Passes
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleTab('register')}
+                  className="px-6 py-3 glass-card hover:bg-white/10 text-white rounded-full font-semibold text-xs uppercase tracking-wider transition-all cursor-pointer border border-white/15"
+                >
+                  Submit Flight Details
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => handleTab('shop')}
-                className="px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg hover:scale-[1.02] cursor-pointer flex items-center gap-2"
-              >
-                Get Festival Passes
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleTab('register')}
-                className="px-6 py-3.5 glass-card hover:bg-white/10 text-white rounded-full font-semibold text-xs uppercase tracking-wider transition-all cursor-pointer border border-white/15"
-              >
-                Submit Flight Details
-              </button>
+            {/* Right Column: Newsletter Subscription Box */}
+            <div className="lg:col-span-5 w-full">
+              <div className="bg-[#0A0D14]/90 border border-amber-500/30 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-white font-sans">
+                        VIP Newsletter & Lineup Drops
+                      </h4>
+                      <p className="text-[10px] text-neutral-400 font-light">
+                        Secret London DJ announcements & VIP perks
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {newsletterSubmitted ? (
+                  <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <h5 className="text-xs font-bold text-white">You're on the VIP list!</h5>
+                      <p className="text-[11px] text-neutral-300">
+                        Welcome dossier automatically dispatched to <span className="text-amber-400 font-semibold">{newsletterEmail}</span>.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleNewsletterSubmit} className="space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={newsletterName}
+                        onChange={(e) => setNewsletterName(e.target.value)}
+                        placeholder="Your Name (Optional)"
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                      <input
+                        type="email"
+                        required
+                        value={newsletterEmail}
+                        onChange={(e) => setNewsletterEmail(e.target.value)}
+                        placeholder="name@email.com"
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs rounded-xl shadow-md shadow-amber-500/10 transition-all hover:scale-[1.01] active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Subscribe to VIP Newsletter</span>
+                    </button>
+                  </form>
+                )}
+
+                <div className="flex items-center justify-between text-[10px] text-neutral-500 pt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-400/80" /> Instant welcome dossier
+                  </span>
+                  <span>Zero spam • Unsubscribe anytime</span>
+                </div>
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -300,62 +370,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
             </div>
           </div>
 
-        </div>
-
-        {/* VIP Newsletter & Lineup Drops Subscription */}
-        <div className="py-8 border-b border-white/10 my-4">
-          <div className="bg-gradient-to-r from-amber-500/10 via-neutral-900 to-amber-500/5 border border-amber-500/20 rounded-2xl p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="space-y-1.5 text-center lg:text-left max-w-xl">
-              <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-bold font-mono uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" /> VIP Insider Access
-              </div>
-              <h4 className="text-xl font-bold text-white font-serif">
-                Join the CARICOM 2027 VIP Insider List
-              </h4>
-              <p className="text-xs text-neutral-300 font-light leading-relaxed">
-                Receive secret London DJ lineup drops, exclusive Carnival boat cruise ticket alerts, and instant welcome confirmation straight to your inbox.
-              </p>
-            </div>
-
-            <div className="w-full lg:w-auto">
-              {newsletterSubmitted ? (
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3 text-left">
-                  <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
-                  <div>
-                    <h5 className="text-xs font-bold text-white">Welcome to the VIP Circle!</h5>
-                    <p className="text-[11px] text-neutral-300">
-                      An official welcome dossier and festival lineup preview has been automatically dispatched to <span className="text-amber-400 font-semibold">{newsletterEmail}</span>.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-md">
-                  <input
-                    type="text"
-                    value={newsletterName}
-                    onChange={(e) => setNewsletterName(e.target.value)}
-                    placeholder="Your Name"
-                    className="w-full sm:w-36 px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
-                  />
-                  <input
-                    type="email"
-                    required
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    placeholder="name@domain.com"
-                    className="w-full sm:w-56 px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Join</span>
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Bottom Bar */}
