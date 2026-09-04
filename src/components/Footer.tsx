@@ -152,7 +152,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                         value={newsletterName}
                         onChange={(e) => setNewsletterName(e.target.value)}
                         placeholder="Your Name (Optional)"
-                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder:text-neutral-500 placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors"
                       />
                       <input
                         type="email"
@@ -160,7 +160,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                         value={newsletterEmail}
                         onChange={(e) => setNewsletterEmail(e.target.value)}
                         placeholder="name@email.com"
-                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder:text-neutral-500 placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors"
                       />
                     </div>
                     <button
