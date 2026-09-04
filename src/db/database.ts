@@ -142,6 +142,19 @@ export async function getDb(): Promise<any> {
         id TEXT PRIMARY KEY,
         data_json TEXT
       );
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id TEXT PRIMARY KEY,
+        data_json TEXT,
+        created_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS email_settings (
+        id TEXT PRIMARY KEY,
+        data_json TEXT
+      );
+      CREATE TABLE IF NOT EXISTS email_templates (
+        id TEXT PRIMARY KEY,
+        data_json TEXT
+      );
       CREATE TABLE IF NOT EXISTS system_meta (
         key TEXT PRIMARY KEY,
         value TEXT

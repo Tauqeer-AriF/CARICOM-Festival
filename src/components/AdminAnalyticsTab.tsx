@@ -873,7 +873,7 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
                     </div>
 
                     <div className="pt-4 mt-4 border-t border-neutral-800/60 text-[10px] text-neutral-500 leading-normal">
-                      * Visitor counts are simulated based on international flight records, arrivals logs, and pass orders assigned to sector hoteliers.
+                      * Visitor counts are calculated based on international flight records, arrivals logs, and pass orders assigned to sector hoteliers.
                     </div>
                   </div>
 

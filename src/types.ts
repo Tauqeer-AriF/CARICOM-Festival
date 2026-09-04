@@ -290,4 +290,77 @@ export interface AdminUser {
   notes?: string;
 }
 
+export type EmailDeliveryStatus = 'delivered' | 'dispatched' | 'queued' | 'failed';
+
+export type EmailCategory = 
+  | 'order_confirmation' 
+  | 'welcome_registration' 
+  | 'enquiry_reply' 
+  | 'vendor_application' 
+  | 'vip_invitation' 
+  | 'broadcast_campaign' 
+  | 'test_dispatch' 
+  | 'system_alert';
+
+export interface EmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName?: string;
+  subject: string;
+  category: EmailCategory;
+  contentHtml: string;
+  contentText?: string;
+  status: EmailDeliveryStatus;
+  dispatchedAt: string;
+  senderName: string;
+  senderEmail: string;
+  referenceId?: string;
+  metadata?: Record<string, any>;
+  errorDetails?: string;
+  openedAt?: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  category: EmailCategory;
+  name: string;
+  description: string;
+  subject: string;
+  headline: string;
+  introText: string;
+  bodyText: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  footerNote: string;
+  updatedAt: string;
+}
+
+export type EmailEngineMode = 'resend' | 'sendgrid' | 'mailchimp' | 'smtp';
+
+export interface EmailSettings {
+  engineMode: EmailEngineMode;
+  senderName: string;
+  senderEmail: string;
+  replyToEmail: string;
+  organisationAddress: string;
+  festivalWebsiteUrl: string;
+  // Optional External SaaS accounts
+  resendApiKey?: string;
+  sendgridApiKey?: string;
+  mailchimpApiKey?: string;
+  // Optional Custom SMTP gateway
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  smtpPassword?: string;
+  // Automation triggers
+  autoSendOrderConfirmation: boolean;
+  autoSendWelcomeRegistration: boolean;
+  autoSendEnquiryReply: boolean;
+  bccSecretariatOnOrders: boolean;
+  secretariatBccEmail?: string;
+}
+
+
 

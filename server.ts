@@ -4,6 +4,7 @@ import fs from 'fs';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
 import sharp from 'sharp';
+import nodemailer from 'nodemailer';
 import { createServer as createViteServer } from 'vite';
 import { getDb } from './src/db/database';
 
@@ -507,6 +508,556 @@ async function startServer() {
       const senderId = req.headers['x-client-id'] as string;
       broadcast('submissions', senderId);
       res.json(INITIAL_DEMO_SUBMISSIONS);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ==========================================
+  // API Routes: Email Suite & Communications
+  // ==========================================
+  app.get('/api/email/settings', async (req, res) => {
+    try {
+      const row = await db.get("SELECT data_json FROM email_settings WHERE id = 'main'");
+      if (row && row.data_json) {
+        return res.json(JSON.parse(row.data_json));
+      }
+      res.json(null);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/settings', async (req, res) => {
+    try {
+      const settings = req.body;
+      await db.run(
+        "INSERT OR REPLACE INTO email_settings (id, data_json) VALUES ('main', ?)",
+        JSON.stringify(settings)
+      );
+      res.json({ success: true, settings });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/email/templates', async (req, res) => {
+    try {
+      const rows = await db.all("SELECT data_json FROM email_templates");
+      const templates = rows.map(r => JSON.parse(r.data_json));
+      res.json(templates);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/templates', async (req, res) => {
+    try {
+      const templates = req.body;
+      if (Array.isArray(templates)) {
+        await db.run("DELETE FROM email_templates");
+        for (const t of templates) {
+          await db.run(
+            "INSERT INTO email_templates (id, data_json) VALUES (?, ?)",
+            t.id,
+            JSON.stringify(t)
+          );
+        }
+      }
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/email/logs', async (req, res) => {
+    try {
+      const rows = await db.all("SELECT data_json FROM email_logs ORDER BY created_at DESC LIMIT 200");
+      const logs = rows.map(r => JSON.parse(r.data_json));
+      res.json(logs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/logs', async (req, res) => {
+    try {
+      const log = req.body;
+      const createdAt = log.dispatchedAt || new Date().toISOString();
+      await db.run(
+        "INSERT OR REPLACE INTO email_logs (id, data_json, created_at) VALUES (?, ?, ?)",
+        log.id,
+        JSON.stringify(log),
+        createdAt
+      );
+      res.json({ success: true, log });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete('/api/email/logs/:id', async (req, res) => {
+    try {
+      await db.run("DELETE FROM email_logs WHERE id = ?", req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/logs/clear', async (req, res) => {
+    try {
+      await db.run("DELETE FROM email_logs");
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/dispatch', async (req, res) => {
+    try {
+      const {
+        recipientEmail,
+        recipientName,
+        subject,
+        category,
+        contentHtml,
+        contentText,
+        referenceId,
+        settings,
+        metadata
+      } = req.body;
+
+      let status: 'delivered' | 'failed' = 'delivered';
+      let message = '';
+      let errorDetails: string | undefined = undefined;
+
+      // 1. Resend SaaS API Dispatch
+      if (settings && settings.engineMode === 'resend') {
+        if (!settings.resendApiKey || !settings.resendApiKey.trim()) {
+          status = 'failed';
+          errorDetails = 'Resend API key is not configured in Email Settings.';
+          message = 'Delivery failed: Resend API key is missing. Please configure it in Mailbox Settings.';
+        } else {
+          try {
+            const fromAddress = settings.senderEmail && !settings.senderEmail.includes('grenadacaricom2027.com')
+              ? `"${settings.senderName || 'Grenada CARICOM Festival'}" <${settings.senderEmail}>`
+              : `"${settings.senderName || 'Grenada CARICOM Festival'}" <onboarding@resend.dev>`;
+
+            const resendRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${settings.resendApiKey.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: fromAddress,
+                to: [recipientEmail],
+                subject: subject,
+                html: contentHtml,
+                text: contentText || subject,
+                reply_to: settings.replyToEmail || undefined
+              })
+            });
+
+            const resendData = await resendRes.json();
+            if (!resendRes.ok) {
+              throw new Error(resendData.message || `Resend HTTP ${resendRes.status}`);
+            }
+            status = 'delivered';
+            message = `Email successfully delivered to ${recipientEmail} via Resend API (Message ID: ${resendData.id || 'confirmed'}).`;
+          } catch (resendErr: any) {
+            console.error('[EMAIL ENGINE] Resend delivery error:', resendErr.message);
+            status = 'failed';
+            errorDetails = resendErr.message;
+            message = `Resend delivery failed: ${resendErr.message}`;
+          }
+        }
+      }
+      // 2. Twilio SendGrid SaaS API Dispatch
+      else if (settings && settings.engineMode === 'sendgrid') {
+        if (!settings.sendgridApiKey || !settings.sendgridApiKey.trim()) {
+          status = 'failed';
+          errorDetails = 'Twilio SendGrid API key is not configured in Email Settings.';
+          message = 'Delivery failed: SendGrid API key is missing. Please configure it in Mailbox Settings.';
+        } else {
+          try {
+            const sendgridRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${settings.sendgridApiKey.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                personalizations: [{
+                  to: [{ email: recipientEmail, name: recipientName || undefined }]
+                }],
+                from: {
+                  email: settings.senderEmail || 'concierge@grenadacaricom2027.com',
+                  name: settings.senderName || 'Grenada CARICOM Festival'
+                },
+                reply_to: {
+                  email: settings.replyToEmail || settings.senderEmail || 'concierge@grenadacaricom2027.com'
+                },
+                subject: subject,
+                content: [
+                  { type: 'text/plain', value: contentText || subject },
+                  { type: 'text/html', value: contentHtml }
+                ]
+              })
+            });
+
+            if (!sendgridRes.ok) {
+              const errText = await sendgridRes.text();
+              let parsedErr = errText;
+              try {
+                const jsonErr = JSON.parse(errText);
+                parsedErr = jsonErr.errors?.[0]?.message || errText;
+              } catch {}
+              throw new Error(parsedErr || `SendGrid HTTP ${sendgridRes.status}`);
+            }
+            status = 'delivered';
+            message = `Email successfully delivered to ${recipientEmail} via Twilio SendGrid API.`;
+          } catch (sgErr: any) {
+            console.error('[EMAIL ENGINE] SendGrid delivery error:', sgErr.message);
+            status = 'failed';
+            errorDetails = sgErr.message;
+            message = `SendGrid delivery failed: ${sgErr.message}`;
+          }
+        }
+      }
+      // 3. Mailchimp Transactional / Mandrill SaaS API Dispatch
+      else if (settings && settings.engineMode === 'mailchimp') {
+        if (!settings.mailchimpApiKey || !settings.mailchimpApiKey.trim()) {
+          status = 'failed';
+          errorDetails = 'Mailchimp Transactional API key is not configured in Email Settings.';
+          message = 'Delivery failed: Mailchimp Mandrill API key is missing. Please configure it in Mailbox Settings.';
+        } else {
+          try {
+            const mandrillRes = await fetch('https://mandrillapp.com/api/1.0/messages/send.json', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                key: settings.mailchimpApiKey.trim(),
+                message: {
+                  html: contentHtml,
+                  text: contentText || subject,
+                  subject: subject,
+                  from_email: settings.senderEmail || 'concierge@grenadacaricom2027.com',
+                  from_name: settings.senderName || 'Grenada CARICOM Festival',
+                  to: [{
+                    email: recipientEmail,
+                    name: recipientName || undefined,
+                    type: 'to'
+                  }],
+                  headers: {
+                    'Reply-To': settings.replyToEmail || settings.senderEmail || 'concierge@grenadacaricom2027.com'
+                  }
+                }
+              })
+            });
+
+            const mandrillData = await mandrillRes.json();
+            if (!mandrillRes.ok || (Array.isArray(mandrillData) && mandrillData[0]?.status === 'rejected')) {
+              const errReason = Array.isArray(mandrillData) ? mandrillData[0]?.reject_reason : mandrillData.message;
+              throw new Error(errReason || `Mailchimp HTTP ${mandrillRes.status}`);
+            }
+            status = 'delivered';
+            message = `Email successfully delivered to ${recipientEmail} via Mailchimp Transactional API.`;
+          } catch (mcErr: any) {
+            console.error('[EMAIL ENGINE] Mailchimp delivery error:', mcErr.message);
+            status = 'failed';
+            errorDetails = mcErr.message;
+            message = `Mailchimp delivery failed: ${mcErr.message}`;
+          }
+        }
+      }
+      // 4. Custom SMTP Gateway Dispatch
+      else if (settings && settings.engineMode === 'smtp') {
+        if (!settings.smtpUser || !settings.smtpPassword) {
+          status = 'failed';
+          errorDetails = 'SMTP username and password credentials are not configured.';
+          message = 'Delivery failed: SMTP credentials are not configured in Mailbox Settings.';
+        } else {
+          try {
+            const transporter = nodemailer.createTransport({
+              host: settings.smtpHost || 'smtp.gmail.com',
+              port: Number(settings.smtpPort) || 587,
+              secure: Boolean(settings.smtpSecure),
+              auth: {
+                user: settings.smtpUser,
+                pass: settings.smtpPassword
+              },
+              tls: {
+                rejectUnauthorized: false
+              }
+            });
+
+            await transporter.sendMail({
+              from: `"${settings.senderName || 'Grenada CARICOM Festival'}" <${settings.senderEmail || settings.smtpUser}>`,
+              to: recipientName ? `"${recipientName}" <${recipientEmail}>` : recipientEmail,
+              subject: subject,
+              text: contentText || subject,
+              html: contentHtml,
+              replyTo: settings.replyToEmail || settings.senderEmail
+            });
+
+            status = 'delivered';
+            message = `Email successfully delivered to ${recipientEmail} via SMTP server.`;
+          } catch (smtpErr: any) {
+            console.error('[EMAIL ENGINE] SMTP delivery error:', smtpErr.message);
+            status = 'failed';
+            errorDetails = smtpErr.message;
+            message = `SMTP delivery failed: ${smtpErr.message}`;
+          }
+        }
+      } else {
+        status = 'failed';
+        errorDetails = 'No valid email delivery provider is configured.';
+        message = 'Please select a delivery provider (Resend, SendGrid, Mailchimp, or SMTP) and enter your credentials in Mailbox Settings.';
+      }
+
+      // Store in SQLite email_logs
+      const logId = `eml-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const logEntry = {
+        id: logId,
+        recipientEmail,
+        recipientName,
+        subject,
+        category: category || 'system_alert',
+        contentHtml,
+        contentText,
+        status,
+        dispatchedAt: new Date().toISOString(),
+        senderName: settings?.senderName || 'Grenada CARICOM Festival Secretariat',
+        senderEmail: settings?.senderEmail || 'concierge@grenadacaricom2027.com',
+        referenceId: referenceId || `GCF-2027-${Math.floor(1000 + Math.random() * 9000)}`,
+        metadata,
+        errorDetails
+      };
+
+      await db.run(
+        "INSERT INTO email_logs (id, data_json, created_at) VALUES (?, ?, ?)",
+        logId,
+        JSON.stringify(logEntry),
+        logEntry.dispatchedAt
+      );
+
+      res.json({
+        success: status === 'delivered',
+        status,
+        message,
+        error: errorDetails,
+        log: logEntry
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/email/test', async (req, res) => {
+    try {
+      const { testRecipient, settings } = req.body;
+      if (!testRecipient) {
+        return res.status(400).json({ error: 'Please specify a test recipient email address.' });
+      }
+
+      // 1. Resend Verification Test
+      if (settings && settings.engineMode === 'resend') {
+        if (!settings.resendApiKey || !settings.resendApiKey.trim()) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: 'Please provide your Resend API Key (e.g. re_...) in the settings field to test connectivity.'
+          });
+        }
+
+        try {
+          const fromAddress = settings.senderEmail && !settings.senderEmail.includes('grenadacaricom2027.com')
+            ? `"${settings.senderName || 'Grenada CARICOM Festival'}" <${settings.senderEmail}>`
+            : `"${settings.senderName || 'Grenada CARICOM Festival'}" <onboarding@resend.dev>`;
+
+          const resendRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${settings.resendApiKey.trim()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: [testRecipient],
+              subject: 'Official Verification Test — Grenada CARICOM Festival 2027',
+              text: 'This is a test communiqué verifying the Resend SaaS connectivity for the Grenada CARICOM Festival 2027.',
+              html: '<div style="font-family: Georgia, serif; padding: 24px; background: #0c0f14; color: #fff; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.4);"><h2 style="color: #F59E0B; margin: 0 0 10px 0;">Grenada CARICOM Festival 2027</h2><p style="color: #e5e5e5; font-size: 14px;">Resend API connection test successful. Outgoing communications are verified and operational.</p></div>'
+            })
+          });
+
+          const data = await resendRes.json();
+          if (!resendRes.ok) {
+            throw new Error(data.message || `Resend HTTP ${resendRes.status}`);
+          }
+
+          return res.json({
+            success: true,
+            status: 'delivered',
+            message: `Resend API verified successfully! Dispatched test ID: ${data.id || 'ok'}`
+          });
+        } catch (resendErr: any) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: `Resend test error: ${resendErr.message}`
+          });
+        }
+      }
+
+      // 2. SendGrid Verification Test
+      if (settings && settings.engineMode === 'sendgrid') {
+        if (!settings.sendgridApiKey || !settings.sendgridApiKey.trim()) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: 'Please provide your Twilio SendGrid API Key (e.g. SG....) to test connectivity.'
+          });
+        }
+
+        try {
+          const sendgridRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${settings.sendgridApiKey.trim()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              personalizations: [{ to: [{ email: testRecipient }] }],
+              from: {
+                email: settings.senderEmail || 'concierge@grenadacaricom2027.com',
+                name: settings.senderName || 'Grenada CARICOM Festival'
+              },
+              subject: 'Official Verification Test — Grenada CARICOM Festival 2027',
+              content: [
+                {
+                  type: 'text/html',
+                  value: '<div style="font-family: Georgia, serif; padding: 24px; background: #0c0f14; color: #fff; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.4);"><h2 style="color: #F59E0B; margin: 0 0 10px 0;">Grenada CARICOM Festival 2027</h2><p style="color: #e5e5e5; font-size: 14px;">SendGrid API test verified! Communications are operational.</p></div>'
+                }
+              ]
+            })
+          });
+
+          if (!sendgridRes.ok) {
+            const errText = await sendgridRes.text();
+            let parsed = errText;
+            try {
+              const j = JSON.parse(errText);
+              parsed = j.errors?.[0]?.message || errText;
+            } catch {}
+            throw new Error(parsed || `SendGrid HTTP ${sendgridRes.status}`);
+          }
+
+          return res.json({
+            success: true,
+            status: 'delivered',
+            message: 'SendGrid API verified successfully! Test email dispatched.'
+          });
+        } catch (sgErr: any) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: `SendGrid test error: ${sgErr.message}`
+          });
+        }
+      }
+
+      // 3. Mailchimp Transactional / Mandrill Test
+      if (settings && settings.engineMode === 'mailchimp') {
+        if (!settings.mailchimpApiKey || !settings.mailchimpApiKey.trim()) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: 'Please provide your Mailchimp Mandrill API Key to test connectivity.'
+          });
+        }
+
+        try {
+          const mandrillRes = await fetch('https://mandrillapp.com/api/1.0/messages/send.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key: settings.mailchimpApiKey.trim(),
+              message: {
+                html: '<div style="font-family: Georgia, serif; padding: 24px; background: #0c0f14; color: #fff; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.4);"><h2 style="color: #F59E0B; margin: 0 0 10px 0;">Grenada CARICOM Festival 2027</h2><p style="color: #e5e5e5; font-size: 14px;">Mailchimp Mandrill connection test verified!</p></div>',
+                text: 'Mailchimp connection test verified.',
+                subject: 'Official Verification Test — Grenada CARICOM Festival 2027',
+                from_email: settings.senderEmail || 'concierge@grenadacaricom2027.com',
+                from_name: settings.senderName || 'Grenada CARICOM Festival',
+                to: [{ email: testRecipient, type: 'to' }]
+              }
+            })
+          });
+
+          const mandrillData = await mandrillRes.json();
+          if (!mandrillRes.ok || (Array.isArray(mandrillData) && mandrillData[0]?.status === 'rejected')) {
+            const errReason = Array.isArray(mandrillData) ? mandrillData[0]?.reject_reason : mandrillData.message;
+            throw new Error(errReason || `Mailchimp HTTP ${mandrillRes.status}`);
+          }
+
+          return res.json({
+            success: true,
+            status: 'delivered',
+            message: 'Mailchimp Transactional API verified successfully! Test email dispatched.'
+          });
+        } catch (mcErr: any) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: `Mailchimp test error: ${mcErr.message}`
+          });
+        }
+      }
+
+      // 4. Custom SMTP Gateway Test
+      if (settings && settings.engineMode === 'smtp' && settings.smtpUser && settings.smtpPassword) {
+        try {
+          const transporter = nodemailer.createTransport({
+            host: settings.smtpHost || 'smtp.gmail.com',
+            port: Number(settings.smtpPort) || 587,
+            secure: Boolean(settings.smtpSecure),
+            auth: {
+              user: settings.smtpUser,
+              pass: settings.smtpPassword
+            },
+            tls: { rejectUnauthorized: false }
+          });
+
+          await transporter.verify();
+          await transporter.sendMail({
+            from: `"${settings.senderName || 'Festival Secretariat'}" <${settings.senderEmail || settings.smtpUser}>`,
+            to: testRecipient,
+            subject: 'Official Verification Test — Grenada CARICOM Festival 2027',
+            text: 'This is a test communiqué verifying the outgoing email connectivity for the Grenada CARICOM Festival 2027.',
+            html: '<div style="font-family: Arial, sans-serif; padding: 20px; background: #0c0f14; color: #fff; border-radius: 12px;"><h2 style="color: #F59E0B;">Grenada CARICOM Festival 2027</h2><p>Connection verification successful. Outgoing communications are fully operational.</p></div>'
+          });
+
+          return res.json({
+            success: true,
+            status: 'delivered',
+            message: 'SMTP handshake and test dispatch completed successfully!'
+          });
+        } catch (smtpErr: any) {
+          return res.json({
+            success: false,
+            status: 'failed',
+            message: `SMTP test failed: ${smtpErr.message}`
+          });
+        }
+      }
+
+      // No valid email delivery provider credentials configured
+      return res.json({
+        success: false,
+        status: 'failed',
+        message: 'No email delivery credentials configured. Please select a provider (Resend, SendGrid, Mailchimp, or SMTP) and enter your credentials in Mailbox Settings.'
+      });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

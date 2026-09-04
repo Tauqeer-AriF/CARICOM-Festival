@@ -58,6 +58,7 @@ const TAB_LABELS: Record<AdminTabId, string> = {
   'analytics': 'Analytics',
   'submissions': 'Received Forms',
   'orders': 'Pass Orders',
+  'emails': 'Email Suite',
   'branding': 'Customiser Studio',
   'page-images': 'Page Images',
   'events': 'Event Manager',

@@ -7,6 +7,11 @@ import {
   normalizeTypeTag, 
   normalizeStatusTag 
 } from '../utils/submissionTags';
+import { 
+  dispatchOrderConfirmationEmail, 
+  dispatchWelcomeRegistrationEmail, 
+  dispatchEnquiryReplyEmail 
+} from './emailService';
 
 const SUBMISSIONS_KEY = 'grenada_caricom_submissions_v1';
 const SITE_CONFIG_KEY = 'grenada_caricom_site_config_v1';
@@ -670,6 +675,17 @@ export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt'
     body: JSON.stringify(newSub)
   });
 
+  // Automated transactional email triggers
+  try {
+    if (newSub.type === 'pass-order') {
+      dispatchOrderConfirmationEmail(newSub).catch(e => console.warn('Order confirmation email trigger:', e));
+    } else if (newSub.type === 'flight-registration') {
+      dispatchWelcomeRegistrationEmail(newSub).catch(e => console.warn('Welcome registration email trigger:', e));
+    }
+  } catch (err) {
+    console.warn('Non-blocking transactional email dispatch notice:', err);
+  }
+
   return newSub;
 };
 
@@ -760,6 +776,16 @@ export const addSubmissionReply = (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newReply)
   });
+
+  // Automated transactional email trigger for enquiry replies
+  try {
+    const targetItem = current.find(item => item.id === id);
+    if (targetItem && targetItem.email) {
+      dispatchEnquiryReplyEmail(targetItem, replyMessage, sentBy).catch(e => console.warn('Enquiry reply dispatch notice:', e));
+    }
+  } catch (err) {
+    console.warn('Non-blocking transactional email dispatch notice:', err);
+  }
 };
 
 export const deleteSubmission = (id: string): void => {

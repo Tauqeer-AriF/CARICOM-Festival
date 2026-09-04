@@ -151,6 +151,8 @@ import { EditHotelModal } from '../components/EditHotelModal';
 import { EditTestimonialModal } from '../components/EditTestimonialModal';
 import { AdminUsersTab } from '../components/AdminUsersTab';
 import { OwnerControlTab } from '../components/OwnerControlTab';
+import { AdminEmailSuiteTab } from '../components/AdminEmailSuiteTab';
+import { getEmailLogs } from '../services/emailService';
 import { 
   SubmissionTypeBadge, 
   SubmissionStatusBadge, 
@@ -2092,6 +2094,34 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 }}
               >
                 {getAdminUsers().filter(u => u.role !== 'Owner' && u.username.toLowerCase() !== 'owner').length}
+              </span>
+            </button>
+          )}
+
+          {hasRoleAccess(currentAdmin?.role, 'emails') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('emails');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'emails'
+                  ? 'text-neutral-950 shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+              }`}
+              style={activeAdminTab === 'emails' ? { backgroundColor: primaryColor } : undefined}
+            >
+              <span className="flex items-center gap-2.5">
+                <Mail className="w-4 h-4" /> Email Suite
+              </span>
+              <span 
+                className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                style={{
+                  backgroundColor: activeAdminTab === 'emails' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: activeAdminTab === 'emails' ? '#000000' : '#d4d4d4'
+                }}
+              >
+                {getEmailLogs().length}
               </span>
             </button>
           )}
@@ -4676,6 +4706,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <AdminUsersTab
               primaryColor={primaryColor}
               triggerConfirm={triggerConfirm}
+              onToast={(msg) => {
+                setSaveToast(msg);
+              }}
+            />
+          )}
+
+          {activeAdminTab === 'emails' && (
+            <AdminEmailSuiteTab
+              primaryColor={primaryColor}
+              submissions={submissions}
               onToast={(msg) => {
                 setSaveToast(msg);
               }}
