@@ -30,7 +30,14 @@ import {
   ArrowRight,
   Globe,
   Sliders,
-  Check
+  Check,
+  HelpCircle,
+  BookOpen,
+  Info,
+  X,
+  Lock,
+  Server,
+  CheckCircle
 } from 'lucide-react';
 import { 
   EmailLog, 
@@ -104,6 +111,15 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
+
+  // Mailbox Setup Instructions Modal State
+  const [showSetupInstructionsModal, setShowSetupInstructionsModal] = useState(false);
+  const [instructionProviderTab, setInstructionProviderTab] = useState<'resend' | 'gmail' | 'sendgrid' | 'outlook' | 'mailchimp' | 'custom_smtp'>('resend');
+
+  const openSetupGuideFor = (provider: 'resend' | 'gmail' | 'sendgrid' | 'outlook' | 'mailchimp' | 'custom_smtp') => {
+    setInstructionProviderTab(provider);
+    setShowSetupInstructionsModal(true);
+  };
 
   const toggleShowKey = (provider: string) => {
     setShowApiKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
@@ -1401,14 +1417,25 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
         <div className="space-y-5 sm:space-y-6">
           {/* Engine Mode Selection Cards */}
           <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 sm:p-6">
-            <div className="max-w-2xl mb-5 sm:mb-6">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
-                Dispatch Engine Provider
-              </span>
-              <h2 className="text-lg sm:text-xl font-bold text-white font-serif">Select Outgoing Mail Mechanism</h2>
-              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                Select your authenticated email delivery provider. All pass order confirmations, welcome dossiers, and concierge announcements are transmitted through your configured provider.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 sm:mb-6">
+              <div className="max-w-2xl">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
+                  Dispatch Engine Provider
+                </span>
+                <h2 className="text-lg sm:text-xl font-bold text-white font-serif">Select Outgoing Mail Mechanism</h2>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  Select your authenticated email delivery provider. All pass order confirmations, welcome dossiers, and concierge announcements are transmitted through your configured provider.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSetupInstructionsModal(true)}
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0 self-start sm:self-center"
+              >
+                <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Setup Instructions &amp; Guide</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
@@ -1444,13 +1471,25 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   </p>
                 </div>
 
-                <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses Resend API Key (<code className="text-amber-400 font-mono">re_...</code>)</span>
+                <div className="space-y-2">
+                  <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses Resend API Key (<code className="text-amber-400 font-mono">re_...</code>)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Real-time HTTP dispatch</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Real-time HTTP dispatch</span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSetupGuideFor('resend');
+                    }}
+                    className="w-full text-center text-[10px] font-bold text-amber-400/90 hover:text-amber-300 py-1 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <BookOpen className="w-3 h-3" /> View Resend Setup Steps
+                  </button>
                 </div>
               </div>
 
@@ -1486,13 +1525,25 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   </p>
                 </div>
 
-                <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses SendGrid Key (<code className="text-amber-400 font-mono">SG....</code>)</span>
+                <div className="space-y-2">
+                  <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span className="truncate">Uses SendGrid Key (<code className="text-amber-400 font-mono">SG....</code>)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Requires Single Sender</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Requires Single Sender</span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSetupGuideFor('sendgrid');
+                    }}
+                    className="w-full text-center text-[10px] font-bold text-amber-400/90 hover:text-amber-300 py-1 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <BookOpen className="w-3 h-3" /> View SendGrid Setup Steps
+                  </button>
                 </div>
               </div>
 
@@ -1528,13 +1579,25 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   </p>
                 </div>
 
-                <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Uses Mandrill API Key</span>
+                <div className="space-y-2">
+                  <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Uses Mandrill API Key</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Transactional relay</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Transactional relay</span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSetupGuideFor('mailchimp');
+                    }}
+                    className="w-full text-center text-[10px] font-bold text-amber-400/90 hover:text-amber-300 py-1 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <BookOpen className="w-3 h-3" /> View Mandrill Setup Steps
+                  </button>
                 </div>
               </div>
 
@@ -1570,14 +1633,59 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   </p>
                 </div>
 
-                <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Google &amp; Microsoft accounts</span>
+                <div className="space-y-2">
+                  <div className="bg-neutral-950/80 rounded-xl p-3 border border-neutral-800/80 space-y-1.5 text-[11px] text-neutral-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Google &amp; Microsoft accounts</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Port 587/465 TLS Relay</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" /> <span>Port 587/465 TLS Relay</span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSetupGuideFor('gmail');
+                    }}
+                    className="w-full text-center text-[10px] font-bold text-amber-400/90 hover:text-amber-300 py-1 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <BookOpen className="w-3 h-3" /> View Gmail &amp; Outlook Guide
+                  </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Helper Banner */}
+            <div className="mt-4 p-3 sm:p-4 rounded-xl bg-neutral-950 border border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-neutral-300">
+                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  First time setting up? We have complete step-by-step guides for <strong>Gmail App Passwords</strong>, <strong>Microsoft 365</strong>, and <strong>Resend</strong>.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => openSetupGuideFor('resend')}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-900 border border-neutral-700 text-neutral-200 hover:text-white hover:border-amber-500 cursor-pointer"
+                >
+                  Resend Guide
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openSetupGuideFor('gmail')}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-900 border border-neutral-700 text-neutral-200 hover:text-white hover:border-amber-500 cursor-pointer"
+                >
+                  Gmail / Google Guide
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openSetupGuideFor('outlook')}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-900 border border-neutral-700 text-neutral-200 hover:text-white hover:border-amber-500 cursor-pointer"
+                >
+                  Outlook 365 Guide
+                </button>
               </div>
             </div>
           </div>
@@ -1596,14 +1704,23 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     </div>
                     <p className="text-xs text-neutral-400 mt-0.5">Optional SaaS connection — enter your Resend account credentials.</p>
                   </div>
-                  <a 
-                    href="https://resend.com/api-keys" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
-                  >
-                    Resend Console <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => openSetupGuideFor('resend')}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg cursor-pointer"
+                    >
+                      <BookOpen className="w-3 h-3" /> Setup Instructions
+                    </button>
+                    <a 
+                      href="https://resend.com/api-keys" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-neutral-300 hover:text-white font-bold flex items-center gap-1 shrink-0 bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded-lg"
+                    >
+                      Resend Console <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
 
                 <div>
@@ -1644,14 +1761,23 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     </div>
                     <p className="text-xs text-neutral-400 mt-0.5">Optional SaaS connection — enter your SendGrid credentials.</p>
                   </div>
-                  <a 
-                    href="https://app.sendgrid.com/settings/api_keys" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
-                  >
-                    SendGrid Console <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => openSetupGuideFor('sendgrid')}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg cursor-pointer"
+                    >
+                      <BookOpen className="w-3 h-3" /> Setup Instructions
+                    </button>
+                    <a 
+                      href="https://app.sendgrid.com/settings/api_keys" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-neutral-300 hover:text-white font-bold flex items-center gap-1 shrink-0 bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded-lg"
+                    >
+                      SendGrid Console <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
 
                 <div>
@@ -1692,14 +1818,23 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                     </div>
                     <p className="text-xs text-neutral-400 mt-0.5">Optional SaaS connection — enter your Mailchimp Mandrill key.</p>
                   </div>
-                  <a 
-                    href="https://mandrillapp.com/settings" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0"
-                  >
-                    Mandrill Console <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => openSetupGuideFor('mailchimp')}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 shrink-0 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg cursor-pointer"
+                    >
+                      <BookOpen className="w-3 h-3" /> Setup Instructions
+                    </button>
+                    <a 
+                      href="https://mandrillapp.com/settings" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-neutral-300 hover:text-white font-bold flex items-center gap-1 shrink-0 bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded-lg"
+                    >
+                      Mandrill Console <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
 
                 <div>
@@ -1761,6 +1896,13 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
                     >
                       Outlook 365 Preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openSetupGuideFor('gmail')}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 cursor-pointer flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3 h-3" /> Setup Instructions
                     </button>
                   </div>
                 </div>
@@ -2194,6 +2336,607 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                   className="flex-1 sm:flex-none px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl cursor-pointer text-center"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: MAILBOX SETUP & AUTHENTICATION INSTRUCTIONS */}
+      {/* ========================================================================= */}
+      {showSetupInstructionsModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 sm:px-6 sm:py-5 border-b border-neutral-800 bg-neutral-950/90 flex items-start justify-between gap-4 shrink-0">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/25 shrink-0 mt-0.5">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                      Interactive Guide
+                    </span>
+                    <span className="text-[11px] text-neutral-400 hidden sm:inline">Zero-Fuss Mailbox Setup</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white font-serif mt-1">
+                    How to Set Up Your Festival Outgoing Mailbox
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                    Select your preferred email provider below for step-by-step instructions, authentication credentials, and instant presets.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSetupInstructionsModal(false)}
+                className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 cursor-pointer shrink-0 transition-colors"
+                title="Close Guide"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Provider Navigation Tabs */}
+            <div className="px-4 sm:px-6 pt-3 pb-2 bg-neutral-950/50 border-b border-neutral-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('resend')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'resend'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Resend (Recommended)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('gmail')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'gmail'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Gmail / Google Workspace</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('outlook')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'outlook'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <Building className="w-3.5 h-3.5" />
+                <span>Microsoft 365 / Outlook</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('sendgrid')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'sendgrid'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Twilio SendGrid</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('mailchimp')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'mailchimp'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Mailchimp Mandrill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstructionProviderTab('custom_smtp')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  instructionProviderTab === 'custom_smtp'
+                    ? 'bg-amber-500 text-neutral-950 shadow-md font-extrabold'
+                    : 'bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800 border border-neutral-800'
+                }`}
+              >
+                <Server className="w-3.5 h-3.5" />
+                <span>Custom / cPanel SMTP</span>
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 bg-neutral-950">
+
+              {/* ================================================================= */}
+              {/* TAB 1: RESEND INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'resend' && (
+                <div className="space-y-4">
+                  {/* Overview Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <h4 className="text-sm font-bold text-white">Resend — The Fastest &amp; Most Modern Setup</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        Free tier provides <strong>3,000 emails/month</strong> (100 emails/day free forever) with instant delivery and real-time open/click tracking.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({ ...settings, engineMode: 'resend' });
+                        onToast('Switched Outgoing Engine to Resend API');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <Zap className="w-3.5 h-3.5" /> Use Resend Engine
+                    </button>
+                  </div>
+
+                  {/* Step-by-Step Flow */}
+                  <div className="space-y-3">
+                    {/* Step 1 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        1
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Create a Free Resend Account</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Navigate to <a href="https://resend.com/signup" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">resend.com/signup <ExternalLink className="w-3 h-3" /></a> and register with your email or GitHub account.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        2
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Generate an API Key</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          In the Resend dashboard sidebar, click <strong className="text-neutral-200">API Keys</strong> (or visit <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">resend.com/api-keys <ExternalLink className="w-3 h-3" /></a>), click <strong className="text-neutral-200">Create API Key</strong>, name it <code className="text-amber-400 font-mono bg-neutral-950 px-1 py-0.5 rounded">Grenada Festival 2027</code>, and set permission to <strong className="text-neutral-200">Full Access</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        3
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Paste Key in Setup &amp; Mailbox</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Copy the key starting with <code className="text-amber-400 font-mono bg-neutral-950 px-1.5 py-0.5 rounded">re_123456789...</code> and paste it into the <strong>Resend API Key</strong> field in the setup form below.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        4
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Custom Domain DNS Setup (Production Deliverability)</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          To send official emails from <code className="text-amber-400 font-mono">concierge@grenadacaricom2027.com</code>, go to <strong className="text-neutral-200">Domains</strong> in Resend, click <strong className="text-neutral-200">Add Domain</strong>, and add the 3 DNS records (DKIM, SPF, MX) to your DNS host (Cloudflare, GoDaddy, etc.).
+                        </p>
+                        <div className="p-2.5 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] text-amber-300/90 flex items-center gap-2 mt-1">
+                          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>For quick local testing before DNS verification, test dispatches will automatically use Resend's verified <code className="font-mono text-amber-400">onboarding@resend.dev</code> sandbox address.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================================= */}
+              {/* TAB 2: GMAIL & GOOGLE WORKSPACE INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'gmail' && (
+                <div className="space-y-4">
+                  {/* Overview Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Gmail &amp; Google Workspace (App Password Required)</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        Use your existing Google email account. Google requires a <strong>16-character App Password</strong> for external SMTP connections.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({
+                          ...settings,
+                          engineMode: 'smtp',
+                          smtpHost: 'smtp.gmail.com',
+                          smtpPort: 587,
+                          smtpSecure: false
+                        });
+                        onToast('Applied Gmail SMTP Preset');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <Globe className="w-3.5 h-3.5" /> Apply Gmail Preset
+                    </button>
+                  </div>
+
+                  {/* Warning Notice */}
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-200/90 leading-relaxed">
+                      <strong>Important:</strong> Do NOT use your normal Gmail login password. Google will reject direct login passwords with error <code className="font-mono text-white bg-black/40 px-1 py-0.5 rounded">535-5.7.8 Username and Password not accepted</code>. You must follow the steps below to generate an App Password.
+                    </div>
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    {/* Step 1 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        1
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Enable 2-Step Verification on Google</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Go to your Google Account Security settings at <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">myaccount.google.com/security <ExternalLink className="w-3 h-3" /></a> and confirm that <strong>2-Step Verification</strong> is switched <strong>ON</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        2
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Generate a 16-Character App Password</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1 font-bold">myaccount.google.com/apppasswords <ExternalLink className="w-3 h-3" /></a>. Type an app name like <code className="text-amber-400 font-mono bg-neutral-950 px-1 py-0.5 rounded">Grenada Festival Dispatcher</code> and click <strong className="text-neutral-200">Create</strong>.
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                          Google will display a yellow banner with a 16-character code (e.g. <code className="text-amber-400 font-mono bg-neutral-950 px-1.5 py-0.5 rounded">xxxx xxxx xxxx xxxx</code>). Copy this password.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        3
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <div className="font-bold text-xs text-white">Enter Gmail Parameters in Mailbox Setup</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">SMTP Host</span>
+                            <span className="text-white font-bold">smtp.gmail.com</span>
+                          </div>
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">Port Number</span>
+                            <span className="text-white font-bold">587</span>
+                          </div>
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">Username</span>
+                            <span className="text-amber-400">your-email@gmail.com</span>
+                          </div>
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">Password</span>
+                            <span className="text-amber-400">16-char App Password</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================================= */}
+              {/* TAB 3: MICROSOFT 365 / OUTLOOK INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'outlook' && (
+                <div className="space-y-4">
+                  {/* Overview Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Microsoft 365 &amp; Outlook SMTP Setup</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        Connect your organisation's official Microsoft 365 / Exchange Online tenant or personal Outlook.com address.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({
+                          ...settings,
+                          engineMode: 'smtp',
+                          smtpHost: 'smtp.office365.com',
+                          smtpPort: 587,
+                          smtpSecure: false
+                        });
+                        onToast('Applied Outlook 365 SMTP Preset');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <Building className="w-3.5 h-3.5" /> Apply Outlook Preset
+                    </button>
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    {/* Step 1 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        1
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Enable Authenticated SMTP (Microsoft 365 Admin)</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          In <strong className="text-neutral-200">admin.microsoft.com</strong>, navigate to <strong className="text-neutral-200">Users &gt; Active users</strong> &gt; select your sending mailbox &gt; <strong className="text-neutral-200">Mail</strong> tab &gt; <strong className="text-neutral-200">Manage email apps</strong> &gt; check <strong className="text-amber-400">Authenticated SMTP</strong> &gt; Save changes.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        2
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">MFA App Password (If Required)</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          If your Microsoft 365 tenant enforces Multi-Factor Authentication (MFA), create an App Password at <a href="https://mysignins.microsoft.com/security-info" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">mysignins.microsoft.com/security-info <ExternalLink className="w-3 h-3" /></a>.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">
+                        3
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <div className="font-bold text-xs text-white">Connection Parameters</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">SMTP Host</span>
+                            <span className="text-white font-bold">smtp.office365.com</span>
+                          </div>
+                          <div className="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                            <span className="text-neutral-500 block text-[10px] uppercase font-sans">Port</span>
+                            <span className="text-white font-bold">587 (STARTTLS)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================================= */}
+              {/* TAB 4: SENDGRID INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'sendgrid' && (
+                <div className="space-y-4">
+                  {/* Overview Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Twilio SendGrid Cloud Email</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        High-deliverability enterprise platform. Free tier provides <strong>100 emails/day</strong> for festival communiqués.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({ ...settings, engineMode: 'sendgrid' });
+                        onToast('Switched Outgoing Engine to Twilio SendGrid');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> Use SendGrid Engine
+                    </button>
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">1</div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Generate SendGrid API Key</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          In <a href="https://app.sendgrid.com/settings/api_keys" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">SendGrid Settings &gt; API Keys <ExternalLink className="w-3 h-3" /></a>, click <strong className="text-neutral-200">Create API Key</strong>, select <strong className="text-neutral-200">Full Access</strong> or <strong className="text-neutral-200">Mail Send</strong>, and copy the key starting with <code className="text-amber-400 font-mono">SG.</code>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">2</div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Verify Sender Identity</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          In SendGrid &gt; <strong className="text-neutral-200">Sender Authentication</strong>, verify a Single Sender email address (e.g. <code className="text-amber-400 font-mono">concierge@grenadacaricom2027.com</code>) by clicking the verification link sent to your inbox.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">3</div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Save in Mailbox Settings</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Paste your <code className="text-amber-400 font-mono bg-neutral-950 px-1 py-0.5 rounded">SG.</code> key in the SendGrid API Key field and ensure the "Official Outgoing Email Address" matches your verified sender.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================================= */}
+              {/* TAB 5: MAILCHIMP MANDRILL INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'mailchimp' && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Mailchimp Transactional (Mandrill)</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        Integrate Mandrill to send 1-on-1 festival dossiers, VIP confirmations, and order passes.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({ ...settings, engineMode: 'mailchimp' });
+                        onToast('Switched Outgoing Engine to Mailchimp Mandrill');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Use Mailchimp Engine
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3.5">
+                      <div className="w-7 h-7 rounded-xl bg-neutral-800 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-neutral-700">1</div>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="font-bold text-xs text-white">Get Mandrill API Key</div>
+                        <p className="text-xs text-neutral-400 leading-relaxed">
+                          Navigate to <a href="https://mandrillapp.com/settings" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline inline-flex items-center gap-1">mandrillapp.com/settings <ExternalLink className="w-3 h-3" /></a>, click <strong className="text-neutral-200">+ New API Key</strong>, copy the generated key, and paste into the Mailchimp Mandrill field below.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================================= */}
+              {/* TAB 6: CUSTOM / CPANEL SMTP INSTRUCTIONS */}
+              {/* ================================================================= */}
+              {instructionProviderTab === 'custom_smtp' && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Server className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Custom Domain &amp; Web Host SMTP Relay</h4>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-1">
+                        Connect any private web hosting mailbox (cPanel, Plesk, Hostinger, SiteGround, IONOS, OVH, etc.).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({ ...settings, engineMode: 'smtp' });
+                        onToast('Switched Outgoing Engine to Custom SMTP');
+                        setShowSetupInstructionsModal(false);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <Server className="w-3.5 h-3.5" /> Use Custom SMTP
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-3">
+                    <div className="font-bold text-xs text-white">Recommended Port &amp; Host Configuration</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 space-y-1">
+                        <span className="text-amber-400 font-bold block text-xs">STARTTLS Configuration (Recommended)</span>
+                        <div className="font-mono text-neutral-300 text-[11px]">Host: mail.yourdomain.com</div>
+                        <div className="font-mono text-neutral-300 text-[11px]">Port: 587</div>
+                        <div className="font-mono text-neutral-300 text-[11px]">Username: full email address</div>
+                      </div>
+                      <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 space-y-1">
+                        <span className="text-amber-400 font-bold block text-xs">SSL/TLS Configuration</span>
+                        <div className="font-mono text-neutral-300 text-[11px]">Host: mail.yourdomain.com</div>
+                        <div className="font-mono text-neutral-300 text-[11px]">Port: 465</div>
+                        <div className="font-mono text-neutral-300 text-[11px]">Username: full email address</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Troubleshooting & FAQ Accordion Section */}
+              <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-neutral-200">
+                  <HelpCircle className="w-4 h-4 text-amber-400" />
+                  <span>Frequently Asked Questions &amp; Troubleshooting</span>
+                </div>
+                <div className="space-y-2 text-xs text-neutral-400 divide-y divide-neutral-800/80">
+                  <div className="pt-2">
+                    <span className="text-neutral-200 font-semibold block">Q: Why did my test email land in the Spam or Promotions tab?</span>
+                    <p className="mt-0.5 text-neutral-400 leading-relaxed text-[11px]">
+                      A: During initial setup with a newly created API key or without custom domain DKIM/SPF verification, mail servers (Gmail/Outlook) apply strict filtering. Verifying your festival domain records (DKIM and SPF) on Resend or SendGrid completely resolves this.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <span className="text-neutral-200 font-semibold block">Q: How can I verify that my outgoing mailbox works before festival tickets go on sale?</span>
+                    <p className="mt-0.5 text-neutral-400 leading-relaxed text-[11px]">
+                      A: After entering your credentials, scroll down to the <strong>"Live Mailbox Diagnostic &amp; Test Dispatch"</strong> section at the bottom of the Setup tab, type your personal email address, and click <strong>"Dispatch Diagnostic Pass"</strong>. You will receive an immediate live festival pass email.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:px-6 sm:py-3.5 border-t border-neutral-800 bg-neutral-950/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs text-neutral-400 shrink-0">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>All credentials are encrypted and stored locally in your private session.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSetupInstructionsModal(false)}
+                  className="w-full sm:w-auto px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl cursor-pointer text-center shadow-md transition-all"
+                >
+                  Got It, Configure Mailbox
                 </button>
               </div>
             </div>
