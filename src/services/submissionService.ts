@@ -1560,22 +1560,19 @@ export const saveMediaItems = (items: MediaItem[]): void => {
 
 export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
   try {
-    // Sync to backend SQLite first
-    const res = await safeApiCall('/api/media', {
+    // 1. Optimistically store in local memory & storage immediately so user never loses uploaded asset
+    const current = getMediaItems();
+    const updated = [item, ...current.filter(i => i.id !== item.id)];
+    saveMediaItems(updated);
+
+    // 2. Sync to backend SQLite in background
+    safeApiCall('/api/media', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(item)
-    });
+    }).catch(err => console.warn('[Media Sync] Background sync to SQLite:', err));
 
-    if (res && res.ok) {
-      const current = getMediaItems();
-      const updated = [item, ...current.filter(i => i.id !== item.id)];
-      saveMediaItems(updated);
-      return true;
-    } else {
-      console.error('Server rejected the media item, status:', res?.status);
-      return false;
-    }
+    return true;
   } catch (err) {
     console.error('Error in addMediaItem:', err);
     return false;
@@ -1590,7 +1587,7 @@ export const deleteMediaItem = (id: string): void => {
   // Sync to backend SQLite
   safeApiCall(`/api/media/${id}`, {
     method: 'DELETE'
-  });
+  }).catch(err => console.warn('[Media Delete] SQLite delete sync:', err));
 };
 
 export const deleteMultipleMediaItems = (ids: string[]): void => {
@@ -1604,7 +1601,7 @@ export const deleteMultipleMediaItems = (ids: string[]): void => {
   ids.forEach(id => {
     safeApiCall(`/api/media/${id}`, {
       method: 'DELETE'
-    });
+    }).catch(err => console.warn('[Media Bulk Delete] SQLite delete sync:', err));
   });
 };
 
@@ -1612,16 +1609,38 @@ export const deleteMultipleMediaItems = (ids: string[]): void => {
 export const getMediaUsageMap = (): Record<string, string[]> => {
   const usageMap: Record<string, string[]> = {};
 
+  const registerUsage = (key: string, label: string) => {
+    if (!key) return;
+    if (!usageMap[key]) {
+      usageMap[key] = [];
+    }
+    if (!usageMap[key].includes(label)) {
+      usageMap[key].push(label);
+    }
+  };
+
   const addUsage = (rawUrl: any, label: string) => {
     if (!rawUrl || typeof rawUrl !== 'string') return;
     const url = rawUrl.trim();
     if (!url) return;
 
-    if (!usageMap[url]) {
-      usageMap[url] = [];
-    }
-    if (!usageMap[url].includes(label)) {
-      usageMap[url].push(label);
+    registerUsage(url, label);
+
+    // Also register decoded and relative pathname variants for robust matching
+    try {
+      const decoded = decodeURIComponent(url);
+      if (decoded !== url) registerUsage(decoded, label);
+
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const parsed = new URL(url);
+        if (parsed.pathname) {
+          registerUsage(parsed.pathname, label);
+          const decodedPath = decodeURIComponent(parsed.pathname);
+          if (decodedPath !== parsed.pathname) registerUsage(decodedPath, label);
+        }
+      }
+    } catch {
+      // Ignore URL parsing errors for non-standard schemes
     }
   };
 
@@ -1657,6 +1676,7 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
         const title = e.title || e.name || 'Event';
         if (e.imageUrl) addUsage(e.imageUrl, `Event Cover: ${title}`);
         if (e.bannerUrl) addUsage(e.bannerUrl, `Event Banner: ${title}`);
+        if (e.videoUrl) addUsage(e.videoUrl, `Event Video: ${title}`);
         if (Array.isArray(e.gallery)) {
           e.gallery.forEach((gUrl: any) => {
             if (typeof gUrl === 'string') addUsage(gUrl, `Event Gallery: ${title}`);
@@ -1666,12 +1686,13 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
       });
     }
 
-    // 3. Gallery Items
+    // 3. Gallery Items (CRITICAL: Track both imageUrl and videoUrl!)
     const gallery = getGalleryItems();
     if (Array.isArray(gallery)) {
       gallery.forEach((g: any) => {
-        const title = g.title || g.caption || 'Gallery Photo';
+        const title = g.title || g.caption || 'Gallery Showcase';
         if (g.imageUrl) addUsage(g.imageUrl, `Gallery: ${title}`);
+        if (g.videoUrl) addUsage(g.videoUrl, `Gallery Video: ${title}`);
         if (g.url) addUsage(g.url, `Gallery: ${title}`);
         if (g.thumbnailUrl) addUsage(g.thumbnailUrl, `Gallery Thumbnail: ${title}`);
       });
@@ -1683,6 +1704,7 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
       hotels.forEach((h: any) => {
         const name = h.name || h.title || 'Hotel';
         if (h.imageUrl) addUsage(h.imageUrl, `Hotel Cover: ${name}`);
+        if (h.videoUrl) addUsage(h.videoUrl, `Hotel Video: ${name}`);
         if (Array.isArray(h.images)) {
           h.images.forEach((imgUrl: any) => {
             if (typeof imgUrl === 'string') addUsage(imgUrl, `Hotel Gallery: ${name}`);
@@ -1699,6 +1721,7 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
         const name = t.name || t.author || 'Guest';
         if (t.avatarUrl) addUsage(t.avatarUrl, `Testimonial Avatar: ${name}`);
         if (t.imageUrl) addUsage(t.imageUrl, `Testimonial Photo: ${name}`);
+        if (t.videoUrl) addUsage(t.videoUrl, `Testimonial Video: ${name}`);
       });
     }
 
@@ -1751,27 +1774,34 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
         if (!m.url) return;
         const url = m.url;
         const filename = m.name || url.split('/').pop() || '';
+        const pathname = url.startsWith('http') ? (new URL(url, 'http://localhost').pathname) : url;
 
-        if (!usageMap[url] || usageMap[url].length === 0) {
-          if (configStr.includes(url) || (filename && configStr.includes(filename))) {
+        const isKnownUsed = Boolean(
+          usageMap[url]?.length ||
+          usageMap[pathname]?.length ||
+          (filename && usageMap[filename]?.length)
+        );
+
+        if (!isKnownUsed) {
+          if (configStr.includes(url) || (filename && filename.length > 5 && configStr.includes(filename))) {
             addUsage(url, 'Site Config');
           }
-          if (eventsStr.includes(url) || (filename && eventsStr.includes(filename))) {
+          if (eventsStr.includes(url) || (filename && filename.length > 5 && eventsStr.includes(filename))) {
             addUsage(url, 'Events Collection');
           }
-          if (galleryStr.includes(url) || (filename && galleryStr.includes(filename))) {
+          if (galleryStr.includes(url) || (filename && filename.length > 5 && galleryStr.includes(filename))) {
             addUsage(url, 'Gallery Collection');
           }
-          if (hotelsStr.includes(url) || (filename && hotelsStr.includes(filename))) {
+          if (hotelsStr.includes(url) || (filename && filename.length > 5 && hotelsStr.includes(filename))) {
             addUsage(url, 'Hotels Listing');
           }
-          if (testimonialsStr.includes(url) || (filename && testimonialsStr.includes(filename))) {
+          if (testimonialsStr.includes(url) || (filename && filename.length > 5 && testimonialsStr.includes(filename))) {
             addUsage(url, 'Guest Testimonials');
           }
-          if (passesStr.includes(url) || (filename && passesStr.includes(filename))) {
+          if (passesStr.includes(url) || (filename && filename.length > 5 && passesStr.includes(filename))) {
             addUsage(url, 'Festival Passes');
           }
-          if (subStr.includes(url) || (filename && subStr.includes(filename))) {
+          if (subStr.includes(url) || (filename && filename.length > 5 && subStr.includes(filename))) {
             addUsage(url, 'Form Submissions');
           }
         }
@@ -1784,18 +1814,37 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
   return usageMap;
 };
 
+export const isMediaItemUsed = (item: MediaItem, usageMap: Record<string, string[]>): string[] => {
+  if (!item || !item.url) return [];
+  const direct = usageMap[item.url] || [];
+  const trimmed = usageMap[item.url.trim()] || [];
+  let pathMatches: string[] = [];
+  try {
+    if (item.url.startsWith('http://') || item.url.startsWith('https://')) {
+      const parsed = new URL(item.url);
+      pathMatches = usageMap[parsed.pathname] || [];
+    }
+  } catch {
+    // Ignore URL errors
+  }
+  const idMatches = usageMap[item.id] || [];
+
+  const combined = Array.from(new Set([...direct, ...trimmed, ...pathMatches, ...idMatches]));
+  return combined;
+};
+
 export const getAllUsedMediaUrls = (): Set<string> => {
   const map = getMediaUsageMap();
   return new Set(Object.keys(map).filter(url => map[url] && map[url].length > 0));
 };
 
 export const getUnusedMediaItems = (olderThanDays?: number): MediaItem[] => {
-  const usedUrls = getAllUsedMediaUrls();
+  const map = getMediaUsageMap();
   const allMedia = getMediaItems();
 
   return allMedia.filter(item => {
-    const isUsed = usedUrls.has(item.url);
-    if (isUsed) return false;
+    const usages = isMediaItemUsed(item, map);
+    if (usages.length > 0) return false;
 
     if (olderThanDays !== undefined && olderThanDays > 0) {
       const uploadTime = new Date(item.uploadedAt).getTime();

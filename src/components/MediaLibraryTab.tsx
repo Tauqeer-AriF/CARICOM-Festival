@@ -33,6 +33,7 @@ import {
   deleteMultipleMediaItems,
   getAllUsedMediaUrls,
   getMediaUsageMap,
+  isMediaItemUsed,
   getUnusedMediaItems,
   getAutoCleanupConfig,
   saveAutoCleanupConfig,
@@ -399,14 +400,34 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     }
   };
 
-  const usedCount = media.filter(item => (usageMap[item.url] || []).length > 0).length;
-  const unusedMediaList = media.filter(item => (usageMap[item.url] || []).length === 0);
+  const isVideoItem = (item: MediaItem): boolean => {
+    if (!item) return false;
+    const type = (item.type || '').toLowerCase();
+    const url = (item.url || '').toLowerCase();
+    const name = (item.name || '').toLowerCase();
+    return (
+      type.startsWith('video/') ||
+      type === 'video' ||
+      url.includes('data:video') ||
+      /\.(mp4|webm|mov|m4v|mkv|avi|3gp|ogv)(\?.*)?$/i.test(url) ||
+      /\.(mp4|webm|mov|m4v|mkv|avi|3gp|ogv)$/i.test(name)
+    );
+  };
+
+  const isImageItem = (item: MediaItem): boolean => !isVideoItem(item);
+
+  const getItemUsage = (item: MediaItem): string[] => {
+    return isMediaItemUsed(item, usageMap);
+  };
+
+  const usedCount = media.filter(item => getItemUsage(item).length > 0).length;
+  const unusedMediaList = media.filter(item => getItemUsage(item).length === 0);
   const unusedCount = unusedMediaList.length;
 
   const filteredMedia = media.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
-    const locations = usageMap[item.url] || [];
+    const isVideo = isVideoItem(item);
+    const locations = getItemUsage(item);
     const isUsed = locations.length > 0;
 
     if (typeFilter === 'video' && !isVideo) return false;
@@ -550,8 +571,8 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       <div className="flex items-center gap-1.5 sm:gap-2 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none w-full">
         {[
           { id: 'all', label: 'All Media', icon: Film, count: media.length },
-          { id: 'image', label: 'Photos', icon: ImageIcon, count: media.filter(m => m.type === 'image').length },
-          { id: 'video', label: 'Videos', icon: Video, count: media.filter(m => m.type === 'video').length },
+          { id: 'image', label: 'Photos', icon: ImageIcon, count: media.filter(isImageItem).length },
+          { id: 'video', label: 'Videos', icon: Video, count: media.filter(isVideoItem).length },
           { id: 'used', label: 'In Use', icon: CheckCircle2, count: usedCount },
           { id: 'unused', label: 'Unused', icon: AlertTriangle, count: unusedCount }
         ].map((tab) => {
@@ -588,7 +609,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               <span className="text-[10px] text-amber-400 font-mono font-bold">Multi-File Ready</span>
             </h3>
             <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-              Drag and drop single or multiple files. Client-side compression automatically shrinks image size while preserving vibrant contrast.
+              Drag and drop single or multiple photos and videos. Video files (MP4, WebM, QuickTime MOV, MKV, etc.) and photos are safely stored and indexed.
             </p>
 
             <div
@@ -605,7 +626,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*,video/*"
+                accept="image/*,video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v,.3gp,.ogv"
                 className="hidden"
                 onChange={(e) => handleFileUpload(e.target.files)}
               />

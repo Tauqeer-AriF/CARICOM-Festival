@@ -295,6 +295,22 @@ export const FESTIVAL_HOTELS: HotelItem[] = [
       'Fine Dining Restaurants'
     ],
     image: 'https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'allamanda-beach-hotel',
+    name: 'Allamanda Beach Hotel',
+    stars: 3,
+    tagline: 'Cozy Beachfront Getaway on Grand Anse',
+    description: 'A charming resort situated right on the world-famous Grand Anse Beach, offering intimate Caribbean hospitality and immediate access to beachfront festivities.',
+    location: 'Grand Anse Beach, St. George’s',
+    distanceToMellowland: '20 mins transport',
+    features: [
+      'Direct Beachfront Access on Grand Anse',
+      'Freshwater Swimming Pool',
+      'On-site Dining & Beach Bar',
+      'Convenient Shuttle Access to Festival Hubs'
+    ],
+    image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80'
   }
 ];
 

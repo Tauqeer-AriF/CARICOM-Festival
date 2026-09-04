@@ -135,24 +135,24 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                 </div>
 
                 {newsletterSubmitted ? (
-                  <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                     <div>
                       <h5 className="text-xs font-bold text-white">You're on the VIP list!</h5>
-                      <p className="text-[11px] text-neutral-300">
+                      <p className="text-[10px] sm:text-[11px] text-neutral-300">
                         Welcome dossier automatically dispatched to <span className="text-amber-400 font-semibold">{newsletterEmail}</span>.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleNewsletterSubmit} className="space-y-2.5">
+                  <form onSubmit={handleNewsletterSubmit} className="space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
                         value={newsletterName}
                         onChange={(e) => setNewsletterName(e.target.value)}
                         placeholder="Your Name (Optional)"
-                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder:text-neutral-500 placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-[12px] sm:text-xs text-white placeholder:text-neutral-500 placeholder:text-[11px] sm:placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors leading-normal"
                       />
                       <input
                         type="email"
@@ -160,12 +160,12 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
                         value={newsletterEmail}
                         onChange={(e) => setNewsletterEmail(e.target.value)}
                         placeholder="name@email.com"
-                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder:text-neutral-500 placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-[12px] sm:text-xs text-white placeholder:text-neutral-500 placeholder:text-[11px] sm:placeholder:text-xs focus:outline-none focus:border-amber-500 transition-colors leading-normal"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs rounded-xl shadow-md shadow-amber-500/10 transition-all hover:scale-[1.01] active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-2 sm:py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-[11px] sm:text-xs rounded-xl shadow-md shadow-amber-500/10 transition-all hover:scale-[1.01] active:scale-98 cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>Subscribe to VIP Newsletter</span>

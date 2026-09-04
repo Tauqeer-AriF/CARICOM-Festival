@@ -45,8 +45,22 @@ async function startServer() {
     limits: { fileSize: 500 * 1024 * 1024 } // 500MB max limit
   });
 
-  // Serve binary uploads statically
-  app.use('/uploads', express.static(uploadsDir));
+  // Serve binary uploads statically with video byte-range streaming and MIME headers
+  app.use('/uploads', express.static(uploadsDir, {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      const lower = filePath.toLowerCase();
+      if (lower.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
+      else if (lower.endsWith('.webm')) res.setHeader('Content-Type', 'video/webm');
+      else if (lower.endsWith('.mov')) res.setHeader('Content-Type', 'video/quicktime');
+      else if (lower.endsWith('.m4v')) res.setHeader('Content-Type', 'video/x-m4v');
+      else if (lower.endsWith('.ogv') || lower.endsWith('.ogg')) res.setHeader('Content-Type', 'video/ogg');
+      else if (lower.endsWith('.avi')) res.setHeader('Content-Type', 'video/x-msvideo');
+      else if (lower.endsWith('.mkv')) res.setHeader('Content-Type', 'video/x-matroska');
+      else if (lower.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
+    }
+  }));
 
   // Helper to get database connection
   const db = await getDb();
@@ -140,13 +154,30 @@ async function startServer() {
       }
 
       const mime = req.file.mimetype || '';
-      const originalExt = path.extname(req.file.originalname).toLowerCase();
+      const rawExt = path.extname(req.file.originalname || '');
+      let originalExt = rawExt.toLowerCase();
+
+      // Deduce extension from MIME if missing
+      if (!originalExt) {
+        if (mime.includes('mp4')) originalExt = '.mp4';
+        else if (mime.includes('webm')) originalExt = '.webm';
+        else if (mime.includes('quicktime') || mime.includes('mov')) originalExt = '.mov';
+        else if (mime.includes('ogg')) originalExt = '.ogv';
+        else if (mime.includes('x-matroska') || mime.includes('mkv')) originalExt = '.mkv';
+        else if (mime.includes('jpeg') || mime.includes('jpg')) originalExt = '.jpg';
+        else if (mime.includes('png')) originalExt = '.png';
+        else if (mime.includes('webp')) originalExt = '.webp';
+        else if (mime.includes('svg')) originalExt = '.svg';
+        else originalExt = '.bin';
+      }
+
       const isRasterImage = mime.startsWith('image/') && !mime.includes('svg') && originalExt !== '.svg';
       const originalSize = req.file.size || req.file.buffer.length;
 
       if (isRasterImage) {
         // Convert to optimized WebP format with sharp
-        const sanitizedBase = path.basename(req.file.originalname, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const baseName = path.basename(req.file.originalname || 'image', rawExt);
+        const sanitizedBase = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50) || 'image';
         const webpFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}.webp`;
         const targetPath = path.join(uploadsDir, webpFilename);
 
@@ -186,11 +217,27 @@ async function startServer() {
         });
       } else {
         // Non-raster image (SVG) or Video/Audio/PDF: save directly to disk
-        const sanitizedBase = path.basename(req.file.originalname, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const baseName = path.basename(req.file.originalname || 'media', rawExt);
+        const sanitizedBase = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50) || 'media';
         const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}${originalExt}`;
         const targetPath = path.join(uploadsDir, uniqueName);
 
         fs.writeFileSync(targetPath, req.file.buffer);
+
+        // Infer accurate video/audio/document MIME type
+        let determinedMime = mime;
+        if (!determinedMime || determinedMime === 'application/octet-stream') {
+          if (originalExt === '.mp4') determinedMime = 'video/mp4';
+          else if (originalExt === '.webm') determinedMime = 'video/webm';
+          else if (originalExt === '.mov') determinedMime = 'video/quicktime';
+          else if (originalExt === '.m4v') determinedMime = 'video/x-m4v';
+          else if (originalExt === '.ogv' || originalExt === '.ogg') determinedMime = 'video/ogg';
+          else if (originalExt === '.avi') determinedMime = 'video/x-msvideo';
+          else if (originalExt === '.mkv') determinedMime = 'video/x-matroska';
+          else if (originalExt === '.svg') determinedMime = 'image/svg+xml';
+        }
+
+        console.log(`[MEDIA UPLOAD] Saved ${req.file.originalname} -> ${uniqueName} (${(originalSize / 1024).toFixed(1)} KB, mime: ${determinedMime})`);
 
         return res.json({
           url: `/uploads/${uniqueName}`,
@@ -200,7 +247,8 @@ async function startServer() {
           originalSize,
           compressedSize: originalSize,
           savingsPercent: '0%',
-          mimetype: req.file.mimetype
+          mimetype: determinedMime,
+          format: originalExt.replace('.', '')
         });
       }
     } catch (err: any) {

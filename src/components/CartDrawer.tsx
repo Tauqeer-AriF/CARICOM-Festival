@@ -117,15 +117,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-950">
           <div className="flex items-center gap-2">
-            {checkoutStep === 'details' && (
+            {checkoutStep === 'details' ? (
               <button
                 type="button"
                 onClick={() => setCheckoutStep('cart')}
-                className="p-1.5 -ml-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg cursor-pointer transition-colors flex items-center gap-1 text-xs font-semibold"
-                title="Back to Cart items"
+                className="p-1.5 -ml-1 text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 text-xs font-bold"
+                title="Back to Cart & Remove/Edit Passes"
               >
                 <ArrowLeft className="w-4 h-4 text-amber-400" />
-                <span className="hidden xs:inline text-[11px] text-neutral-300">Back</span>
+                <span>Back to Cart</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 -ml-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 text-xs font-medium"
+                title="Back to Festival Passes"
+              >
+                <ArrowLeft className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Back</span>
               </button>
             )}
             <ShoppingBag className="w-5 h-5 text-amber-400" />
@@ -151,45 +161,74 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {!isProcessing && checkoutStep === 'cart' && (
             <>
               {cart.length === 0 ? (
-                <div className="text-center py-12 space-y-3">
+                <div className="text-center py-12 space-y-4">
                   <Ticket className="w-12 h-12 text-neutral-600 mx-auto" />
-                  <p className="text-neutral-400 text-sm font-medium">Your cart is currently empty.</p>
-                  <p className="text-neutral-500 text-xs max-w-xs mx-auto">
-                    Select your 10-day VIP pass, White Gala ticket, or Mellowland Tubing pass from the Shop tab.
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-neutral-300 text-sm font-bold">Your cart is currently empty.</p>
+                    <p className="text-neutral-500 text-xs max-w-xs mx-auto">
+                      Select your 10-day VIP pass, White Gala ticket, or Mellowland Tubing pass from the Shop tab.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer inline-flex items-center gap-2 uppercase tracking-wider"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Browse Festival Passes</span>
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Informational banner with clear removal guidance */}
+                  <div className="flex items-center justify-between text-xs text-neutral-400 pb-1">
+                    <span>{cart.reduce((sum, item) => sum + item.quantity, 0)} pass(es) in cart</span>
+                    <button
+                      type="button"
+                      onClick={() => setCart([])}
+                      className="text-neutral-500 hover:text-rose-400 text-[11px] font-semibold cursor-pointer transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+
                   {cart.map((item) => (
                     <div
                       key={item.pass.id}
-                      className="bg-neutral-800/80 border border-neutral-700/80 rounded-2xl p-4 flex flex-col gap-3"
+                      className="bg-neutral-800/90 border border-neutral-700/80 rounded-2xl p-4 flex flex-col gap-3 shadow-md"
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-sm text-white">{item.pass.title}</h4>
-                          <span className="text-xs text-amber-400 block">{item.pass.wristbandType}</span>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm text-white leading-tight">{item.pass.title}</h4>
+                          <span className="text-xs text-amber-400 block pt-0.5">{item.pass.wristbandType}</span>
                         </div>
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.pass.id, -item.quantity)}
-                          className="text-neutral-500 hover:text-red-400 text-xs"
+                          className="px-2.5 py-1 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shrink-0"
+                          title="Remove this pass from cart"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
                         </button>
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-neutral-700/60">
                         <div className="flex items-center gap-2 bg-neutral-900 px-2.5 py-1 rounded-xl border border-neutral-700">
                           <button
+                            type="button"
                             onClick={() => updateQuantity(item.pass.id, -1)}
-                            className="font-bold text-neutral-400 hover:text-white px-1"
+                            className="font-bold text-neutral-400 hover:text-white px-1 cursor-pointer"
+                            title="Decrease quantity"
                           >
                             -
                           </button>
                           <span className="font-mono font-bold text-white px-2">{item.quantity}</span>
                           <button
+                            type="button"
                             onClick={() => updateQuantity(item.pass.id, 1)}
-                            className="font-bold text-neutral-400 hover:text-white px-1"
+                            className="font-bold text-neutral-400 hover:text-white px-1 cursor-pointer"
+                            title="Increase quantity"
                           >
                             +
                           </button>
@@ -215,13 +254,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {!isProcessing && checkoutStep === 'details' && (
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="p-3 bg-neutral-800/80 border border-amber-500/20 rounded-xl flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setCheckoutStep('cart')}
-                  className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 font-bold cursor-pointer transition-colors bg-neutral-900 px-3 py-1.5 rounded-lg border border-neutral-700"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Cart ({cart.length} item{cart.length !== 1 ? 's' : ''})
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Edit / Remove Passes
                 </button>
                 <span className="text-xs font-mono font-bold text-amber-400">
                   Total: {getCurrencySymbol()}{totalConverted}
