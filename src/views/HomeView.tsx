@@ -572,7 +572,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, s
                 <Music className="w-4 h-4 text-amber-400" /> The Vibe & Sounds:
               </div>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
-                Non-stop Soca, Afro, Soul, Reggae, R&B, and Jungle across beach clubs, luxury hotel lounges, and river sanctuaries.
+                Non stop Soca, Afro, Soul, Reggae, R&B, Jungle and Garage across Grenada's beautiful Island settings.
               </p>
             </div>
 
