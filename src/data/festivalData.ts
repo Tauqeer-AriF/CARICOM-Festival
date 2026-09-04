@@ -32,15 +32,15 @@ export const FESTIVAL_IMAGES = {
   
   // Gallery-specific, 100% unique premium high-quality image mappings
   gallery1: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80', // Resort pool deck under beautiful sky
-  gallery2: 'https://images.unsplash.com/photo-1530731141654-5961b695817a?auto=format&fit=crop&w=1200&q=80', // Forest river rapids group kayaking
+  gallery2: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=1200&q=80', // Forest river rapids kayaking & tubing
   gallery3: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80', // Elegant sunset soirée lighting
   gallery4: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80', // Vibrant beachfront dance party
   gallery5: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80', // Massive laser-lit DJ party
-  gallery6: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1200&q=80', // Deep sea diving/snorkeling sunbeams
+  gallery6: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80', // Deep sea diving & underwater park
   gallery7: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80', // Luxury beach resort pool area
   gallery8: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80', // Waterfall cascading in rainforest
   gallery9: 'https://images.unsplash.com/photo-1509356843151-3e7d96241e11?auto=format&fit=crop&w=1200&q=80', // Tropical fruit & spice market stall
-  gallery10: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80', // Botanical lush organic garden
+  gallery10: 'https://images.unsplash.com/photo-1541976844346-f18aeac57b06?auto=format&fit=crop&w=1200&q=80', // Botanical lush organic garden
   gallery11: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80', // Sunset Cruise Horizon
   gallery12: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80' // Neon jungle night lounge
 };

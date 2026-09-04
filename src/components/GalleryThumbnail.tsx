@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Video, Camera, Film } from 'lucide-react';
 import { GalleryItem } from '../types';
+import { FESTIVAL_IMAGES } from '../data/festivalData';
 
 export function extractYouTubeId(url: string | undefined | null): string | null {
   if (!url) return null;
@@ -27,6 +28,47 @@ export function isDirectVideoUrl(url: string | undefined | null): boolean {
   );
 }
 
+export function getFallbackImage(item: Partial<GalleryItem>): string {
+  const title = (item.title || '').toLowerCase();
+  const cat = (item.category || '').toLowerCase();
+
+  if (title.includes('waterfall') || title.includes('annandale') || title.includes('rapids')) {
+    return FESTIVAL_IMAGES.gallery8; // Waterfall
+  }
+  if (title.includes('tubing') || title.includes('river') || cat.includes('tubing')) {
+    return FESTIVAL_IMAGES.gallery2; // River tubing
+  }
+  if (title.includes('underwater') || title.includes('sculpture') || title.includes('diving') || title.includes('snorkel')) {
+    return FESTIVAL_IMAGES.gallery6; // Underwater park
+  }
+  if (title.includes('garden') || title.includes('haven') || cat.includes('garden') || title.includes('organic')) {
+    return FESTIVAL_IMAGES.gallery10; // Tropical Garden
+  }
+  if (title.includes('market') || title.includes('spice') || cat.includes('spice')) {
+    return FESTIVAL_IMAGES.gallery9; // Spice Market
+  }
+  if (title.includes('suite') || title.includes('hotel') || title.includes('royalton') || cat.includes('luxury')) {
+    return FESTIVAL_IMAGES.gallery7; // Luxury suites
+  }
+  if (title.includes('sunset') || title.includes('catamaran') || title.includes('cruise') || title.includes('horizon')) {
+    return FESTIVAL_IMAGES.gallery11; // Sunset Catamaran
+  }
+  if (title.includes('beach') || title.includes('fete') || cat.includes('beach')) {
+    return FESTIVAL_IMAGES.gallery4; // Beach fete
+  }
+  if (title.includes('white') || title.includes('gala')) {
+    return FESTIVAL_IMAGES.gallery3; // White Gala
+  }
+  if (title.includes('soca') || title.includes('stage') || title.includes('concert') || title.includes('pyro')) {
+    return FESTIVAL_IMAGES.gallery5; // Soca stage
+  }
+  if (title.includes('rave') || title.includes('night') || title.includes('bass')) {
+    return FESTIVAL_IMAGES.gallery12; // Night rave
+  }
+
+  return FESTIVAL_IMAGES.gallery1;
+}
+
 interface GalleryThumbnailProps {
   item: Partial<GalleryItem>;
   className?: string;
@@ -42,62 +84,61 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
   alt,
   loading = 'lazy'
 }) => {
-  const [hasError, setHasError] = useState(false);
   const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
   const cleanImageUrl = (item.imageUrl || '').trim();
   const cleanVideoUrl = (item.videoUrl || '').trim();
 
-  // 1. If a custom thumbnail image URL is provided
-  if (cleanImageUrl && !hasError) {
-    // Check if the user accidentally put a direct video in imageUrl
-    if (isDirectVideoUrl(cleanImageUrl)) {
-      return (
-        <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
-          <video
-            src={`${cleanImageUrl}#t=0.001`}
-            preload="metadata"
-            muted
-            playsInline
-            className={imageClassName}
-          />
-        </div>
-      );
+  // Initial source determination
+  const initialSrc = cleanImageUrl || (!isVideo ? getFallbackImage(item) : '');
+  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
+  const [errorCount, setErrorCount] = useState<number>(0);
+
+  // Sync state if props change
+  useEffect(() => {
+    const nextSrc = cleanImageUrl || (!isVideo ? getFallbackImage(item) : '');
+    setCurrentSrc(nextSrc);
+    setErrorCount(0);
+  }, [cleanImageUrl, isVideo, item.title, item.category]);
+
+  const handleImageError = () => {
+    if (errorCount === 0) {
+      // First error fallback: try category-specific fallback image
+      const fallback = getFallbackImage(item);
+      if (fallback !== currentSrc) {
+        setCurrentSrc(fallback);
+        setErrorCount(1);
+        return;
+      }
     }
+    if (errorCount === 1) {
+      // Second error fallback: try guaranteed primary hero
+      if (FESTIVAL_IMAGES.hero !== currentSrc) {
+        setCurrentSrc(FESTIVAL_IMAGES.hero);
+        setErrorCount(2);
+        return;
+      }
+    }
+    setErrorCount(3);
+  };
 
-    return (
-      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
-        <img
-          src={cleanImageUrl}
-          alt={alt || item.title || 'Festival Media'}
-          loading={loading}
-          referrerPolicy="no-referrer"
-          onError={() => setHasError(true)}
-          className={imageClassName}
-        />
-      </div>
-    );
-  }
-
-  // 2. If it's a Video and no custom image thumbnail is provided (or image errored)
-  if (isVideo && cleanVideoUrl) {
-    // 2a. YouTube URL
+  // 1. Direct Video in Image URL or Video URL without custom poster
+  if (isVideo && (!currentSrc || errorCount >= 2) && cleanVideoUrl) {
     const ytThumb = getYouTubeThumbnail(cleanVideoUrl);
-    if (ytThumb && !hasError) {
+    if (ytThumb && errorCount < 2) {
       return (
         <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
           <img
             src={ytThumb}
-            alt={alt || item.title || 'YouTube Video Thumbnail'}
+            alt={alt || item.title || 'Video Preview'}
             loading={loading}
             referrerPolicy="no-referrer"
-            onError={() => setHasError(true)}
+            onError={handleImageError}
             className={imageClassName}
           />
         </div>
       );
     }
 
-    // 2b. Direct Video File (MP4, WebM, MOV, uploads)
     return (
       <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
         <video
@@ -111,18 +152,62 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     );
   }
 
-  // 3. Fallback when neither image nor video preview could be rendered (clean styled placeholder, NOT a broken image)
-  return (
-    <div className={`flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 border border-neutral-800 p-4 text-center select-none ${className}`}>
-      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-2">
-        {isVideo ? <Film className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+  // 2. Direct Video File in imageUrl string
+  if (currentSrc && isDirectVideoUrl(currentSrc)) {
+    return (
+      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+        <video
+          src={`${currentSrc}#t=0.001`}
+          preload="metadata"
+          muted
+          playsInline
+          className={imageClassName}
+        />
       </div>
-      <p className="text-[11px] font-bold text-neutral-300 line-clamp-1 max-w-[85%]">
-        {item.title || (isVideo ? 'Festival Video' : 'Festival Photo')}
-      </p>
-      <span className="text-[9px] text-neutral-500 font-mono mt-0.5">
-        {item.category || (isVideo ? 'Video Reel' : 'Photo')}
-      </span>
+    );
+  }
+
+  // 3. Render Image
+  if (currentSrc && errorCount < 3) {
+    return (
+      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+        <img
+          src={currentSrc}
+          alt={alt || item.title || 'Festival Media'}
+          loading={loading}
+          referrerPolicy="no-referrer"
+          onError={handleImageError}
+          className={imageClassName}
+        />
+      </div>
+    );
+  }
+
+  // 4. Video Fallback if image failed
+  if (isVideo && cleanVideoUrl) {
+    return (
+      <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+        <video
+          src={`${cleanVideoUrl}#t=0.001`}
+          preload="metadata"
+          muted
+          playsInline
+          className={imageClassName}
+        />
+      </div>
+    );
+  }
+
+  // 5. Absolute fallback to verified festival image
+  return (
+    <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <img
+        src={FESTIVAL_IMAGES.gallery1}
+        alt={alt || item.title || 'Festival Media'}
+        loading={loading}
+        referrerPolicy="no-referrer"
+        className={imageClassName}
+      />
     </div>
   );
 };

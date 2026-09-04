@@ -1395,7 +1395,41 @@ export const getGalleryItems = (): GalleryItem[] => {
       safeSetItem(GALLERY_KEY, JSON.stringify(GALLERY_ITEMS));
       return GALLERY_ITEMS;
     }
-    return JSON.parse(raw);
+    const parsed: GalleryItem[] = JSON.parse(raw);
+    let hasUpdates = false;
+
+    // Sanitize any broken or outdated URLs
+    const sanitized = parsed.map((item) => {
+      let updatedItem = { ...item };
+      // Check if item has the old 404 Unsplash ID or empty image on a photo item
+      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1530731141654-5961b695817a')) {
+        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery2;
+        hasUpdates = true;
+      }
+      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1682687220063-4742bd7fd538')) {
+        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery6;
+        hasUpdates = true;
+      }
+      if (updatedItem.imageUrl && updatedItem.imageUrl.includes('photo-1534447677768-be436bb09401')) {
+        updatedItem.imageUrl = FESTIVAL_IMAGES.gallery10;
+        hasUpdates = true;
+      }
+      // If a non-video item has no image at all, restore default high-res image
+      if (updatedItem.mediaType !== 'video' && !updatedItem.videoUrl && !updatedItem.imageUrl) {
+        const defaultMatch = GALLERY_ITEMS.find((d) => d.id === updatedItem.id);
+        if (defaultMatch && defaultMatch.imageUrl) {
+          updatedItem.imageUrl = defaultMatch.imageUrl;
+          hasUpdates = true;
+        }
+      }
+      return updatedItem;
+    });
+
+    if (hasUpdates) {
+      safeSetItem(GALLERY_KEY, JSON.stringify(sanitized));
+    }
+
+    return sanitized;
   } catch (e) {
     console.error('Error loading gallery items:', e);
     return GALLERY_ITEMS;
