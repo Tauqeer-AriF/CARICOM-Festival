@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CartItem } from '../types';
-import { X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, Shield, Plane, Download, FileText } from 'lucide-react';
+import { X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, ArrowLeft, Shield, Plane, Download, FileText } from 'lucide-react';
 import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { PassSummaryModal } from './PassSummaryModal';
 import { AnimatePresence, motion } from 'motion/react';
@@ -115,21 +115,35 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             >
         
         {/* Header */}
-        <div className="p-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-950">
+        <div className="p-4 sm:p-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-950">
           <div className="flex items-center gap-2">
+            {checkoutStep === 'details' && (
+              <button
+                type="button"
+                onClick={() => setCheckoutStep('cart')}
+                className="p-1.5 -ml-1 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg cursor-pointer transition-colors flex items-center gap-1 text-xs font-semibold"
+                title="Back to Cart items"
+              >
+                <ArrowLeft className="w-4 h-4 text-amber-400" />
+                <span className="hidden xs:inline text-[11px] text-neutral-300">Back</span>
+              </button>
+            )}
             <ShoppingBag className="w-5 h-5 text-amber-400" />
-            <h3 className="font-bold font-serif text-lg text-white">Your Festival Cart</h3>
+            <h3 className="font-bold font-serif text-base sm:text-lg text-white truncate">
+              {checkoutStep === 'details' ? 'Buyer Information' : checkoutStep === 'confirmed' ? 'Pass Reserved' : 'Your Festival Cart'}
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-neutral-400 hover:text-white bg-neutral-900 rounded-xl"
+            className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl cursor-pointer transition-colors"
+            title="Close Drawer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {isProcessing && (
             <LuxurySkeletonOverlay type="modal" message="Reserving VIP Wristbands..." />
           )}
@@ -201,12 +215,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {!isProcessing && checkoutStep === 'details' && (
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
-              <h4 className="font-bold text-sm text-amber-400 uppercase tracking-wider">
-                Buyer Contact Details
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Please provide your contact information to reserve your event wristbands.
-              </p>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('cart')}
+                  className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Cart ({cart.length} item{cart.length !== 1 ? 's' : ''})
+                </button>
+                <span className="text-xs font-mono font-bold text-amber-400">
+                  Total: {getCurrencySymbol()}{totalConverted}
+                </span>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm text-amber-400 uppercase tracking-wider">
+                  Buyer Contact Details
+                </h4>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Please provide your contact information to reserve your event wristbands.
+                </p>
+              </div>
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1">Full Name</label>
@@ -244,12 +273,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('cart')}
+                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold text-xs rounded-xl transition-all border border-neutral-700 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Back to Cart</span>
+                </button>
                 <button
                   type="submit"
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-sm rounded-xl transition-all shadow-lg cursor-pointer"
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-sm rounded-xl transition-all shadow-lg cursor-pointer truncate"
                 >
-                  Confirm & Reserve Wristbands
+                  Confirm &amp; Reserve Wristbands
                 </button>
               </div>
             </form>
