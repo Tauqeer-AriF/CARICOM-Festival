@@ -305,6 +305,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ onComplete
                 >
                   <option value="Royalton Grenada Resort & Spa">Royalton Grenada Resort & Spa (Highly Recommended)</option>
                   <option value="Radisson Grenada Beach Resort">Radisson Grenada Beach Resort</option>
+                  <option value="Allamanda Beach Hotel">Allamanda Beach Hotel</option>
                   <option value="Coyaba Beach Resort">Coyaba Beach Resort</option>
                   <option value="Silversands Grenada">Silversands Grenada</option>
                   <option value="Mount Cinnamon Resort">Mount Cinnamon Resort</option>
