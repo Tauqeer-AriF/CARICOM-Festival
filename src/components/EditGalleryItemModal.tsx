@@ -25,7 +25,7 @@ interface EditGalleryItemModalProps {
   onSave: (item: GalleryItem) => void;
   item: GalleryItem | null;
   primaryColor?: string;
-  onOpenMediaLibrary?: (target: 'image' | 'video', onSelect: (url: string) => void) => void;
+  onOpenMediaLibrary?: ((target: 'image' | 'video', onSelect: (url: string) => void) => void) | ((onSelect: (url: string) => void) => void);
 }
 
 const GALLERY_CATEGORIES: Array<GalleryItem['category']> = [
@@ -324,7 +324,17 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-neutral-400 font-bold uppercase text-xs flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                  {isVideo ? 'Poster Thumbnail Image URL' : 'Photo Image URL'} <span className="text-rose-400">*</span>
+                  {isVideo ? (
+                    <>
+                      <span>Poster Thumbnail Image URL</span>
+                      <span className="text-neutral-500 font-normal text-[11px] lowercase">(optional)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Photo Image URL</span>
+                      <span className="text-rose-400">*</span>
+                    </>
+                  )}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -358,11 +368,11 @@ export const EditGalleryItemModal: React.FC<EditGalleryItemModalProps> = ({
               <div className="flex gap-3 items-center">
                 <input
                   type="text"
-                  required
+                  required={!isVideo}
                   value={formData.imageUrl || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
                   className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
-                  placeholder="https://..."
+                  placeholder={isVideo ? "Optional preview poster image (e.g. https://...)" : "https://..."}
                 />
                 {formData.imageUrl && (
                   <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 shrink-0 bg-neutral-900">

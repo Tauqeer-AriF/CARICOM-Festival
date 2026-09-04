@@ -455,18 +455,34 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<
     'event' | 'gallery' | 'gallery_video' | 'hotel' | 'testimonial' | 'hero' | 'logo' | 'favicon' | 'custom_callback' | { heroIndex: number } | { pageImageKey: string } | null
   >(null);
-  const [mediaSelectorCallback, setMediaSelectorCallback] = useState<((url: string) => void) | null>(null);
+  const mediaSelectorCallbackRef = useRef<((url: string) => void) | null>(null);
 
-  const openMediaLibraryWithCallback = (onSelect: (url: string) => void) => {
-    setMediaSelectorCallback(() => onSelect);
-    setMediaSelectorTarget('custom_callback');
+  const openMediaLibraryWithCallback = (
+    arg1: string | ((url: string) => void),
+    arg2?: (url: string) => void
+  ) => {
+    let callback: ((url: string) => void) | null = null;
+    if (typeof arg1 === 'function') {
+      callback = arg1;
+    } else if (typeof arg2 === 'function') {
+      callback = arg2;
+    }
+    if (callback) {
+      mediaSelectorCallbackRef.current = callback;
+      setMediaSelectorTarget('custom_callback');
+    }
   };
 
   const handleMediaSelect = (url: string) => {
-    if (mediaSelectorTarget === 'custom_callback' && mediaSelectorCallback) {
-      mediaSelectorCallback(url);
-      setMediaSelectorCallback(null);
+    if (mediaSelectorTarget === 'custom_callback' && mediaSelectorCallbackRef.current) {
+      const cb = mediaSelectorCallbackRef.current;
+      mediaSelectorCallbackRef.current = null;
       setMediaSelectorTarget(null);
+      try {
+        cb(url);
+      } catch (err) {
+        console.error('Error executing mediaSelectorCallback:', err);
+      }
       setSaveToast('Selected media applied from Media Library!');
       return;
     }
@@ -5577,7 +5593,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* Media Selector Modal */}
       <MediaSelectorModal
         isOpen={mediaSelectorTarget !== null}
-        onClose={() => setMediaSelectorTarget(null)}
+        onClose={() => {
+          setMediaSelectorTarget(null);
+          mediaSelectorCallbackRef.current = null;
+        }}
         onSelect={handleMediaSelect}
         primaryColor={primaryColor}
       />
