@@ -322,6 +322,15 @@
   background: var(--primary-color-dynamic, #F59E0B);
 }
 
+/* Hide scrollbar for clean horizontal chip bars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* --- High-Efficiency Senior Light Mode Theme Engine --- */
 html.light-mode {
   filter: invert(0.93) hue-rotate(180deg) brightness(1.03) contrast(1.01);

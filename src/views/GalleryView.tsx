@@ -19,7 +19,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  ChevronDown,
+  Filter,
+  Check,
+  RotateCcw,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -58,9 +63,36 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
   const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>('all');
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState<boolean>(false);
+  const [isMediaTypeDropdownOpen, setIsMediaTypeDropdownOpen] = useState<boolean>(false);
   const galleryGridRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const mediaTypeDropdownRef = useRef<HTMLDivElement>(null);
 
   const ITEMS_PER_PAGE = 25;
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        categoryDropdownRef.current && 
+        !categoryDropdownRef.current.contains(target)
+      ) {
+        setIsCategoryDropdownOpen(false);
+      }
+      if (
+        mediaTypeDropdownRef.current && 
+        !mediaTypeDropdownRef.current.contains(target)
+      ) {
+        setIsMediaTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Reset page when filters change
   useEffect(() => {
@@ -73,6 +105,10 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
     return timeB - timeA;
   });
 
+  const totalMediaCount = activeItems.length;
+  const videoCount = activeItems.filter(i => i.mediaType === 'video' || Boolean(i.videoUrl)).length;
+  const photoCount = activeItems.filter(i => i.mediaType !== 'video' && !i.videoUrl).length;
+
   const categories: CategoryFilter[] = [
     'All',
     'VIP Beach Fete',
@@ -83,6 +119,22 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
     'Meet and Greet',
     'Culture'
   ];
+
+  // Only display categories that contain items (plus 'All') to eliminate empty dead pills
+  const availableCategories = categories.filter((cat) => {
+    if (cat === 'All') return true;
+    return activeItems.some((item) => item.category === cat);
+  });
+
+  const mediaOptions: { id: MediaTypeFilter; label: string; count: number; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'all', label: 'All Media', count: totalMediaCount, icon: Film },
+    { id: 'video', label: 'Videos', count: videoCount, icon: Video },
+    { id: 'image', label: 'Photos', count: photoCount, icon: ImageIcon }
+  ];
+
+  const currentMediaOption = mediaOptions.find((o) => o.id === mediaTypeFilter) || mediaOptions[0];
+  const CurrentMediaIcon = currentMediaOption.icon;
+  const isFiltered = mediaTypeFilter !== 'all' || selectedCategory !== 'All';
 
   const filteredItems = activeItems.filter((item) => {
     const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
@@ -172,80 +224,205 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
         </p>
       </motion.div>
 
-      {/* Media Type & Category Filter Bar */}
+      {/* Media Type & Category Filter Controls */}
       <motion.div 
         initial="hidden"
         animate="visible"
         variants={fadeInUp}
-        className="space-y-4"
+        className="max-w-xl mx-auto w-full px-2 z-30 relative space-y-2.5"
       >
-        {/* Media Type Toggle Pills */}
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setMediaTypeFilter('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-              mediaTypeFilter === 'all'
-                ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/30 scale-105'
-                : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>All Media ({activeItems.length})</span>
-          </button>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
+          {/* Media Type Dropdown */}
+          <div ref={mediaTypeDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsMediaTypeDropdownOpen(!isMediaTypeDropdownOpen);
+                setIsCategoryDropdownOpen(false);
+              }}
+              className={`w-full px-3.5 sm:px-4 py-2.5 bg-neutral-900/90 hover:bg-neutral-800/90 text-neutral-200 border rounded-2xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-between gap-2 shadow-lg backdrop-blur-md min-h-[44px] ${
+                mediaTypeFilter !== 'all' 
+                  ? 'border-amber-500/60 text-amber-300 ring-1 ring-amber-500/20' 
+                  : 'border-neutral-800 hover:border-neutral-700'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <CurrentMediaIcon className={`w-4 h-4 shrink-0 ${mediaTypeFilter !== 'all' ? 'text-amber-400' : 'text-neutral-400'}`} />
+                <span className="truncate font-bold text-white text-xs sm:text-sm">
+                  {currentMediaOption.label}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 shrink-0 ${isMediaTypeDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          <button
-            onClick={() => setMediaTypeFilter('video')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-              mediaTypeFilter === 'video'
-                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-105'
-                : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>Videos ({activeItems.filter(i => i.mediaType === 'video' || i.videoUrl).length})</span>
-          </button>
+            {/* Media Type Popover */}
+            <AnimatePresence>
+              {isMediaTypeDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 top-full mt-2 w-56 sm:w-60 bg-neutral-900/95 border border-neutral-800 rounded-2xl shadow-2xl p-1.5 z-50 backdrop-blur-xl"
+                >
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-neutral-500 px-3 py-1.5">
+                    Filter by Media
+                  </div>
+                  <div className="space-y-0.5">
+                    {mediaOptions.map((opt) => {
+                      const isSelected = mediaTypeFilter === opt.id;
+                      const IconComp = opt.icon;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => {
+                            setMediaTypeFilter(opt.id);
+                            setIsMediaTypeDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer text-left ${
+                            isSelected
+                              ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                              : 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <IconComp className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-amber-400' : 'text-neutral-400'}`} />
+                            <span className="truncate">{opt.label}</span>
+                          </div>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
+                            isSelected ? 'bg-amber-500/25 text-amber-400 font-bold' : 'bg-neutral-800 text-neutral-400'
+                          }`}>
+                            {opt.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          <button
-            onClick={() => setMediaTypeFilter('image')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-              mediaTypeFilter === 'image'
-                ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/30 scale-105'
-                : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            <span>Photos ({activeItems.filter(i => i.mediaType !== 'video' && !i.videoUrl).length})</span>
-          </button>
+          {/* Category Dropdown */}
+          <div ref={categoryDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCategoryDropdownOpen(!isCategoryDropdownOpen);
+                setIsMediaTypeDropdownOpen(false);
+              }}
+              className={`w-full px-3.5 sm:px-4 py-2.5 bg-neutral-900/90 hover:bg-neutral-800/90 text-neutral-200 border rounded-2xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-between gap-2 shadow-lg backdrop-blur-md min-h-[44px] ${
+                selectedCategory !== 'All' 
+                  ? 'border-amber-500/60 text-amber-300 ring-1 ring-amber-500/20' 
+                  : 'border-neutral-800 hover:border-neutral-700'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Filter className={`w-4 h-4 shrink-0 ${selectedCategory !== 'All' ? 'text-amber-400' : 'text-neutral-400'}`} />
+                <span className="truncate font-bold text-white text-xs sm:text-sm">
+                  {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 shrink-0 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Category Popover */}
+            <AnimatePresence>
+              {isCategoryDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-neutral-900/95 border border-neutral-800 rounded-2xl shadow-2xl p-1.5 z-50 backdrop-blur-xl max-h-72 overflow-y-auto"
+                >
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-neutral-500 px-3 py-1.5">
+                    Filter by Category
+                  </div>
+                  <div className="space-y-0.5">
+                    {availableCategories.map((cat) => {
+                      const isSelected = selectedCategory === cat;
+                      const count = cat === 'All' 
+                        ? activeItems.length 
+                        : activeItems.filter(i => i.category === cat).length;
+
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer text-left ${
+                            isSelected
+                              ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                              : 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {isSelected ? (
+                              <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                            <span className="truncate">{cat === 'All' ? 'All Categories' : cat}</span>
+                          </div>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
+                            isSelected ? 'bg-amber-500/25 text-amber-400 font-bold' : 'bg-neutral-800 text-neutral-400'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center justify-center flex-wrap gap-2 pt-1">
-          {categories.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                  isActive 
-                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-md' 
-                    : 'bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 border border-neutral-800/80'
-                }`}
-              >
-                {cat === 'All' ? 'All Categories' : cat}
-              </button>
-            );
-          })}
-        </div>
+        {/* Subtle Active Filter Clear & Item Counter */}
+        {isFiltered && (
+          <motion.div 
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-3 pt-1 text-xs text-neutral-400"
+          >
+            <span>
+              Showing <strong className="text-white font-mono">{filteredItems.length}</strong> {filteredItems.length === 1 ? 'item' : 'items'}
+            </span>
+            <span className="text-neutral-700">•</span>
+            <button
+              onClick={() => {
+                setSelectedCategory('All');
+                setMediaTypeFilter('all');
+              }}
+              className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset filters</span>
+            </button>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Masonry Grid */}
       <div ref={galleryGridRef} className="scroll-mt-24">
         {filteredItems.length === 0 ? (
-          <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800">
+          <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800 px-4">
             <Camera className="w-12 h-12 text-slate-500 mx-auto" />
             <h3 className="text-lg font-bold text-white">No Gallery Media Found</h3>
             <p className="text-sm text-slate-400 font-light max-w-sm mx-auto">There are no photos or videos matching your filter criteria.</p>
+            <button
+              onClick={() => {
+                setSelectedCategory('All');
+                setMediaTypeFilter('all');
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md"
+            >
+              Reset Filters
+            </button>
           </div>
         ) : (
           <AnimatePresence mode="wait">

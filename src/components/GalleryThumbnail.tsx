@@ -19,20 +19,23 @@ export function getYouTubeThumbnail(url: string | undefined | null): string | nu
 
 export function isDirectVideoUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  const clean = url.trim().toLowerCase();
+  const raw = url.trim();
+  const clean = raw.split('?')[0].split('#')[0].toLowerCase();
   
   // Explicit image extensions or data URI images are NEVER videos
   if (
     /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|tiff)$/i.test(clean) ||
-    clean.startsWith('data:image/')
+    raw.startsWith('data:image/')
   ) {
     return false;
   }
 
   return (
-    clean.startsWith('data:video') ||
-    clean.startsWith('blob:') ||
-    /\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i.test(clean)
+    raw.startsWith('data:video') ||
+    raw.startsWith('blob:') ||
+    /\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i.test(clean) ||
+    clean.includes('/video/') ||
+    clean.includes('.mp4')
   );
 }
 
