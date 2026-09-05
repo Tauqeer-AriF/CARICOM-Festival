@@ -8,6 +8,7 @@ export type AdminTabId =
   | 'analytics' 
   | 'submissions' 
   | 'orders' 
+  | 'payments'
   | 'emails'
   | 'branding' 
   | 'page-images' 
@@ -31,6 +32,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'analytics', 
     'submissions', 
     'orders', 
+    'payments',
     'emails',
     'branding', 
     'page-images', 
@@ -48,6 +50,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'analytics', 
     'submissions', 
     'orders', 
+    'payments',
     'emails',
     'branding', 
     'page-images', 
@@ -65,6 +68,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'analytics', 
     'submissions', 
     'orders', 
+    'payments',
     'emails',
     'passes', 
     'hotels', 
@@ -81,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
   'Ticketing & Passes': [
     'passes', 
     'orders', 
+    'payments',
     'emails',
     'submissions', 
     'analytics'
@@ -88,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
   'Concierge Lead': [
     'submissions', 
     'orders', 
+    'payments',
     'emails',
     'hotels', 
     'testimonials'

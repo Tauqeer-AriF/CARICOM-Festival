@@ -26,6 +26,8 @@ import { RegistrationModal } from './components/RegistrationModal';
 import { AnimatePresence } from 'motion/react';
 import { SplashScreen } from './components/SplashScreen';
 import { ApplicationKilledView } from './components/ApplicationKilledView';
+import { PaymentReceiptModal } from './components/PaymentReceiptModal';
+import { VoucherLookupModal } from './components/VoucherLookupModal';
 
 // Helper to parse current path to ActiveTab
 const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
@@ -77,6 +79,10 @@ export default function App() {
   const [currency, setCurrency] = useState<'GBP' | 'USD' | 'XCD'>('GBP');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [receiptModalRef, setReceiptModalRef] = useState<string | undefined>(undefined);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [voucherModalRef, setVoucherModalRef] = useState<string | undefined>(undefined);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
@@ -139,6 +145,32 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [siteConfig]);
+
+  // Listen for payment receipt modal trigger
+  useEffect(() => {
+    const handleOpenReceipt = (e: Event) => {
+      const customEv = e as CustomEvent<{ orderRef?: string }>;
+      if (customEv?.detail?.orderRef) {
+        setReceiptModalRef(customEv.detail.orderRef);
+      }
+      setIsReceiptModalOpen(true);
+    };
+    window.addEventListener('open_payment_receipt_modal', handleOpenReceipt);
+    return () => window.removeEventListener('open_payment_receipt_modal', handleOpenReceipt);
+  }, []);
+
+  // Listen for wristband voucher download lookup modal trigger
+  useEffect(() => {
+    const handleOpenVoucher = (e: Event) => {
+      const customEv = e as CustomEvent<{ orderRef?: string }>;
+      if (customEv?.detail?.orderRef) {
+        setVoucherModalRef(customEv.detail.orderRef);
+      }
+      setIsVoucherModalOpen(true);
+    };
+    window.addEventListener('open_voucher_lookup_modal', handleOpenVoucher);
+    return () => window.removeEventListener('open_voucher_lookup_modal', handleOpenVoucher);
+  }, []);
 
   // Listen for dynamic site branding & banner updates from Admin Dashboard
   useEffect(() => {
@@ -808,7 +840,7 @@ export default function App() {
               <TravelInsuranceView setActiveTab={setActiveTab} />
             )}
 
-            {activeTab === 'contact' && <ContactView />}
+            {activeTab === 'contact' && <ContactView setActiveTab={setActiveTab} />}
 
             {activeTab === 'terms' && <TermsView setActiveTab={setActiveTab} />}
 
@@ -828,6 +860,11 @@ export default function App() {
           setIsCartOpen(false);
           setActiveTab('register');
         }}
+        onNavigatePasses={() => {
+          setIsCartOpen(false);
+          setActiveTab('shop');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* Floating Widgets */}
@@ -837,6 +874,30 @@ export default function App() {
           <ScrollToTopButton />
         </>
       )}
+
+      {/* Payment Receipt Upload Modal */}
+      <PaymentReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          setReceiptModalRef(undefined);
+        }}
+        defaultOrderRef={receiptModalRef}
+      />
+
+      {/* Wristband Voucher Retrieval & Download Modal */}
+      <VoucherLookupModal
+        isOpen={isVoucherModalOpen}
+        onClose={() => {
+          setIsVoucherModalOpen(false);
+          setVoucherModalRef(undefined);
+        }}
+        initialRef={voucherModalRef}
+        onOpenReceiptModal={(orderRef) => {
+          setReceiptModalRef(orderRef);
+          setIsReceiptModalOpen(true);
+        }}
+      />
 
       {/* Footer */}
       <Footer setActiveTab={setActiveTab} siteConfig={siteConfig} />

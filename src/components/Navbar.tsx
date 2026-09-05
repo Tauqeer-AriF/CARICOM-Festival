@@ -22,7 +22,9 @@ import {
   Music,
   Globe,
   Shield,
-  Compass
+  Compass,
+  Camera,
+  Ticket
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -83,13 +85,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: 'Support',
       items: [
         { id: 'contact' as ActiveTab, label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'voucher_download' as any, label: 'Download Wrist Voucher', icon: <Ticket className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'payment_receipt' as any, label: 'Upload Payment Receipt', icon: <Camera className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'terms' as ActiveTab, label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
       ]
     }
   ];
 
-  const handleTabClick = (tab: ActiveTab) => {
-    setActiveTab(tab);
+  const handleTabClick = (tab: ActiveTab | string) => {
+    if (tab === 'payment_receipt') {
+      window.dispatchEvent(new CustomEvent('open_payment_receipt_modal'));
+      setMobileMenuOpen(false);
+      return;
+    }
+    if (tab === 'voucher_download') {
+      window.dispatchEvent(new CustomEvent('open_voucher_lookup_modal'));
+      setMobileMenuOpen(false);
+      return;
+    }
+    setActiveTab(tab as ActiveTab);
     setMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -97,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const renderDropdown = (
     dropdownId: string, 
     label: string, 
-    items: { id: ActiveTab; label: string; icon: React.ReactNode }[]
+    items: { id: ActiveTab | string; label: string; icon: React.ReactNode }[]
   ) => {
     const isDropdownActive = items.some(item => item.id === activeTab);
     const isOpen = activeHoverDropdown === dropdownId;
@@ -126,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Dropdown Container */}
         <div 
-          className={`absolute left-0 top-full pt-1.5 w-56 z-50 transition-all duration-150 ${
+          className={`absolute left-0 top-full pt-1.5 w-60 z-50 transition-all duration-150 ${
             isOpen ? 'block opacity-100 pointer-events-auto' : 'hidden group-hover:block opacity-0 group-hover:opacity-100'
           }`}
         >
@@ -284,10 +298,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               {/* Support Dropdown */}
-              {renderDropdown('support', 'Support', [
-                { id: 'contact', label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
-                { id: 'terms', label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
-              ])}
+              {renderDropdown('support', 'Support', dropdownMenus.find(m => m.id === 'support')?.items || [])}
             </nav>
 
             {/* Right Section: Controls */}

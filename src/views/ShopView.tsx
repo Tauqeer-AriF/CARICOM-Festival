@@ -9,7 +9,9 @@ import {
   ShoppingBag, 
   ShieldCheck, 
   ArrowRight,
-  Crown
+  Crown,
+  CreditCard,
+  Clock
 } from 'lucide-react';
 
 interface ShopViewProps {
@@ -36,7 +38,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ setActiveTab, onAddToCart, c
   };
 
   return (
-    <div className="space-y-12 animate-fadeIn pb-16">
+    <div className="space-y-10 animate-fadeIn pb-16">
       {/* Hero Banner */}
       <div data-no-invert className="relative rounded-3xl overflow-hidden border border-amber-500/20 shadow-2xl min-h-[300px] sm:min-h-[380px] flex items-center p-6 sm:p-12">
         <div 
@@ -54,6 +56,62 @@ export const ShopView: React.FC<ShopViewProps> = ({ setActiveTab, onAddToCart, c
           <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
             Choose your 10-day VIP pass tier or adventure add-ons. Lock in your entry to all beach fetes, Mellowland river tubing, and the White Gala.
           </p>
+        </div>
+      </div>
+
+      {/* Monzo Wristband Payment Option Banner */}
+      <div className="bg-gradient-to-r from-neutral-900 via-neutral-900/95 to-rose-950/30 border border-rose-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-white font-serif">
+                  Flexible Wristband Payment Options
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  Monzo
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 font-light">
+                Purchase your wristband today or choose to pay upon arrival in Grenada.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          <div className="bg-neutral-950/70 border border-neutral-800 rounded-2xl p-3.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+                Option 1: Pay Now via Monzo
+              </span>
+              <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 font-bold">
+                Instant Lock-In
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              Transfer instantly using your Monzo app or UK Faster Payments. Your wristband is immediately assigned and ready for priority collection at the airport.
+            </p>
+          </div>
+
+          <div className="bg-neutral-950/70 border border-neutral-800 rounded-2xl p-3.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                Option 2: Pay on Arrival
+              </span>
+              <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-bold">
+                £0 Due Today
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              Reserve your wristband with zero upfront cost. Settle payment when you arrive at the airport or your hotel welcome desk in Grenada.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -109,6 +167,17 @@ export const ShopView: React.FC<ShopViewProps> = ({ setActiveTab, onAddToCart, c
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
                 <span className="text-xs font-bold text-amber-300 block">
                   {pass.includedEvents}
+                </span>
+              </div>
+
+              {/* Payment Method Badge */}
+              <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-[11px]">
+                <span className="text-rose-300 font-medium flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-rose-400" />
+                  Payment: Monzo
+                </span>
+                <span className="text-[10px] font-mono font-bold text-neutral-300">
+                  Pay Now or On Arrival
                 </span>
               </div>
 

@@ -37,7 +37,9 @@ import {
   X,
   Lock,
   Server,
-  CheckCircle
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { 
   EmailLog, 
@@ -79,10 +81,12 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   const [settings, setSettings] = useState<EmailSettings>(() => getEmailSettings());
   const [templates, setTemplates] = useState<EmailTemplate[]>(() => getEmailTemplates());
 
-  // Filters for Outbox
+  // Filters & Pagination for Outbox
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [outboxPage, setOutboxPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Preview Modal
   const [viewingLog, setViewingLog] = useState<EmailLog | null>(null);
@@ -205,6 +209,20 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
       return matchesCategory && matchesStatus && matchesSearch;
     });
   }, [logs, selectedCategory, selectedStatus, searchTerm]);
+
+  // Reset outbox page when filters or search change
+  useEffect(() => {
+    setOutboxPage(1);
+  }, [searchTerm, selectedCategory, selectedStatus]);
+
+  // Outbox Pagination Calculations
+  const totalOutboxPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE) || 1;
+  const safeOutboxPage = Math.min(outboxPage, totalOutboxPages);
+
+  const paginatedLogs = useMemo(() => {
+    const start = (safeOutboxPage - 1) * ITEMS_PER_PAGE;
+    return filteredLogs.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredLogs, safeOutboxPage]);
 
   // Handlers
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -657,7 +675,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
               <>
                 {/* Mobile Cards View (Visible on screens < md) */}
                 <div className="md:hidden divide-y divide-neutral-800/60">
-                  {filteredLogs.map((log) => {
+                  {paginatedLogs.map((log) => {
                     const dateObj = new Date(log.dispatchedAt);
                     const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                     const formattedTime = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -785,7 +803,7 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50 text-xs text-neutral-300">
-                      {filteredLogs.map((log) => {
+                      {paginatedLogs.map((log) => {
                         const dateObj = new Date(log.dispatchedAt);
                         const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                         const formattedTime = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -900,6 +918,75 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Outbox Pagination Controls Bar */}
+                <div className="p-3.5 sm:p-4 bg-neutral-950/80 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="text-neutral-400 font-mono text-[11px] text-center sm:text-left">
+                    Showing <strong className="text-white">{Math.min((safeOutboxPage - 1) * ITEMS_PER_PAGE + 1, filteredLogs.length)}</strong> to{' '}
+                    <strong className="text-white">{Math.min(safeOutboxPage * ITEMS_PER_PAGE, filteredLogs.length)}</strong> of{' '}
+                    <strong className="text-amber-400">{filteredLogs.length}</strong> communiqués
+                  </div>
+
+                  {totalOutboxPages > 1 && (
+                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                      <button
+                        type="button"
+                        disabled={safeOutboxPage === 1}
+                        onClick={() => setOutboxPage(p => Math.max(1, p - 1))}
+                        className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer min-h-[32px]"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Prev</span>
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalOutboxPages }, (_, i) => i + 1).map((pageNum) => {
+                          if (
+                            totalOutboxPages <= 7 ||
+                            pageNum === 1 ||
+                            pageNum === totalOutboxPages ||
+                            Math.abs(pageNum - safeOutboxPage) <= 1
+                          ) {
+                            return (
+                              <button
+                                key={pageNum}
+                                type="button"
+                                onClick={() => setOutboxPage(pageNum)}
+                                className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center font-mono ${
+                                  safeOutboxPage === pageNum
+                                    ? 'bg-amber-500 text-neutral-950 shadow-md font-black'
+                                    : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          } else if (
+                            (pageNum === 2 && safeOutboxPage > 4) ||
+                            (pageNum === totalOutboxPages - 1 && safeOutboxPage < totalOutboxPages - 3)
+                          ) {
+                            return (
+                              <span key={pageNum} className="px-1 text-neutral-600 font-mono text-xs">
+                                •••
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={safeOutboxPage === totalOutboxPages}
+                        onClick={() => setOutboxPage(p => Math.min(totalOutboxPages, p + 1))}
+                        className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer min-h-[32px]"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

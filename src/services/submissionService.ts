@@ -131,7 +131,7 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     status: 'resolved',
     submittedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     amountGBP: 900,
-    extraDetails: { OrderRef: 'GCF-2027-99102', Currency: 'GBP', TotalPaid: '£900', PurchasedItems: '2x 10-Day All-Access VIP Gold Pass', PaymentStatus: 'PAID' },
+    extraDetails: { OrderRef: 'GCF-2027-99102', Currency: 'GBP', TotalPaid: '£900', PurchasedItems: '2x 10-Day All-Access VIP Gold Pass', PaymentMethod: 'Monzo', PaymentTiming: 'Pay Now via Monzo', PaymentStatus: 'PAID', WristbandStatus: 'ALLOCATED', CollectionPoint: 'Maurice Bishop Airport (GND) / Royalton Grenada Desk' },
     replies: [
       {
         id: 'rep-sarah-1',
@@ -178,7 +178,7 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     status: 'in-review',
     submittedAt: new Date(Date.now() - 3600000 * 10).toISOString(),
     amountGBP: 480,
-    extraDetails: { OrderRef: 'GCF-2027-44012', Currency: 'USD', TotalPaid: '$614', PurchasedItems: '2x Weekend Carnival VIP Pass', PaymentStatus: 'PAID' }
+    extraDetails: { OrderRef: 'GCF-2027-44012', Currency: 'USD', TotalPaid: '$614', PurchasedItems: '2x Weekend Carnival VIP Pass', PaymentMethod: 'Pay on Arrival', PaymentTiming: 'Pay on Arrival', PaymentStatus: 'PAY_ON_ARRIVAL', WristbandStatus: 'RESERVED_FOR_ARRIVAL', CollectionPoint: 'Maurice Bishop Airport (GND) / Royalton Grenada Desk' }
   },
   {
     id: 'sub-103',
@@ -187,11 +187,11 @@ export const INITIAL_DEMO_SUBMISSIONS: FormSubmissionItem[] = [
     email: 'david.boyce@caribbean-travel.org',
     phone: '+1 473 405 9911',
     topicOrPass: '2x 10-Day All-Access VIP Gold Pass',
-    messageOrDetails: 'Confirmed payment via card. Requesting custom wristband sizing and priority access to the White Gala Beach Fete.',
+    messageOrDetails: 'Confirmed payment via Monzo. Requesting custom wristband sizing and priority access to the White Gala Beach Fete.',
     status: 'resolved',
     submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     amountGBP: 900,
-    extraDetails: { OrderRef: 'GCF-2027-88219', PaymentStatus: 'PAID' },
+    extraDetails: { OrderRef: 'GCF-2027-88219', Currency: 'GBP', TotalPaid: '£900', PurchasedItems: '2x 10-Day All-Access VIP Gold Pass', PaymentMethod: 'Monzo', PaymentTiming: 'Pay Now via Monzo', PaymentStatus: 'PAID', WristbandStatus: 'ISSUED', CollectionPoint: 'Royalton Grenada Resort & Spa Concierge' },
     replies: [
       {
         id: 'rep-demo-1',
@@ -661,13 +661,13 @@ export const saveSubmissions = (submissions: FormSubmissionItem[]): void => {
   }
 };
 
-export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt' | 'status'>): FormSubmissionItem => {
+export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt' | 'status'> & { status?: 'new' | 'in-review' | 'resolved' }): FormSubmissionItem => {
   const current = getSubmissions();
   const newSub: FormSubmissionItem = {
+    status: sub.status || 'new',
     ...sub,
     id: `sub-${Date.now()}`,
     submittedAt: new Date().toISOString(),
-    status: 'new',
   };
   const updated = [newSub, ...current];
   saveSubmissions(updated);
@@ -731,7 +731,39 @@ export const updateSubmission = (
 
 export const updateSubmissionStatus = (id: string, status: 'new' | 'in-review' | 'resolved'): void => {
   const current = getSubmissions();
-  const updated = current.map(item => item.id === id ? { ...item, status } : item);
+  const updated = current.map(item => {
+    if (item.id === id) {
+      const existingExtra = item.extraDetails || {};
+      let updatedExtra = { ...existingExtra };
+
+      if (status === 'resolved') {
+        updatedExtra = {
+          ...updatedExtra,
+          PaymentStatus: existingExtra.PaymentStatus || 'PAID',
+          WristbandStatus: 'ALLOCATED'
+        };
+      } else if (status === 'in-review') {
+        updatedExtra = {
+          ...updatedExtra,
+          PaymentStatus: existingExtra.PaymentStatus === 'PAID' ? 'UNDER_REVIEW' : (existingExtra.PaymentStatus || 'UNDER_REVIEW'),
+          WristbandStatus: 'RESERVED_FOR_ARRIVAL'
+        };
+      } else if (status === 'new') {
+        updatedExtra = {
+          ...updatedExtra,
+          PaymentStatus: existingExtra.PaymentStatus === 'PAID' ? 'AWAITING_PAYMENT' : (existingExtra.PaymentStatus || 'AWAITING_PAYMENT'),
+          WristbandStatus: 'RESERVED_FOR_ARRIVAL'
+        };
+      }
+
+      return {
+        ...item,
+        status,
+        extraDetails: updatedExtra
+      };
+    }
+    return item;
+  });
   saveSubmissions(updated);
 
   // Sync to backend SQLite
@@ -740,6 +772,161 @@ export const updateSubmissionStatus = (id: string, status: 'new' | 'in-review' |
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
+};
+
+/**
+ * Locate a submission by either its direct ID (e.g. sub-1234) or customer OrderRef (e.g. GCF-2027-99123)
+ */
+export const getSubmissionByOrderRef = (ref: string): FormSubmissionItem | null => {
+  if (!ref || !ref.trim()) return null;
+  const current = getSubmissions();
+  const cleanRef = ref.trim().toLowerCase();
+  return current.find(item => 
+    item.id.toLowerCase() === cleanRef ||
+    item.extraDetails?.OrderRef?.toLowerCase() === cleanRef ||
+    (cleanRef.length >= 6 && item.topicOrPass?.toLowerCase().includes(cleanRef)) ||
+    (cleanRef.length >= 6 && item.messageOrDetails?.toLowerCase().includes(cleanRef))
+  ) || null;
+};
+
+/**
+ * Determine if a customer's pass reservation / order is fully confirmed & verified
+ */
+export const isPassOrderConfirmed = (item: FormSubmissionItem | null): boolean => {
+  if (!item) return false;
+  
+  // 1. Strict negative checks: If explicitly in-review or new, or receipt rejected, it is NOT confirmed
+  if (item.status === 'in-review' || item.status === 'new') {
+    return false;
+  }
+  if (item.receiptStatus === 'rejected') {
+    return false;
+  }
+
+  // 2. Explicitly resolved or receipt verified
+  if (item.status === 'resolved' || item.receiptStatus === 'verified') {
+    return true;
+  }
+  
+  const paymentStatus = (item.extraDetails?.PaymentStatus || '').toUpperCase();
+  const wristbandStatus = (item.extraDetails?.WristbandStatus || '').toUpperCase();
+
+  // 3. Paid / Verified payment status only if not pending review
+  if (['PAID', 'PAID_VERIFIED', 'CONFIRMED', 'VERIFIED', 'RESOLVED', 'COMPLETE'].includes(paymentStatus)) {
+    return true;
+  }
+
+  // 4. Wristband allocated / issued
+  if (['ISSUED', 'ALLOCATED', 'CONFIRMED', 'VERIFIED'].includes(wristbandStatus)) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Attach a proof-of-payment receipt or screenshot from a customer
+ */
+export const attachPaymentReceipt = (
+  idOrRef: string,
+  receiptData: {
+    receiptUrl: string;
+    receiptName?: string;
+    receiptNotes?: string;
+  }
+): FormSubmissionItem | null => {
+  const current = getSubmissions();
+  const cleanRef = idOrRef.trim().toLowerCase();
+  let updatedItem: FormSubmissionItem | null = null;
+
+  const updated = current.map(item => {
+    const isMatch = item.id.toLowerCase() === cleanRef ||
+      item.extraDetails?.OrderRef?.toLowerCase() === cleanRef ||
+      (cleanRef.length >= 6 && item.topicOrPass?.toLowerCase().includes(cleanRef)) ||
+      (cleanRef.length >= 6 && item.messageOrDetails?.toLowerCase().includes(cleanRef));
+
+    if (isMatch && !updatedItem) {
+      const nowIso = new Date().toISOString();
+      const updatedExtra = {
+        ...(item.extraDetails || {}),
+        PaymentReceiptAttached: 'true',
+        ReceiptFileName: receiptData.receiptName || 'payment_receipt.jpg',
+        ReceiptUploadedAt: nowIso,
+        ReceiptNotes: receiptData.receiptNotes || 'Receipt submitted by attendee',
+      };
+      
+      updatedItem = {
+        ...item,
+        receiptUrl: receiptData.receiptUrl,
+        receiptName: receiptData.receiptName || 'payment_receipt.jpg',
+        receiptUploadedAt: nowIso,
+        receiptNotes: receiptData.receiptNotes || '',
+        receiptStatus: 'pending_verification',
+        status: item.status === 'resolved' ? 'resolved' : 'in-review',
+        extraDetails: updatedExtra,
+      };
+      return updatedItem;
+    }
+    return item;
+  });
+
+  if (updatedItem) {
+    saveSubmissions(updated);
+    safeApiCall(`/api/submissions/${(updatedItem as FormSubmissionItem).id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedItem)
+    });
+  }
+
+  return updatedItem;
+};
+
+/**
+ * Admin action to verify or reject an attached payment receipt
+ */
+export const verifyPaymentReceipt = (
+  id: string,
+  statusOrApproved: 'verified' | 'rejected' | boolean,
+  verifierNote?: string
+): FormSubmissionItem | null => {
+  const isApproved = statusOrApproved === true || statusOrApproved === 'verified';
+  const receiptStatus: 'verified' | 'rejected' = isApproved ? 'verified' : 'rejected';
+
+  const current = getSubmissions();
+  let updatedItem: FormSubmissionItem | null = null;
+
+  const updated = current.map(item => {
+    if (item.id === id) {
+      const nowIso = new Date().toISOString();
+      const updatedExtra = {
+        ...(item.extraDetails || {}),
+        PaymentStatus: isApproved ? 'PAID_VERIFIED' : 'RECEIPT_REJECTED',
+        PaymentVerifiedAt: nowIso,
+        ReceiptStatus: receiptStatus,
+        ...(verifierNote ? { VerificationNote: verifierNote } : {}),
+      };
+      updatedItem = {
+        ...item,
+        receiptStatus,
+        status: isApproved ? 'resolved' : 'in-review',
+        extraDetails: updatedExtra,
+      };
+      return updatedItem;
+    }
+    return item;
+  });
+
+  if (updatedItem) {
+    saveSubmissions(updated);
+    safeApiCall(`/api/submissions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedItem)
+    });
+  }
+
+  return updatedItem;
 };
 
 export const addSubmissionReply = (

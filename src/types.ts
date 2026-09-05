@@ -42,6 +42,11 @@ export interface FormSubmissionItem {
   amountGBP?: number;
   extraDetails?: Record<string, string>;
   replies?: SubmissionReply[];
+  receiptUrl?: string;
+  receiptName?: string;
+  receiptUploadedAt?: string;
+  receiptNotes?: string;
+  receiptStatus?: 'pending_verification' | 'verified' | 'rejected';
 }
 
 export interface HeroImageConfig {
@@ -159,7 +164,37 @@ export interface SiteConfig {
   killedAt?: string;
   contactEmail?: string;
   contactPhone?: string;
+  paymentConfig?: PaymentConfig;
   updatedAt?: string;
+}
+
+export interface PaymentConfig {
+  monzoEnabled: boolean;
+  payNowEnabled: boolean;
+  payOnArrivalEnabled: boolean;
+  defaultTiming: 'now' | 'arrival';
+  accountName: string;
+  sortCode: string;
+  accountNumber: string;
+  bankName: string;
+  monzoMeSlug: string;
+  referencePrefix?: string;
+  iban?: string;
+  bicSwift?: string;
+  arrivalDeskName: string;
+  arrivalDeskLocation: string;
+  arrivalDeskHours?: string;
+  wristbandCollectionNotes: string;
+  supportPhone: string;
+  supportEmail: string;
+  autoReconcileOrders: boolean;
+  allowPassVoucherDownloadBeforePayment?: boolean;
+  paymentDeadlineHours?: number;
+  sendConfirmationEmail?: boolean;
+  emailReceiptCopyAdmin?: boolean;
+  showMonzoQrCode?: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface GalleryItem {
@@ -255,6 +290,10 @@ export interface CartItem {
   pass: PassItem;
   quantity: number;
 }
+
+export type WristbandPaymentTiming = 'now' | 'arrival';
+export type WristbandPaymentMethod = 'monzo';
+
 
 export interface MediaItem {
   id: string;

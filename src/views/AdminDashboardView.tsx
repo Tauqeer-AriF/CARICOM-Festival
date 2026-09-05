@@ -35,8 +35,10 @@ import {
   saveTestimonials,
   addMediaItem,
   syncWithDatabase,
-  uploadFileToServer
+  uploadFileToServer,
+  verifyPaymentReceipt
 } from '../services/submissionService';
+import { ReceiptLightboxModal } from '../components/PaymentReceiptModal';
 import {
   getAdminUsers,
   getCurrentAdminUser,
@@ -53,6 +55,7 @@ import {
 } from '../services/emailService';
 import { 
   ShieldCheck,
+  CreditCard,
   Search, 
   Filter, 
   Download, 
@@ -80,6 +83,7 @@ import {
   EyeOff, 
   Send, 
   Zap,
+  Camera,
   Plane, 
   Ticket, 
   Truck, 
@@ -159,6 +163,7 @@ import { EditTestimonialModal } from '../components/EditTestimonialModal';
 import { AdminUsersTab } from '../components/AdminUsersTab';
 import { OwnerControlTab } from '../components/OwnerControlTab';
 import { AdminEmailSuiteTab } from '../components/AdminEmailSuiteTab';
+import { AdminPaymentsTab } from '../components/AdminPaymentsTab';
 import { getEmailLogs } from '../services/emailService';
 import { 
   SubmissionTypeBadge, 
@@ -229,6 +234,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentTimingFilter, setPaymentTimingFilter] = useState<'all' | 'now' | 'arrival'>('all');
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
 
   // Helper function to consolidate guest records by email address
@@ -281,6 +287,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [previewPdfSub, setPreviewPdfSub] = useState<FormSubmissionItem | null>(null);
   const [editingSubmission, setEditingSubmission] = useState<FormSubmissionItem | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | number | null>(null);
+  const [previewReceiptModal, setPreviewReceiptModal] = useState<{
+    url: string;
+    name?: string;
+    orderRef?: string;
+    guestName?: string;
+  } | null>(null);
   const selectedPassOrder = submissions.find(s => s.id === selectedOrderId) || null;
 
   const setReplyingSub = (sub: FormSubmissionItem | null) => {
@@ -2004,6 +2016,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </button>
           )}
 
+          {hasRoleAccess(currentAdmin?.role, 'payments') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('payments');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'payments'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={activeAdminTab === 'payments' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
+            >
+              <CreditCard className={`w-4 h-4 ${activeAdminTab === 'payments' ? 'text-amber-400' : 'text-neutral-400'}`} /> Payment Gateway
+            </button>
+          )}
+
           {hasRoleAccess(currentAdmin?.role, 'branding') && (
             <button
               onClick={() => {
@@ -2261,6 +2290,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
                 {activeAdminTab === 'submissions' && 'Submissions Repository'}
                 {activeAdminTab === 'orders' && 'Pass Orders & Reservations'}
+                {activeAdminTab === 'payments' && 'Payment Gateway & Monzo Setup'}
                 {activeAdminTab === 'branding' && 'Visual Identity Lab'}
                 {activeAdminTab === 'analytics' && 'Analytics Dashboard'}
                 {activeAdminTab === 'events' && 'Event Coordinator'}
@@ -2282,6 +2312,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {activeAdminTab === 'orders' && submissions.filter(s => s.type === 'pass-order').length > 0 && (
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
                   {submissions.filter(s => s.type === 'pass-order').length} orders
+                </span>
+              )}
+              {activeAdminTab === 'payments' && (
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
+                  Monzo Integration
                 </span>
               )}
             </div>
@@ -3351,8 +3386,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     )}
                   </div>
 
-                  {/* Status Dropdown & Reset */}
+                  {/* Status & Timing Dropdowns & Reset */}
                   <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Timing:</span>
+                      <select
+                        value={paymentTimingFilter}
+                        onChange={(e) => setPaymentTimingFilter(e.target.value as any)}
+                        className="bg-transparent border-0 text-[11px] text-neutral-200 font-medium focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="all" className="bg-neutral-950 text-white">All Timings</option>
+                        <option value="now" className="bg-neutral-950 text-white">Pay Now (Monzo)</option>
+                        <option value="arrival" className="bg-neutral-950 text-white">Pay on Arrival</option>
+                      </select>
+                    </div>
+
                     <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1.5">
                       <span className="text-[10px] text-neutral-400 font-bold uppercase">Status:</span>
                       <select
@@ -3368,11 +3416,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </select>
                     </div>
 
-                    {(searchQuery || statusFilter !== 'all') && (
+                    {(searchQuery || statusFilter !== 'all' || paymentTimingFilter !== 'all') && (
                       <button
                         onClick={() => {
                           setSearchQuery('');
                           setStatusFilter('all');
+                          setPaymentTimingFilter('all');
                         }}
                         className="px-2.5 py-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                         title="Reset filters"
@@ -3394,6 +3443,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   if (statusFilter !== 'all') {
                     if (statusFilter === 'confirmed' && s.status !== 'resolved' && s.status !== 'confirmed') return false;
                     if (statusFilter !== 'confirmed' && s.status !== statusFilter) return false;
+                  }
+
+                  // Payment Timing filter
+                  if (paymentTimingFilter !== 'all') {
+                    const timing = (s.extraDetails?.PaymentTiming || '').toLowerCase();
+                    if (paymentTimingFilter === 'now' && (timing.includes('arrival') || (!timing.includes('now') && timing !== ''))) return false;
+                    if (paymentTimingFilter === 'arrival' && !timing.includes('arrival')) return false;
                   }
 
                   // Search query filter
@@ -3722,6 +3778,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 );
               })()}
             </div>
+          )}
+
+          {/* TAB: PAYMENT GATEWAY & MONZO SETTINGS */}
+          {activeAdminTab === 'payments' && (
+            <AdminPaymentsTab
+              primaryColor={primaryColor}
+              submissions={submissions}
+              onToast={(msg) => setSaveToast(msg)}
+              triggerConfirm={triggerConfirm}
+              onNavigateToOrders={(timing) => {
+                if (timing === 'now' || timing === 'arrival') {
+                  setPaymentTimingFilter(timing);
+                } else {
+                  setPaymentTimingFilter('all');
+                }
+                setActiveAdminTab('orders');
+              }}
+            />
           )}
 
           {/* TAB 2: VISUAL IDENTITY CUSTOMIZER STUDIO */}
@@ -5044,6 +5118,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             (£{selectedPassOrder.amountGBP} GBP Equivalent)
                           </span>
                         )}
+                        {selectedPassOrder.extraDetails?.PaymentTiming && (
+                          <div className="mt-1 text-[10px] font-mono flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded font-bold uppercase ${
+                              String(selectedPassOrder.extraDetails.PaymentTiming).toLowerCase().includes('arrival')
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}>
+                              {selectedPassOrder.extraDetails.PaymentTiming}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] text-neutral-500 uppercase font-bold tracking-widest block">Workflow Status</span>
@@ -5056,6 +5141,101 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Attached Payment Screenshot / Receipt */}
+                    {selectedPassOrder.receiptUrl ? (
+                      <div className="mt-4 pt-3 border-t border-white/5 bg-neutral-900/60 rounded-xl p-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <Camera className="w-3.5 h-3.5 text-amber-400" />
+                            Payment Screenshot / Transfer Proof
+                          </span>
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono ${
+                            selectedPassOrder.receiptStatus === 'verified'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : selectedPassOrder.receiptStatus === 'rejected'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                          }`}>
+                            {selectedPassOrder.receiptStatus === 'verified' ? 'VERIFIED' : selectedPassOrder.receiptStatus === 'rejected' ? 'REJECTED' : 'PENDING REVIEW'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="relative group shrink-0 cursor-pointer overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 w-16 h-16"
+                            onClick={() => setPreviewReceiptModal({
+                              url: selectedPassOrder.receiptUrl!,
+                              name: selectedPassOrder.receiptName,
+                              orderRef: selectedPassOrder.extraDetails?.OrderRef || selectedPassOrder.id,
+                              guestName: selectedPassOrder.name
+                            })}
+                          >
+                            <img
+                              src={selectedPassOrder.receiptUrl}
+                              alt="Receipt thumbnail"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Eye className="w-4 h-4" />
+                            </div>
+                          </div>
+
+                          <div className="flex-1 min-w-0 text-xs space-y-1">
+                            <p className="text-white font-mono text-[11px] truncate">
+                              {selectedPassOrder.receiptName || 'Payment_Proof.jpg'}
+                            </p>
+                            {selectedPassOrder.receiptUploadedAt && (
+                              <p className="text-neutral-400 text-[10px] font-mono">
+                                {new Date(selectedPassOrder.receiptUploadedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                            {selectedPassOrder.receiptNotes && (
+                              <p className="text-[10px] text-amber-300/90 italic">
+                                &ldquo;{selectedPassOrder.receiptNotes}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewReceiptModal({
+                              url: selectedPassOrder.receiptUrl!,
+                              name: selectedPassOrder.receiptName,
+                              orderRef: selectedPassOrder.extraDetails?.OrderRef || selectedPassOrder.id,
+                              guestName: selectedPassOrder.name
+                            })}
+                            className="text-[11px] text-neutral-300 hover:text-white flex items-center gap-1 font-semibold cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3 text-amber-400" /> View Fullscreen
+                          </button>
+
+                          {selectedPassOrder.receiptStatus !== 'verified' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                verifyPaymentReceipt(selectedPassOrder.id, 'verified', 'Verified by Admin');
+                                handleStatusChange(selectedPassOrder.id, 'resolved');
+                                setSaveToast(`Receipt verified for ${selectedPassOrder.name}`);
+                                setTimeout(() => setSaveToast(null), 3000);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" /> Verify &amp; Confirm
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-neutral-500">
+                        <span className="flex items-center gap-1.5 text-[11px]">
+                          <Camera className="w-3.5 h-3.5 text-neutral-600" />
+                          No payment receipt uploaded yet
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5719,6 +5899,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         primaryColor={primaryColor}
         onOpenMediaLibrary={openMediaLibraryWithCallback}
       />
+
+      {/* Fullscreen Receipt Lightbox View */}
+      {previewReceiptModal && (
+        <ReceiptLightboxModal
+          isOpen={Boolean(previewReceiptModal)}
+          onClose={() => setPreviewReceiptModal(null)}
+          receiptUrl={previewReceiptModal.url}
+          receiptName={previewReceiptModal.name}
+          orderRef={previewReceiptModal.orderRef}
+          guestName={previewReceiptModal.guestName}
+        />
+      )}
 
     </div>
   );
