@@ -1396,7 +1396,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                                 banner: { ...siteConfig.banner, bgColor: e.target.value }
                               })}
                               className="w-10 h-8 rounded-lg bg-transparent border border-neutral-800 cursor-pointer p-0"
-                              title="Custom Color"
+                              title="Custom Colour"
                             />
                           </div>
                         </div>
@@ -1582,7 +1582,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                         </div>
                         <h3 className="text-lg font-bold text-white">Visual Theme Presets</h3>
                         <p className="text-xs text-neutral-400 leading-relaxed">
-                          Select one of our meticulously paired color and font presets below. Each option instantly tunes the header, buttons, background atmosphere, typography, and accent rings.
+                          Select one of our meticulously paired colour and font presets below. Each option instantly tunes the header, buttons, background atmosphere, typography, and accent rings.
                         </p>
                       </div>
 
@@ -1888,7 +1888,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                             {
                               id: 'bordered',
                               name: 'Thick Border Accents',
-                              desc: 'Draws explicit primary-color border strokes around blocks.'
+                              desc: 'Draws explicit primary-colour border strokes around blocks.'
                             },
                             {
                               id: 'glow',

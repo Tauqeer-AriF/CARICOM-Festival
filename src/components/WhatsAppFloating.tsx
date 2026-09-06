@@ -20,7 +20,7 @@ export const WhatsAppFloating: React.FC<WhatsAppFloatingProps> = ({ siteConfig }
   ];
 
   const handleOpenWhatsApp = (text: string) => {
-    const finalMsg = text.trim() || 'Hello Mellows Concierge Team! I have an inquiry about the Grenada CARICOM Festival 2027.';
+    const finalMsg = text.trim() || 'Hello Mellows Concierge Team! I have an enquiry about the Grenada CARICOM Festival 2027.';
     let base = whatsappUrl;
     if (base.includes('?text=')) {
       base = base.split('?text=')[0];

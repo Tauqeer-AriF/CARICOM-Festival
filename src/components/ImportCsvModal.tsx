@@ -191,7 +191,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               <div>
                 <span className="font-semibold text-white">Pre-Structured CSV Templates</span>
                 <p className="text-[11px] text-neutral-400">
-                  All export & import tags are fully synchronized. Download formatted templates matching your workflow:
+                  All export & import tags are fully synchronised. Download formatted templates matching your workflow:
                 </p>
               </div>
             </div>
@@ -220,7 +220,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
                 type="button"
                 onClick={() => downloadSampleCSV('forms')}
                 className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Contact inquiries, flights, and shuttle transfers CSV template"
+                title="Contact enquiries, flights, and shuttle transfers CSV template"
               >
                 <Download className="w-3 h-3 text-emerald-400" />
                 <span>Received Forms</span>
@@ -370,7 +370,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
                   <option value="newsletter">Force all as VIP Newsletter Subscribers</option>
                 </select>
                 <p className="text-[10px] text-neutral-500 mt-1">
-                  Auto-detect uses uniform alias matching to categorize rows identically.
+                  Auto-detect uses uniform alias matching to categorise rows identically.
                 </p>
               </div>
 

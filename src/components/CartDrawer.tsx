@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CartItem, WristbandPaymentTiming } from '../types';
+import { CartItem, WristbandPaymentTiming, WristbandPaymentMethod } from '../types';
 import { 
   X, ShoppingBag, Trash2, CheckCircle2, Ticket, ArrowRight, ArrowLeft, 
-  Shield, Plane, Download, FileText, CreditCard, Clock, Copy, Check, 
-  ExternalLink, Sparkles, Building2, MapPin, PhoneCall, Camera, UploadCloud, Eye, AlertCircle
+  Plane, Download, FileText, CreditCard, Clock, Copy, Check, 
+  ExternalLink, Sparkles, Building2, MapPin, PhoneCall, Camera, UploadCloud, Eye, AlertCircle, Lock, ShieldCheck
 } from 'lucide-react';
 import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { PassSummaryModal } from './PassSummaryModal';
 import { PaymentReceiptModal, ReceiptLightboxModal, compressImageFile } from './PaymentReceiptModal';
 import { AnimatePresence, motion } from 'motion/react';
 import { addSubmission } from '../services/submissionService';
-import { getPaymentConfig, PaymentConfig, getMonzoMeUrl } from '../services/paymentConfigService';
+import { getPaymentConfig, PaymentConfig, getMonzoMeUrl, getPayPalMeUrl } from '../services/paymentConfigService';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -38,6 +38,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     if (!cfg.payNowEnabled && cfg.payOnArrivalEnabled) return 'arrival';
     return cfg.defaultTiming || 'now';
   });
+  const [selectedMethod, setSelectedMethod] = useState<WristbandPaymentMethod>(() => {
+    const cfg = getPaymentConfig();
+    if (cfg.paypalEnabled) return 'paypal';
+    if (cfg.monzoEnabled) return 'monzo';
+    return 'monzo';
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPassSummaryOpen, setIsPassSummaryOpen] = useState(false);
   const [buyerName, setBuyerName] = useState('');
@@ -58,6 +64,47 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isViewingReceipt, setIsViewingReceipt] = useState(false);
   const [confirmedCart, setConfirmedCart] = useState<CartItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to completely reset checkout flow for placing another order
+  const resetToNewOrder = (shouldClose = false) => {
+    setCart([]);
+    setConfirmedCart([]);
+    setOrderRef('');
+    setAttachedReceipt(null);
+    setHasMarkedAsPaid(false);
+    setReceiptError(null);
+    setCheckoutStep('cart');
+    if (shouldClose) {
+      onClose();
+      if (onNavigatePasses) {
+        onNavigatePasses();
+      }
+    }
+  };
+
+  const handleCloseDrawer = () => {
+    if (checkoutStep === 'confirmed') {
+      setCheckoutStep('cart');
+      setConfirmedCart([]);
+      setOrderRef('');
+      setAttachedReceipt(null);
+      setHasMarkedAsPaid(false);
+      setReceiptError(null);
+    }
+    onClose();
+  };
+
+  // When new passes are added to cart while previously on confirmed screen, auto-switch to cart
+  useEffect(() => {
+    if (cart.length > 0 && checkoutStep === 'confirmed') {
+      setCheckoutStep('cart');
+      setOrderRef('');
+      setAttachedReceipt(null);
+      setHasMarkedAsPaid(false);
+      setReceiptError(null);
+      setConfirmedCart([]);
+    }
+  }, [cart.length, checkoutStep]);
 
   // Initialize unique reservation reference when entering details step if not present
   useEffect(() => {
@@ -161,14 +208,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setTimeout(() => setCopiedField(null), 2500);
   };
 
+  const getMethodDisplayName = () => {
+    if (paymentTiming === 'arrival') return 'Pay on Arrival';
+    switch (selectedMethod) {
+      case 'paypal': return 'PayPal';
+      case 'monzo': default: return 'Monzo Bank Transfer';
+    }
+  };
+
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setReceiptError(null);
 
-    // Enforce receipt requirement if user selected Monzo Pay Now
-    if (paymentTiming === 'now' && !attachedReceipt) {
-      setReceiptError('Payment receipt required: Please upload a screenshot or receipt of your Monzo transfer before placing your order.');
-      return;
+    // Validate payment requirements for Pay Now - proof of payment required for every payment option
+    if (paymentTiming === 'now') {
+      if (!attachedReceipt) {
+        setReceiptError(`Proof of payment is required. Please upload your ${getMethodDisplayName()} payment receipt or screenshot before placing your order.`);
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -177,11 +234,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     const generatedRef = orderRef || `GCF-2027-${Math.floor(10000 + Math.random() * 90000)}`;
     setOrderRef(generatedRef);
     const passItemsSummary = cart.map(i => `${i.quantity}x ${i.pass.title}`).join(', ');
-    const timingLabel = paymentTiming === 'now' ? 'Pay Now via Monzo' : 'Pay on Arrival';
+    const methodName = getMethodDisplayName();
+    const timingLabel = paymentTiming === 'now' ? `Pay Now via ${methodName}` : 'Pay on Arrival';
     const statusLabel = paymentTiming === 'now' ? 'RECEIPT_SUBMITTED' : 'PAY_ON_ARRIVAL';
     const passDetailsText = `Wristband pass order placed. Payment Option: ${timingLabel}. Total: ${getCurrencySymbol()}${totalConverted} (£${totalGBP} GBP). Passes: ${cart.map(i => `${i.quantity}x ${i.pass.title} @ £${i.pass.priceGBP}`).join('; ')}${attachedReceipt ? ` [Payment Receipt Attached: ${attachedReceipt.name}]` : ''}`;
 
-    // Save Pass Order in Admin Submissions store with full Monzo & Timing details
+    // Save Pass Order in Admin Submissions store with full multi-method & Timing details
     addSubmission({
       type: 'pass-order',
       name: buyerName,
@@ -201,7 +259,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         TotalPaid: `${getCurrencySymbol()}${totalConverted}`,
         TotalGBP: `£${totalGBP}`,
         PurchasedItems: passItemsSummary,
-        PaymentMethod: paymentTiming === 'now' ? 'Monzo Bank Transfer' : 'Pay on Arrival',
+        PaymentMethod: methodName,
         PaymentTiming: timingLabel,
         PaymentStatus: statusLabel,
         WristbandStatus: 'RESERVED_FOR_ARRIVAL',
@@ -229,7 +287,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
-              onClick={onClose}
+              onClick={handleCloseDrawer}
             />
             <motion.div
               initial={{ x: '100%' }}
@@ -252,6 +310,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <ArrowLeft className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="hidden xs:inline sm:inline">Back</span>
               </button>
+            ) : checkoutStep === 'confirmed' ? (
+              <button
+                type="button"
+                onClick={() => resetToNewOrder(true)}
+                className="p-2 -ml-1 text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 text-xs font-medium shrink-0 min-h-[40px]"
+                title="Place Another Order"
+              >
+                <ArrowLeft className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="hidden xs:inline sm:inline">Passes</span>
+              </button>
             ) : (
               <button
                 type="button"
@@ -272,7 +340,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCloseDrawer}
             className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl cursor-pointer transition-colors shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
             title="Close Drawer"
           >
@@ -371,13 +439,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </div>
                     </div>
                   ))}
-
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 flex items-start gap-2">
-                    <Shield className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span>
-                      Wristbands will be issued upon arrival in Grenada at your hotel or Mellowland reception.
-                    </span>
-                  </div>
                 </div>
               )}
             </>
@@ -398,63 +459,104 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </span>
               </div>
 
-              {/* Monzo Payment Option Selection */}
+              {/* Payment Option & Method Selection */}
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-xs text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-rose-400" />
+                    <CreditCard className="w-3.5 h-3.5 text-amber-400" />
                     Wristband Payment Option
                   </h4>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    Method: Monzo
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    {paymentTiming === 'now' ? getMethodDisplayName() : 'Pay on Arrival'}
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Choose whether to purchase your wristband now or pay upon arrival in Grenada using <strong className="text-rose-400 font-semibold">Monzo</strong>.
+                  Choose whether to purchase your wristband online today or settle upon arrival at Maurice Bishop Airport or your hotel concierge.
                 </p>
 
                 <div className="grid grid-cols-1 gap-2.5 pt-1">
                   {/* Option 1: Pay Now */}
                   {paymentConfig.payNowEnabled && (
-                    <label 
+                    <div 
                       onClick={() => setPaymentTiming('now')}
                       className={`p-3.5 rounded-2xl border transition-all cursor-pointer block relative ${
                         paymentTiming === 'now' 
-                          ? 'bg-gradient-to-br from-neutral-800 via-neutral-900 to-rose-950/30 border-rose-500/70 shadow-lg shadow-rose-500/10' 
+                          ? 'bg-gradient-to-br from-neutral-800 via-neutral-900 to-amber-950/20 border-amber-500/70 shadow-lg shadow-amber-500/10' 
                           : 'bg-neutral-800/60 border-neutral-700 hover:border-neutral-600'
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${
-                          paymentTiming === 'now' ? 'border-rose-400 bg-rose-500' : 'border-neutral-600'
+                          paymentTiming === 'now' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'
                         }`}>
-                          {paymentTiming === 'now' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          {paymentTiming === 'now' && <span className="w-1.5 h-1.5 rounded-full bg-neutral-950" />}
                         </div>
 
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-                              Pay Now via Monzo
+                              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                              Pay Online Now
                             </span>
-                            <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                              Instant Allocation
+                            <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                              Instant VIP Allocation
                             </span>
                           </div>
                           <p className="text-[11px] text-neutral-300 font-light leading-relaxed">
-                            Pay today via Monzo bank transfer or Monzo Pay. Express VIP wristband pack ready for pickup when your flight touches down.
+                            Complete payment via PayPal or Monzo bank transfer. Express VIP wristband pack ready for fast-track collection in Grenada.
                           </p>
 
+                          {/* Method Selector Chips */}
                           {paymentTiming === 'now' && (
-                            <div className="pt-2 mt-1 border-t border-rose-500/20 text-[10px] font-mono text-neutral-300 space-y-0.5">
-                              <p className="text-rose-300 font-bold">• Account: {paymentConfig.accountName} ({paymentConfig.bankName})</p>
-                              <p className="text-neutral-400">• Sort: {paymentConfig.sortCode} • Acc: {paymentConfig.accountNumber} • Ref provided on confirm</p>
+                            <div className="pt-2.5 mt-2 border-t border-neutral-700/80 space-y-2">
+                              <span className="text-[10px] font-mono uppercase text-neutral-400 font-semibold block">
+                                Select Payment Method:
+                              </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {paymentConfig.paypalEnabled !== false && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedMethod('paypal');
+                                      setReceiptError(null);
+                                    }}
+                                    className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                                      selectedMethod === 'paypal'
+                                        ? 'bg-sky-950/40 border-sky-400 text-white shadow-sm'
+                                        : 'bg-neutral-900/80 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
+                                    }`}
+                                  >
+                                    <span className="font-bold text-xs text-sky-400">PayPal</span>
+                                    <span className="text-[10px] font-medium leading-none">Instant Pay</span>
+                                  </button>
+                                )}
+
+                                {paymentConfig.monzoEnabled !== false && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedMethod('monzo');
+                                      setReceiptError(null);
+                                    }}
+                                    className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                                      selectedMethod === 'monzo'
+                                        ? 'bg-rose-950/40 border-rose-400 text-white shadow-sm'
+                                        : 'bg-neutral-900/80 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
+                                    }`}
+                                  >
+                                    <span className="font-bold text-xs text-rose-400">monzo</span>
+                                    <span className="text-[10px] font-medium leading-none">Bank Transfer</span>
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
-                    </label>
+                    </div>
                   )}
 
                   {/* Option 2: Pay on Arrival */}
@@ -485,7 +587,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             </span>
                           </div>
                           <p className="text-[11px] text-neutral-300 font-light leading-relaxed">
-                            Reserve your wristbands now with £0 upfront. Pay at Grenada airport or hotel welcome desk upon touchdown in Grenada.
+                            Reserve your wristbands now with £0 upfront. Settle via PayPal, Monzo contactless or cash upon touchdown in Grenada.
                           </p>
 
                           {paymentTiming === 'arrival' && (
@@ -546,133 +648,206 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 />
               </div>
 
-              {/* Monzo Payment & Receipt Upload Card when Pay Now is selected */}
+              {/* Payment Execution & Receipt Upload Card when Pay Now is selected */}
               {paymentTiming === 'now' && (
-                <div className="p-4 bg-gradient-to-b from-neutral-800/90 to-neutral-900 border border-rose-500/40 rounded-2xl space-y-3.5 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-rose-500/20 pb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-bold text-xs">
-                        M
+                <div className="p-4 bg-gradient-to-b from-neutral-800/90 to-neutral-900 border border-neutral-700/80 rounded-2xl space-y-3.5 shadow-xl">
+                  {/* Method Header */}
+                  <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        selectedMethod === 'paypal'
+                          ? 'bg-sky-600/20 text-sky-400 border border-sky-500/40'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                      }`}>
+                        {selectedMethod === 'paypal' ? 'PP' : 'M'}
                       </div>
                       <div>
-                        <span className="text-[10px] font-mono font-black uppercase text-rose-400 tracking-wider block">
-                          STEP 1: TRANSFER VIA MONZO
+                        <span className="text-[10px] font-mono font-black uppercase text-amber-400 tracking-wider block">
+                          STEP 1: {selectedMethod === 'paypal' ? 'TRANSFER VIA PAYPAL' : 'TRANSFER VIA MONZO'}
                         </span>
                         <span className="text-xs font-bold text-white">
                           Amount Due: £{totalGBP} GBP ({getCurrencySymbol()}{totalConverted} {currency})
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                      Pay Now
+                    <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      Pay Online Now
                     </span>
                   </div>
 
-                  {/* Bank credentials */}
-                  <div className="bg-neutral-950/90 border border-neutral-700/80 rounded-xl p-3 space-y-2 text-xs font-mono">
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Bank:</span>
-                      <span className="text-white font-bold">{paymentConfig.bankName}</span>
-                    </div>
+                  {/* PayPal Form & Link */}
+                  {selectedMethod === 'paypal' && (
+                    <div className="space-y-3">
+                      <div className="bg-neutral-950/90 border border-sky-500/30 rounded-xl p-3.5 space-y-2.5 text-xs font-mono">
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">PayPal Account:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sky-300 font-bold">{paymentConfig.paypalEmail || 'payments@mellowsentertainment.com'}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.paypalEmail || 'payments@mellowsentertainment.com', 'paypal_email')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy PayPal Email"
+                            >
+                              {copiedField === 'paypal_email' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
 
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Account Name:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-white font-bold">{paymentConfig.accountName}</span>
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Payment Reference:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-300 font-black">{orderRef}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(orderRef, 'paypal_ref')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy Reference"
+                            >
+                              {copiedField === 'paypal_ref' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-neutral-400 text-[11px]">Total Due:</span>
+                          <span className="text-white font-bold">£{totalGBP} GBP ({getCurrencySymbol()}{totalConverted} {currency})</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <a
+                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsent', totalGBP, currency, orderRef)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
+                        >
+                          <span>Open PayPal Checkout</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+
                         <button
                           type="button"
-                          onClick={() => copyToClipboard(paymentConfig.accountName, 'form_name')}
-                          className="text-neutral-400 hover:text-white"
-                          title="Copy Account Name"
+                          onClick={() => copyToClipboard(`PayPal: ${paymentConfig.paypalEmail || 'payments@mellowsentertainment.com'}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'paypal_all')}
+                          className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
                         >
-                          {copiedField === 'form_name' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedField === 'paypal_all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'paypal_all' ? 'Copied Details!' : 'Copy PayPal Info'}</span>
                         </button>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Sort Code:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-amber-300 font-bold">{paymentConfig.sortCode}</span>
+                  {/* Monzo Transfer Form & Link */}
+                  {selectedMethod === 'monzo' && (
+                    <div className="space-y-3">
+                      {/* Bank credentials */}
+                      <div className="bg-neutral-950/90 border border-neutral-700/80 rounded-xl p-3 space-y-2 text-xs font-mono">
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Bank:</span>
+                          <span className="text-white font-bold">{paymentConfig.bankName}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Account Name:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-white font-bold">{paymentConfig.accountName}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.accountName, 'form_name')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy Account Name"
+                            >
+                              {copiedField === 'form_name' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Sort Code:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-300 font-bold">{paymentConfig.sortCode}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.sortCode, 'form_sort')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy Sort Code"
+                            >
+                              {copiedField === 'form_sort' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Account Number:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-300 font-bold">{paymentConfig.accountNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.accountNumber, 'form_acc')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy Account Number"
+                            >
+                              {copiedField === 'form_acc' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-rose-400 text-[11px] font-bold">Payment Reference:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-rose-300 font-black">{orderRef}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(orderRef, 'form_ref')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy Reference"
+                            >
+                              {copiedField === 'form_ref' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <a
+                          href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, orderRef)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2 px-3 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
+                        >
+                          <span>Open Monzo Pay Link</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+
                         <button
                           type="button"
-                          onClick={() => copyToClipboard(paymentConfig.sortCode, 'form_sort')}
-                          className="text-neutral-400 hover:text-white"
-                          title="Copy Sort Code"
+                          onClick={() => copyToClipboard(`Bank: ${paymentConfig.bankName}\nName: ${paymentConfig.accountName}\nSort Code: ${paymentConfig.sortCode}\nAccount: ${paymentConfig.accountNumber}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'form_all')}
+                          className="py-2 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
                         >
-                          {copiedField === 'form_sort' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedField === 'form_all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'form_all' ? 'Copied Details!' : 'Copy Bank Info'}</span>
                         </button>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Account Number:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-amber-300 font-bold">{paymentConfig.accountNumber}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(paymentConfig.accountNumber, 'form_acc')}
-                          className="text-neutral-400 hover:text-white"
-                          title="Copy Account Number"
-                        >
-                          {copiedField === 'form_acc' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-0.5">
-                      <span className="text-rose-400 text-[11px] font-bold">Payment Reference:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-rose-300 font-black">{orderRef}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(orderRef, 'form_ref')}
-                          className="text-neutral-400 hover:text-white"
-                          title="Copy Reference"
-                        >
-                          {copiedField === 'form_ref' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <a
-                      href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, orderRef)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2 px-3 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
-                    >
-                      <span>Open Monzo Pay Link</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(`Bank: ${paymentConfig.bankName}\nName: ${paymentConfig.accountName}\nSort Code: ${paymentConfig.sortCode}\nAccount: ${paymentConfig.accountNumber}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'form_all')}
-                      className="py-2 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
-                    >
-                      {copiedField === 'form_all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedField === 'form_all' ? 'Copied Details!' : 'Copy Bank Info'}</span>
-                    </button>
-                  </div>
-
-                  {/* STEP 2: REQUIRED RECEIPT UPLOAD */}
-                  <div className="pt-2 border-t border-rose-500/20 space-y-2">
+                  {/* STEP 2: RECEIPT / TRANSACTION PROOF UPLOAD */}
+                  <div className="pt-2 border-t border-neutral-700/60 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-rose-400" />
+                        <Camera className="w-4 h-4 text-amber-400" />
                         <span className="text-xs font-bold text-white uppercase tracking-wider">
                           STEP 2: UPLOAD PAYMENT RECEIPT
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                        * Required to Place Order
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border bg-rose-500/20 text-rose-300 border-rose-500/30">
+                        Required
                       </span>
                     </div>
 
                     <p className="text-[11px] text-neutral-300 leading-tight">
-                      Please upload a screenshot or receipt of your Monzo transfer. Your order <strong className="text-rose-400">will not be placed</strong> until proof of payment is uploaded.
+                      Please upload a screenshot or receipt of your {getMethodDisplayName()} payment. Proof of payment is required for every payment option to confirm your order.
                     </p>
 
                     {/* Hidden File Input */}
@@ -689,7 +864,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl text-xs text-rose-200 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                         <div className="space-y-0.5">
-                          <strong className="font-bold text-rose-300 block">Receipt Required:</strong>
+                          <strong className="font-bold text-rose-300 block">Payment Verification Required:</strong>
                           <span>{receiptError}</span>
                         </div>
                       </div>
@@ -761,29 +936,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         onClick={() => fileInputRef.current?.click()}
                         className={`p-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                           isDraggingReceipt
-                            ? 'border-rose-400 bg-rose-500/15'
+                            ? 'border-amber-400 bg-amber-500/15'
                             : receiptError
                             ? 'border-rose-500 bg-rose-950/20 hover:bg-rose-950/30'
-                            : 'border-rose-500/40 hover:border-rose-400 bg-neutral-950/60 hover:bg-neutral-950/90'
+                            : 'border-neutral-700 hover:border-amber-400 bg-neutral-950/60 hover:bg-neutral-950/90'
                         }`}
                       >
                         {isUploadingReceipt ? (
                           <div className="py-2 flex flex-col items-center gap-2">
-                            <div className="w-6 h-6 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
                             <span className="text-xs text-neutral-300">Processing receipt...</span>
                           </div>
                         ) : (
                           <>
-                            <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 mb-2">
+                            <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 mb-2">
                               <UploadCloud className="w-5 h-5" />
                             </div>
                             <p className="text-xs font-bold text-white mb-0.5">
-                              Click or drag &amp; drop your payment screenshot
+                              Click or drag &amp; drop your payment screenshot / slip
                             </p>
                             <p className="text-[10px] text-neutral-400 font-mono">
                               Supports JPG, PNG, WEBP, PDF (Max 15MB)
                             </p>
-                            <span className="mt-2.5 px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold rounded-lg transition-colors">
+                            <span className="mt-2.5 px-3 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-amber-300 text-xs font-bold rounded-lg transition-colors">
                               Select Receipt File
                             </span>
                           </>
@@ -817,12 +992,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     attachedReceipt ? (
                       <>
                         <Check className="w-4 h-4 shrink-0" />
-                        <span>Place Order with Receipt ({getCurrencySymbol()}{totalConverted})</span>
+                        <span>Place Order with {getMethodDisplayName()} ({getCurrencySymbol()}{totalConverted})</span>
                       </>
                     ) : (
                       <>
                         <UploadCloud className="w-4 h-4 shrink-0" />
-                        <span>Upload Receipt to Place Order ({getCurrencySymbol()}{totalConverted})</span>
+                        <span>Upload Proof &amp; Place Order ({getCurrencySymbol()}{totalConverted})</span>
                       </>
                     )
                   ) : (
@@ -865,115 +1040,168 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Dedicated Monzo Payment Instructions / Arrival Voucher Card */}
+              {/* Dedicated Payment Instructions / Arrival Voucher Card */}
               {paymentTiming === 'now' ? (
-                <div className="bg-gradient-to-b from-neutral-800/90 to-neutral-900 border border-rose-500/40 rounded-2xl p-4 space-y-3 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-rose-500/20 pb-2.5">
+                <div className="bg-gradient-to-b from-neutral-800/90 to-neutral-900 border border-neutral-700/80 rounded-2xl p-4 space-y-3 shadow-xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-bold text-xs">
-                        M
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        selectedMethod === 'paypal'
+                          ? 'bg-sky-600/20 text-sky-400 border border-sky-500/40'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                      }`}>
+                        {selectedMethod === 'paypal' ? 'PP' : 'M'}
                       </div>
                       <div>
-                        <span className="text-[10px] font-mono font-black uppercase text-rose-400 tracking-wider block">
-                          MONZO PAYMENT DETAILS
+                        <span className="text-[10px] font-mono font-black uppercase text-amber-400 tracking-wider block">
+                          {selectedMethod === 'paypal' ? 'PAYPAL PAYMENT DETAILS' : 'MONZO PAYMENT DETAILS'}
                         </span>
                         <span className="text-xs font-bold text-white">
-                          Amount Due: £{totalGBP} GBP ({getCurrencySymbol()}{totalConverted} {currency})
+                          Amount: £{totalGBP} GBP ({getCurrencySymbol()}{totalConverted} {currency})
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                      Pay Now
+                    <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      Pay Online
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-neutral-300 leading-tight font-sans">
-                    Please transfer the total amount using your <strong>Monzo App</strong> or UK Faster Payments with the reference below so we can instantly allocate your wristband:
-                  </p>
+                  {/* PayPal Confirmed Details */}
+                  {selectedMethod === 'paypal' && (
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] text-neutral-300 leading-tight font-sans">
+                        Please ensure your transfer of £{totalGBP} GBP has been sent to PayPal account below with your reference:
+                      </p>
+                      <div className="bg-neutral-950/80 border border-neutral-700/80 rounded-xl p-3 space-y-2 text-xs font-mono">
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">PayPal:</span>
+                          <span className="text-sky-300 font-bold">{paymentConfig.paypalEmail || 'payments@mellowsentertainment.com'}</span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Reference:</span>
+                          <span className="text-amber-300 font-black">{orderRef}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-neutral-400 text-[11px]">Amount:</span>
+                          <span className="text-white font-bold">£{totalGBP} GBP</span>
+                        </div>
+                      </div>
 
-                  <div className="bg-neutral-950/80 border border-neutral-700/80 rounded-xl p-3 space-y-2 text-xs font-mono">
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Bank:</span>
-                      <span className="text-white font-bold">{paymentConfig.bankName}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Account Name:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-white font-bold">{paymentConfig.accountName}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsent', totalGBP, currency, orderRef)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
+                        >
+                          <span>Open PayPal Link</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                         <button
                           type="button"
-                          onClick={() => copyToClipboard(paymentConfig.accountName, 'name')}
-                          className="text-neutral-400 hover:text-white"
+                          onClick={() => copyToClipboard(`PayPal: ${paymentConfig.paypalEmail || 'payments@mellowsentertainment.com'}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'all')}
+                          className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
                         >
-                          {copiedField === 'name' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedField === 'all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'all' ? 'Copied Details!' : 'Copy PayPal Info'}</span>
                         </button>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Sort Code:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-amber-300 font-bold">{paymentConfig.sortCode}</span>
+                  {/* Monzo Confirmed Details */}
+                  {selectedMethod === 'monzo' && (
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] text-neutral-300 leading-tight font-sans">
+                        Please transfer the total amount using your <strong>Monzo App</strong> or UK Faster Payments with the reference below:
+                      </p>
+
+                      <div className="bg-neutral-950/80 border border-neutral-700/80 rounded-xl p-3 space-y-2 text-xs font-mono">
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Bank:</span>
+                          <span className="text-white font-bold">{paymentConfig.bankName}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Account Name:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-white font-bold">{paymentConfig.accountName}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.accountName, 'name')}
+                              className="text-neutral-400 hover:text-white"
+                            >
+                              {copiedField === 'name' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Sort Code:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-300 font-bold">{paymentConfig.sortCode}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.sortCode, 'sort')}
+                              className="text-neutral-400 hover:text-white"
+                            >
+                              {copiedField === 'sort' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                          <span className="text-neutral-400 text-[11px]">Account Number:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-300 font-bold">{paymentConfig.accountNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(paymentConfig.accountNumber, 'acc')}
+                              className="text-neutral-400 hover:text-white"
+                            >
+                              {copiedField === 'acc' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-rose-400 text-[11px] font-bold">Payment Reference:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-rose-300 font-black">{orderRef}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(orderRef, 'ref')}
+                              className="text-neutral-400 hover:text-white"
+                            >
+                              {copiedField === 'ref' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, orderRef)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
+                        >
+                          <span>Open Monzo Pay Link</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+
                         <button
                           type="button"
-                          onClick={() => copyToClipboard(paymentConfig.sortCode, 'sort')}
-                          className="text-neutral-400 hover:text-white"
+                          onClick={() => copyToClipboard(`Bank: ${paymentConfig.bankName}\nName: ${paymentConfig.accountName}\nSort Code: ${paymentConfig.sortCode}\nAccount: ${paymentConfig.accountNumber}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'all')}
+                          className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
                         >
-                          {copiedField === 'sort' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedField === 'all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'all' ? 'Copied Details!' : 'Copy Bank Info'}</span>
                         </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
-                      <span className="text-neutral-400 text-[11px]">Account Number:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-amber-300 font-bold">{paymentConfig.accountNumber}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(paymentConfig.accountNumber, 'acc')}
-                          className="text-neutral-400 hover:text-white"
-                        >
-                          {copiedField === 'acc' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-0.5">
-                      <span className="text-rose-400 text-[11px] font-bold">Payment Reference:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-rose-300 font-black">{orderRef}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(orderRef, 'ref')}
-                          className="text-neutral-400 hover:text-white"
-                        >
-                          {copiedField === 'ref' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    <a
-                      href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, orderRef)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2.5 px-3 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
-                    >
-                      <span>Open Monzo Pay Link</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(`Bank: ${paymentConfig.bankName}\nName: ${paymentConfig.accountName}\nSort Code: ${paymentConfig.sortCode}\nAccount: ${paymentConfig.accountNumber}\nReference: ${orderRef}\nAmount: £${totalGBP} GBP`, 'all')}
-                      className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-neutral-700 transition-all cursor-pointer"
-                    >
-                      {copiedField === 'all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedField === 'all' ? 'Copied Details!' : 'Copy Bank Info'}</span>
-                    </button>
-                  </div>
+                  )}
 
                   {/* Payment Mark Confirmation & Receipt Action */}
                   <div className="space-y-2 pt-1 border-t border-neutral-800">
@@ -996,7 +1224,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         className="w-full py-2 bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-700/60 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>I have completed my Monzo payment</span>
+                        <span>I have completed my {getMethodDisplayName()} payment</span>
                       </button>
                     )}
 
@@ -1014,8 +1242,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             <Check className="w-3 h-3" /> Attached
                           </span>
                         ) : (
-                          <span className="text-[10px] font-mono font-bold text-amber-400">
-                            Optional &bull; Fast-Track
+                          <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                            Required
                           </span>
                         )}
                       </div>
@@ -1060,7 +1288,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       ) : (
                         <div className="space-y-2">
                           <p className="text-[11px] text-neutral-300 leading-snug">
-                            Upload a screenshot or transaction receipt of your Monzo transfer to expedite your wristband pass verification.
+                            Upload a screenshot or transaction receipt of your payment to expedite your wristband pass verification.
                           </p>
                           <button
                             type="button"
@@ -1135,17 +1363,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsPassSummaryOpen(true)}
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                  onClick={() => resetToNewOrder(true)}
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
                 >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>View Pass Summary{paymentConfig.allowPassVoucherDownloadBeforePayment !== false ? ' & Monzo Voucher' : ''}</span>
+                  <ShoppingBag className="w-4 h-4 text-neutral-950" />
+                  <span>Place Another Order / Book More Passes</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPassSummaryOpen(true)}
+                  className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>View Pass Summary{paymentConfig.allowPassVoucherDownloadBeforePayment !== false ? (selectedMethod === 'paypal' ? ' & PayPal Voucher' : ' & Monzo Voucher') : ''}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    onClose();
+                    handleCloseDrawer();
                     onNavigateRegister();
                   }}
                   className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
@@ -1166,14 +1403,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <span className="text-xl font-extrabold font-mono text-amber-400">
                 {getCurrencySymbol()}{totalConverted}
               </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between text-[11px] text-rose-300">
-              <span className="flex items-center gap-1.5 font-medium">
-                <CreditCard className="w-3.5 h-3.5 text-rose-400" />
-                Monzo Payment Options:
-              </span>
-              <span className="font-bold text-white">Pay Now or on Arrival</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1217,7 +1446,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         totalConverted={totalConverted.toString()}
         isConfirmed={checkoutStep === 'confirmed'}
         paymentTiming={paymentTiming}
-        paymentMethod="Monzo"
+        paymentMethod={selectedMethod}
       />
 
       {/* Payment Receipt / Screenshot Upload Modal */}

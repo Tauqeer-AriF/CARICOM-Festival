@@ -28,7 +28,9 @@ import {
   FileText,
   Filter,
   Trash2,
-  Download
+  Download,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { FormSubmissionItem } from '../types';
 import { 
@@ -71,6 +73,33 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
   // Test simulator state
   const [simulatorAmount, setSimulatorAmount] = useState<number>(450);
   const [simulatorRef, setSimulatorRef] = useState<string>('GCF-2027-DEMO');
+
+  // Collapsible state for Payment Gateways & Banking
+  const [openBankingMethods, setOpenBankingMethods] = useState<Record<string, boolean>>({
+    monzo: true,
+    paypal: false,
+  });
+
+  const toggleBankingMethod = (key: string) => {
+    setOpenBankingMethods(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const expandAllBanking = () => {
+    setOpenBankingMethods({
+      monzo: true,
+      paypal: true,
+    });
+  };
+
+  const collapseAllBanking = () => {
+    setOpenBankingMethods({
+      monzo: false,
+      paypal: false,
+    });
+  };
 
   useEffect(() => {
     const handleConfigUpdate = () => {
@@ -254,7 +283,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
             }`}
           >
-            <Building2 className="w-3.5 h-3.5" /> Monzo Banking Details
+            <Building2 className="w-3.5 h-3.5" /> Payment Gateways &amp; Banking
           </button>
           <button
             onClick={() => setActiveSubSection('workflows')}
@@ -264,7 +293,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
             }`}
           >
-            <Sliders className="w-3.5 h-3.5" /> Timing &amp; Checkout Rules
+            <Sliders className="w-3.5 h-3.5" /> Methods &amp; Checkout Rules
           </button>
           <button
             onClick={() => setActiveSubSection('arrival')}
@@ -294,7 +323,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5" /> Monzo Settlement Metrics ({passOrders.length})
+            <TrendingUp className="w-3.5 h-3.5" /> Settlement Metrics ({passOrders.length})
           </button>
           <button
             onClick={() => setActiveSubSection('receipts')}
@@ -315,156 +344,334 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
         </div>
       </div>
 
-      {/* SECTION 1: MONZO BANKING CREDENTIALS */}
+      {/* SECTION 1: PAYMENT GATEWAYS & BANKING (COLLAPSIBLE) */}
       {activeSubSection === 'banking' && (
-        <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-md">
-          <div className="flex items-start justify-between gap-4">
+        <div className="space-y-4">
+          {/* Section Header with Quick Actions */}
+          <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-mono">Bank Account Details</span>
-              <h2 className="text-xl font-bold text-white font-serif mt-0.5">Monzo Account &amp; Faster Payments Credentials</h2>
-              <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-                These details appear in the customer cart drawer and generated VIP pass summary vouchers for direct bank transfer settlements.
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest font-mono">
+                  Gateway Configurations
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
+                  2 Gateways
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-white font-serif mt-1">
+                Payment Gateways &amp; Banking Setup
+              </h2>
+              <p className="text-xs text-neutral-400 mt-1 max-w-xl">
+                Configure banking accounts, gateway credentials, and statement descriptors. Open any payment method below to edit its settings.
               </p>
             </div>
-            <div className="p-3 bg-neutral-900 rounded-xl border border-neutral-800 hidden sm:flex items-center gap-3 shrink-0">
-              <Building2 className="w-6 h-6 text-amber-400" />
-              <div>
-                <p className="text-[11px] font-bold text-white">{config.bankName}</p>
-                <p className="text-[10px] text-neutral-400 font-mono">Sort: {config.sortCode} • Acc: {config.accountNumber}</p>
-              </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={expandAllBanking}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 hover:border-neutral-700 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                Expand All
+              </button>
+              <button
+                type="button"
+                onClick={collapseAllBanking}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 hover:border-neutral-700 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                Collapse All
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                Beneficiary / Account Name <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={config.accountName}
-                onChange={(e) => handleChange('accountName', e.target.value)}
-                placeholder="e.g. Mellows Entertainment Ltd"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">Legal entity name registered on the Monzo Business account.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                Bank Name <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={config.bankName}
-                onChange={(e) => handleChange('bankName', e.target.value)}
-                placeholder="e.g. Monzo Bank UK"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">The receiving banking institution shown on receipts.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                Sort Code <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={config.sortCode}
-                onChange={(e) => handleChange('sortCode', e.target.value)}
-                placeholder="04-00-04"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono font-bold placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">Standard 6-digit UK clearing code (e.g. 04-00-04).</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                Account Number <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={config.accountNumber}
-                onChange={(e) => handleChange('accountNumber', e.target.value)}
-                placeholder="89214730"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono font-bold placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">8-digit Monzo account number for domestic transfers.</p>
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-neutral-200 block">
-                  Monzo.me Handle / Slug
-                </label>
-                <a
-                  href={`https://monzo.me/${config.monzoMeSlug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-amber-400 hover:text-amber-300 font-mono flex items-center gap-1"
-                >
-                  https://monzo.me/{config.monzoMeSlug} <ExternalLink className="w-2.5 h-2.5" />
-                </a>
+          {/* METHOD 1: MONZO BANKING & FASTER PAYMENTS */}
+          <div className={`border rounded-2xl transition-all duration-200 overflow-hidden shadow-md ${
+            openBankingMethods.monzo 
+              ? 'border-rose-500/40 bg-[#0C0F1E]' 
+              : 'border-neutral-800/80 bg-neutral-950/60 hover:border-neutral-700'
+          }`}>
+            <button
+              type="button"
+              onClick={() => toggleBankingMethod('monzo')}
+              className="w-full p-5 sm:p-6 flex items-center justify-between gap-4 text-left transition-colors cursor-pointer hover:bg-neutral-900/40"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-white font-serif">
+                      Monzo Bank Transfer &amp; UK Faster Payments
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      Monzo
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Sort Code, 8-digit Account Number, Monzo.me handle, and international IBAN/SWIFT wires.
+                  </p>
+                </div>
               </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 font-mono text-xs">
-                  https://monzo.me/
-                </span>
-                <input
-                  type="text"
-                  value={config.monzoMeSlug}
-                  onChange={(e) => handleChange('monzoMeSlug', e.target.value.replace(/^@/, ''))}
-                  placeholder="mellowsentertainment"
-                  className="w-full pl-36 pr-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-                />
+
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-neutral-900 text-amber-300 border border-neutral-800">
+                    Sort: {config.sortCode}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-neutral-900 text-neutral-300 border border-neutral-800">
+                    Acc: {config.accountNumber}
+                  </span>
+                </div>
+                <div className={`w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 transition-transform duration-200 ${
+                  openBankingMethods.monzo ? 'rotate-180 text-rose-400 border-rose-500/30' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
-              <p className="text-[10px] text-neutral-500">
-                Attendees can click this to open the Monzo app or pay with Apple Pay/Google Pay directly on web.
-              </p>
-            </div>
+            </button>
 
-            {/* International Wire / SEPA details */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                International IBAN (Optional)
-              </label>
-              <input
-                type="text"
-                value={config.iban || ''}
-                onChange={(e) => handleChange('iban', e.target.value)}
-                placeholder="GB29 MONZ 0400 0489 2147 30"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">For diaspora &amp; international attendees paying from European/overseas accounts.</p>
-            </div>
+            {openBankingMethods.monzo && (
+              <div className="p-5 sm:p-6 border-t border-neutral-800/80 bg-[#0C0F1E] space-y-5">
+                <div className="flex items-start justify-between gap-4 p-3.5 bg-neutral-900/60 rounded-xl border border-neutral-800/80">
+                  <div>
+                    <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest block font-mono">Customer Cart Display</span>
+                    <p className="text-xs text-neutral-300 mt-0.5">
+                      These credentials appear in the cart drawer and on generated pass summary vouchers for direct bank transfer settlements.
+                    </p>
+                  </div>
+                  <div className="p-2 bg-neutral-950 rounded-lg border border-neutral-800 hidden md:flex items-center gap-2.5 shrink-0">
+                    <Building2 className="w-4 h-4 text-rose-400" />
+                    <div>
+                      <p className="text-[10px] font-bold text-white">{config.bankName}</p>
+                      <p className="text-[9px] text-neutral-400 font-mono">Sort: {config.sortCode} • Acc: {config.accountNumber}</p>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                BIC / SWIFT Code (Optional)
-              </label>
-              <input
-                type="text"
-                value={config.bicSwift || ''}
-                onChange={(e) => handleChange('bicSwift', e.target.value)}
-                placeholder="MONZGB21XXX"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">Bank identifier code for cross-border banking wires.</p>
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      Beneficiary / Account Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={config.accountName}
+                      onChange={(e) => handleChange('accountName', e.target.value)}
+                      placeholder="e.g. Mellows Entertainment Ltd"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">Legal entity name registered on the Monzo Business account.</p>
+                  </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-200 block">
-                Order Reference Prefix
-              </label>
-              <input
-                type="text"
-                value={config.referencePrefix || 'GCF-2027-'}
-                onChange={(e) => handleChange('referencePrefix', e.target.value)}
-                placeholder="GCF-2027-"
-                className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-              <p className="text-[10px] text-neutral-500">Prepended to automatic voucher reference codes (e.g. GCF-2027-99102).</p>
-            </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      Bank Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={config.bankName}
+                      onChange={(e) => handleChange('bankName', e.target.value)}
+                      placeholder="e.g. Monzo Bank UK"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">The receiving banking institution shown on receipts.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      Sort Code <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={config.sortCode}
+                      onChange={(e) => handleChange('sortCode', e.target.value)}
+                      placeholder="04-00-04"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono font-bold placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">Standard 6-digit UK clearing code (e.g. 04-00-04).</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      Account Number <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={config.accountNumber}
+                      onChange={(e) => handleChange('accountNumber', e.target.value)}
+                      placeholder="89214730"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono font-bold placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">8-digit Monzo account number for domestic transfers.</p>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-neutral-200 block">
+                        Monzo.me Handle / Slug
+                      </label>
+                      <a
+                        href={`https://monzo.me/${config.monzoMeSlug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-mono flex items-center gap-1"
+                      >
+                        https://monzo.me/{config.monzoMeSlug} <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 font-mono text-xs">
+                        https://monzo.me/
+                      </span>
+                      <input
+                        type="text"
+                        value={config.monzoMeSlug}
+                        onChange={(e) => handleChange('monzoMeSlug', e.target.value.replace(/^@/, ''))}
+                        placeholder="mellowsentertainment"
+                        className="w-full pl-36 pr-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+                    <p className="text-[10px] text-neutral-500">
+                      Attendees can click this to open the Monzo app or pay with Apple Pay/Google Pay directly on web.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      International IBAN (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.iban || ''}
+                      onChange={(e) => handleChange('iban', e.target.value)}
+                      placeholder="GB29 MONZ 0400 0489 2147 30"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">For diaspora &amp; international attendees paying from European/overseas accounts.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      BIC / SWIFT Code (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.bicSwift || ''}
+                      onChange={(e) => handleChange('bicSwift', e.target.value)}
+                      placeholder="MONZGB21XXX"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">Bank identifier code for cross-border banking wires.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* METHOD 2: PAYPAL GATEWAY */}
+          <div className={`border rounded-2xl transition-all duration-200 overflow-hidden shadow-md ${
+            openBankingMethods.paypal 
+              ? 'border-sky-500/40 bg-[#0C0F1E]' 
+              : 'border-neutral-800/80 bg-neutral-950/60 hover:border-neutral-700'
+          }`}>
+            <button
+              type="button"
+              onClick={() => toggleBankingMethod('paypal')}
+              className="w-full p-5 sm:p-6 flex items-center justify-between gap-4 text-left transition-colors cursor-pointer hover:bg-neutral-900/40"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                  <ExternalLink className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-white font-serif">
+                      PayPal Business Gateway
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      PayPal
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Receiving business email and PayPal.me handle for one-tap checkout links.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-neutral-900 text-sky-300 border border-neutral-800 truncate max-w-[200px]">
+                    {config.paypalEmail || 'Not configured'}
+                  </span>
+                </div>
+                <div className={`w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 transition-transform duration-200 ${
+                  openBankingMethods.paypal ? 'rotate-180 text-sky-400 border-sky-500/30' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+
+            {openBankingMethods.paypal && (
+              <div className="p-5 sm:p-6 border-t border-neutral-800/80 bg-[#0C0F1E] space-y-5">
+                <div className="p-3.5 bg-neutral-900/60 rounded-xl border border-neutral-800/80">
+                  <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest block font-mono">PayPal Integration</span>
+                  <p className="text-xs text-neutral-300 mt-0.5">
+                    Attendees selecting PayPal will receive your direct business email and PayPal.me link to execute immediate online transfers.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-200 block">
+                      PayPal Receiving Email <span className="text-sky-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={config.paypalEmail || ''}
+                      onChange={(e) => handleChange('paypalEmail', e.target.value)}
+                      placeholder="payments@mellowsentertainment.com"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500">Email where customer PayPal transfers are sent.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-neutral-200 block">
+                        PayPal.me Username / Slug
+                      </label>
+                      {config.paypalMeSlug && (
+                        <a
+                          href={`https://paypal.me/${config.paypalMeSlug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-sky-400 hover:text-sky-300 font-mono flex items-center gap-1"
+                        >
+                          paypal.me/{config.paypalMeSlug} <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 font-mono text-xs">
+                        paypal.me/
+                      </span>
+                      <input
+                        type="text"
+                        value={config.paypalMeSlug || ''}
+                        onChange={(e) => handleChange('paypalMeSlug', e.target.value.replace(/^@/, ''))}
+                        placeholder="mellowsent"
+                        className="w-full pl-24 pr-3.5 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors"
+                      />
+                    </div>
+                    <p className="text-[10px] text-neutral-500">Used for one-click PayPal payments in the checkout drawer.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -481,11 +688,32 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+            {/* PayPal Toggle */}
+            <div className="p-5 bg-neutral-950/70 rounded-xl border border-neutral-800/80 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-white flex items-center gap-2">
+                  <ExternalLink className="w-4 h-4 text-sky-400" /> PayPal Direct Gateway
+                </span>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  Enables PayPal.me link checkout and manual email transfer for global attendees.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={config.paypalEnabled ?? true}
+                  onChange={(e) => handleChange('paypalEnabled', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+              </label>
+            </div>
+
             {/* Global Monzo Toggle */}
             <div className="p-5 bg-neutral-950/70 rounded-xl border border-neutral-800/80 flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <span className="text-xs font-bold text-white flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-amber-400" /> Monzo Payment Processing
+                  <CreditCard className="w-4 h-4 text-amber-400" /> Monzo Bank Transfer
                 </span>
                 <p className="text-[11px] text-neutral-400 leading-relaxed">
                   Master switch for Monzo bank transfers and Monzo.me link generation across the entire website.
@@ -500,6 +728,33 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                 />
                 <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
               </label>
+            </div>
+
+            {/* Default Online Method Selection */}
+            <div className="p-5 bg-neutral-950/70 rounded-xl border border-neutral-800/80 space-y-2 md:col-span-2">
+              <label className="text-xs font-bold text-white block">
+                Default Online Payment Method Pre-Selected
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'monzo', name: 'Monzo', color: 'amber' },
+                  { id: 'paypal', name: 'PayPal', color: 'sky' }
+                ].map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleChange('defaultMethod', m.id as any)}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      (config.defaultMethod || 'monzo') === m.id
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-neutral-500">The payment method highlighted first when the attendee chooses Pay Now.</p>
             </div>
 
             {/* Option 1: Pay Now via Monzo */}
@@ -688,7 +943,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-neutral-200 block">
-                Payment Inquiries Email
+                Payment Enquiries Email
               </label>
               <input
                 type="email"

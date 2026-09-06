@@ -73,13 +73,13 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       const res = await fetch('/api/admin/optimize-existing-media', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        showToast(data.message || 'Media optimized to WebP format successfully!');
+        showToast(data.message || 'Media optimised to WebP format successfully!');
         loadMedia();
       } else {
-        showToast('Batch optimization failed.');
+        showToast('Batch optimisation failed.');
       }
     } catch (e: any) {
-      showToast('Error running batch media optimization');
+      showToast('Error running batch media optimisation');
     } finally {
       setIsBatchOptimizing(false);
     }
@@ -539,7 +539,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Dashboard Media Storage</span>
           <h2 className="text-xl font-bold text-white font-serif mt-0.5">Asset & Media Library</h2>
           <p className="text-xs text-neutral-400 font-light">
-            Upload, manage, and batch-process assets. High-resolution photos are automatically converted to optimized <span className="text-amber-400 font-bold">WebP</span> format with 60-90% lossless/lossy compression.
+            Upload, manage, and batch-process assets. High-resolution photos are automatically converted to optimised <span className="text-amber-400 font-bold">WebP</span> format with 60-90% lossless/lossy compression.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

@@ -210,7 +210,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
       if (isUnauthorizedDomain) {
         const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
         setAuthDomainError(currentHostname);
-        showToast('Domain not authorized in Firebase Auth settings', 'error');
+        showToast('Domain not authorised in Firebase Auth settings', 'error');
       } else {
         console.error('Google Drive sign in failed:', e);
         showToast(e.message || 'Failed to connect Google Drive', 'error');
@@ -1494,7 +1494,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
 
             <div className="space-y-2 pt-2">
               <label className="text-[11px] text-neutral-400 block font-mono">
-                Type <strong>RESET</strong> to authorize:
+                Type <strong>RESET</strong> to authorise:
               </label>
               <input
                 type="text"

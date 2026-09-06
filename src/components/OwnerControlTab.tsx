@@ -313,7 +313,7 @@ export const OwnerControlTab: React.FC<OwnerControlTabProps> = ({
             </div>
             <p className="text-sm text-neutral-400 max-w-2xl leading-relaxed">
               As the application owner, you have unrestricted master clearance across all festival infrastructure, 
-              RBAC authorization overrides, financial controls, and credential management.
+              RBAC authorisation overrides, financial controls, and credential management.
             </p>
           </div>
         </div>
@@ -501,7 +501,7 @@ export const OwnerControlTab: React.FC<OwnerControlTabProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-neutral-400">
-                    Current Password <span className="text-[10px] text-neutral-500">(Required to authorize changes)</span>
+                    Current Password <span className="text-[10px] text-neutral-500">(Required to authorise changes)</span>
                   </label>
                   <div className="relative">
                     <input

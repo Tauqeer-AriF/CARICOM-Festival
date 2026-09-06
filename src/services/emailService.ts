@@ -53,7 +53,7 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
     headline: 'Greetings {name}, your registration is confirmed',
     introText: 'We are delighted to welcome you to the community of the Grenada CARICOM Festival 2027, celebrating the union of British Caribbean culture and Spice Isle hospitality.',
     bodyText: 'Our festival concierge team is currently finalising the official cultural programme, including our world-renowned Mellowland River Tubing expedition, Beach Carnival, and White Sand Gala. You will receive priority updates, pass release alerts, and travel advisories as they are published.',
-    ctaLabel: 'Explore Curated Accommodations',
+    ctaLabel: 'Explore Curated Accommodation',
     ctaUrl: 'https://grenadacaricom2027.com',
     footerNote: 'Official Festival Liaison Office • St. George\'s, Grenada',
     updatedAt: new Date().toISOString()
@@ -62,7 +62,7 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
     id: 'tpl-contact-acknowledgement',
     category: 'contact_acknowledgement',
     name: 'Contact Enquiry Acknowledgement',
-    description: 'Dispatched automatically whenever an attendee submits an inquiry or contact form.',
+    description: 'Dispatched automatically whenever an attendee submits an enquiry or contact form.',
     subject: 'Enquiry Received (Ref: {reference_id}) — Grenada CARICOM Festival 2027',
     headline: 'Thank You for Contacting Concierge, {name}',
     introText: 'We have received your enquiry regarding {topic}. The Festival Secretariat and Concierge Team have logged your request.',
@@ -655,7 +655,7 @@ export const dispatchContactAcknowledgementEmail = async (
     .replace(/{reference_id}/g, refCode)
     .replace(/{topic}/g, topic)
     .replace(/{name}/g, attendeeName)
-    .replace(/{message}/g, submission.messageOrDetails || 'General inquiry logged.');
+    .replace(/{message}/g, submission.messageOrDetails || 'General enquiry logged.');
 
   return await dispatchEmail({
     recipientEmail: submission.email,

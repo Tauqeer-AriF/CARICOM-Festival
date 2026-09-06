@@ -70,7 +70,8 @@ const TAB_LABELS: Record<AdminTabId, string> = {
   'media': 'Media Library',
   'users': 'Console Users',
   'system': 'Operations',
-  'backup': 'Backup & Restore'
+  'backup': 'Backup & Restore',
+  'documentation': 'Admin Guide'
 };
 
 export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({

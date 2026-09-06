@@ -20,7 +20,8 @@ export type AdminTabId =
   | 'media' 
   | 'users' 
   | 'system' 
-  | 'backup';
+  | 'backup'
+  | 'documentation';
 
 /**
  * Role-Based Access Control (RBAC) Permissions Matrix
@@ -44,7 +45,8 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'media', 
     'users', 
     'system', 
-    'backup'
+    'backup',
+    'documentation'
   ],
   'Admin': [
     'analytics', 
@@ -62,7 +64,8 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'media', 
     'users', 
     'system', 
-    'backup'
+    'backup',
+    'documentation'
   ],
   'Executive Lead': [
     'analytics', 
@@ -74,6 +77,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'hotels', 
     'testimonials', 
     'media'
+    ,'documentation'
   ],
   'Event Coordinator': [
     'events', 
@@ -81,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'analytics', 
     'media', 
     'hotels'
+    ,'documentation'
   ],
   'Ticketing & Passes': [
     'passes', 
@@ -89,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'emails',
     'submissions', 
     'analytics'
+    ,'documentation'
   ],
   'Concierge Lead': [
     'submissions', 
@@ -97,6 +103,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'emails',
     'hotels', 
     'testimonials'
+    ,'documentation'
   ],
   'Curator': [
     'gallery', 
@@ -104,12 +111,14 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'media', 
     'testimonials', 
     'branding'
+    ,'documentation'
   ],
   'Logistics Lead': [
     'hotels', 
     'events', 
     'submissions', 
     'analytics'
+    ,'documentation'
   ]
 };
 
@@ -171,7 +180,7 @@ export const DEFAULT_ADMIN_USERS: AdminUser[] = [
     email: 'concierge@grenadacaricom2027.com',
     status: 'active',
     createdAt: '2026-02-10T14:15:00.000Z',
-    notes: 'Oversees VIP guest communications, flight registrations and wristband inquiries'
+    notes: 'Oversees VIP guest communications, flight registrations and wristband enquiries'
   }
 ];
 

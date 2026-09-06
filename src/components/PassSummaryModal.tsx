@@ -106,7 +106,7 @@ export const PassSummaryModal: React.FC<PassSummaryModalProps> = ({
 
   const handlePrint = async () => {
     if (!canDownloadVoucher) {
-      alert('Voucher PDF download is restricted before payment settlement as set by the festival organizers.');
+      alert('Voucher PDF download is restricted before payment settlement as set by the festival organisers.');
       return;
     }
 
@@ -197,6 +197,8 @@ WhatsApp Concierge: +44 7900 123456
     }
   };
 
+  const isPayPal = String(paymentMethod).toLowerCase() === 'paypal';
+
   return createPortal(
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-2xl animate-fadeIn font-sans">
       <style>{`
@@ -260,7 +262,7 @@ WhatsApp Concierge: +44 7900 123456
           <div className="no-print mx-3 sm:mx-5 mt-3 p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl flex items-center gap-2.5 text-amber-200 text-xs font-medium shrink-0">
             <Lock className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="leading-tight">
-              <strong className="text-white">PDF Voucher Download Locked:</strong> Organizers require payment settlement or receipt verification prior to PDF voucher download.
+              <strong className="text-white">PDF Voucher Download Locked:</strong> Organisers require payment settlement or receipt verification prior to PDF voucher download.
             </span>
           </div>
         )}
@@ -335,51 +337,81 @@ WhatsApp Concierge: +44 7900 123456
               <div className="bg-[#0F1629] text-white p-3.5 sm:p-5 rounded-xl border border-amber-500/30 space-y-2.5 shadow-md">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
-                      <CreditCard className="w-3.5 h-3.5" />
+                    <div className={`w-6 h-6 rounded-lg border flex items-center justify-center font-bold text-xs shrink-0 ${
+                      isPayPal
+                        ? 'bg-sky-600/20 text-sky-400 border-sky-500/40'
+                        : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                    }`}>
+                      {isPayPal ? 'PP' : <CreditCard className="w-3.5 h-3.5" />}
                     </div>
                     <span className="font-mono text-[10px] font-black uppercase text-amber-400 tracking-wider">
                       PAYMENT METHOD &amp; PURCHASE OPTION
                     </span>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30 self-start sm:self-auto">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    Monzo {paymentTiming === 'now' ? '• Pay Now (Bank Transfer)' : '• Pay on Arrival'}
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border self-start sm:self-auto ${
+                    isPayPal
+                      ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isPayPal ? 'bg-sky-400' : 'bg-rose-500'}`} />
+                    {isPayPal ? 'PayPal' : 'Monzo'} {paymentTiming === 'now' ? '• Pay Now' : '• Pay on Arrival'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                   <div className="space-y-1 text-slate-300">
-                    <p><strong className="text-white">Payment Method:</strong> {paymentTiming === 'now' ? 'Monzo Bank Transfer' : 'Pay on Arrival'}</p>
-                    <p><strong className="text-white">Purchase Option:</strong> {paymentTiming === 'now' ? 'Pay Now via Monzo' : 'Pay on Arrival'}</p>
+                    <p><strong className="text-white">Payment Method:</strong> {paymentTiming === 'now' ? (isPayPal ? 'PayPal' : 'Monzo Bank Transfer') : 'Pay on Arrival'}</p>
+                    <p><strong className="text-white">Purchase Option:</strong> {paymentTiming === 'now' ? (isPayPal ? 'Pay Now via PayPal' : 'Pay Now via Monzo') : 'Pay on Arrival'}</p>
                     <p><strong className="text-white">Wristband Status:</strong> <span className="text-amber-300 font-bold">{paymentTiming === 'now' ? 'ALLOCATED / SECURED' : 'RESERVED FOR ARRIVAL'}</span></p>
                   </div>
                   <div className="space-y-1 text-slate-300 bg-[#080D1A] p-2.5 rounded-lg border border-slate-800 text-[11px] break-all">
                     {paymentTiming === 'now' ? (
-                      <>
-                        <p className="text-amber-400 font-bold">Monzo Pay / Transfer Details:</p>
-                        <p>Bank: {paymentConfig.bankName} • Sort: {paymentConfig.sortCode} • Acc: {paymentConfig.accountNumber}</p>
-                        <p>Beneficiary: {paymentConfig.accountName}</p>
-                        <p>Payment Ref: <span className="text-amber-300 font-bold">{refCode}</span></p>
-                        {paymentConfig.monzoMeSlug && (
-                          <div className="pt-1.5 not-printable">
-                            <a
-                              href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, refCode)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              Pay Now via Monzo.me (£{totalGBP})
-                            </a>
-                          </div>
-                        )}
-                      </>
+                      isPayPal ? (
+                        <>
+                          <p className="text-sky-400 font-bold">PayPal Payment Details:</p>
+                          <p>Payee Email: <span className="text-white font-bold">{paymentConfig.paypalEmail || 'payments@mellowsentertainment.com'}</span></p>
+                          <p>Beneficiary: {paymentConfig.accountName || 'Mellows Entertainment Ltd'}</p>
+                          <p>Payment Ref: <span className="text-amber-300 font-bold">{refCode}</span></p>
+                          {paymentConfig.paypalMeSlug && (
+                            <div className="pt-1.5 not-printable">
+                              <a
+                                href={`https://paypal.me/${paymentConfig.paypalMeSlug}/${totalGBP}GBP`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Pay Now via PayPal.me (£{totalGBP})
+                              </a>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-amber-400 font-bold">Monzo Pay / Transfer Details:</p>
+                          <p>Bank: {paymentConfig.bankName} • Sort: {paymentConfig.sortCode} • Acc: {paymentConfig.accountNumber}</p>
+                          <p>Beneficiary: {paymentConfig.accountName}</p>
+                          <p>Payment Ref: <span className="text-amber-300 font-bold">{refCode}</span></p>
+                          {paymentConfig.monzoMeSlug && (
+                            <div className="pt-1.5 not-printable">
+                              <a
+                                href={getMonzoMeUrl(paymentConfig.monzoMeSlug, totalGBP, refCode)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Pay Now via Monzo.me (£{totalGBP})
+                              </a>
+                            </div>
+                          )}
+                        </>
+                      )
                     ) : (
                       <>
                         <p className="text-emerald-400 font-bold">Settlement upon Arrival in Grenada:</p>
                         <p>Wristbands reserved under ref: <span className="text-amber-300 font-bold">{refCode}</span></p>
-                        <p>Pay via Monzo card / contactless or Monzo transfer at airport desk.</p>
+                        <p>Pay via card, contactless, or cash at airport arrival desk.</p>
                       </>
                     )}
                   </div>

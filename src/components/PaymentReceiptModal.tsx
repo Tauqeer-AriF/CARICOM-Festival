@@ -389,7 +389,7 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                     <div className="truncate text-xs">
                       <p className="text-white font-bold truncate">{selectedFile.name}</p>
                       <p className="text-[10px] text-neutral-400 font-mono">
-                        {selectedFile.sizeKb > 0 ? `~${selectedFile.sizeKb} KB` : 'Ready to attach'} • Optimized
+                        {selectedFile.sizeKb > 0 ? `~${selectedFile.sizeKb} KB` : 'Ready to attach'} • Optimised
                       </p>
                       <button
                         type="button"

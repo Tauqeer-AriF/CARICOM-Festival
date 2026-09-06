@@ -52,14 +52,14 @@ export const ALL_SUBMISSION_TYPE_TAGS: Record<FormSubmissionItem['type'], TypeTa
   },
   'contact': {
     type: 'contact',
-    label: 'Contact Inquiry',
+    label: 'Contact Enquiry',
     shortLabel: 'Contact',
     badgeLabel: 'Contact',
     badgeBg: 'bg-blue-500/10',
     badgeText: 'text-blue-400',
     badgeBorder: 'border-blue-500/20',
     icon: MessageSquare,
-    description: 'General festival inquiries, cultural partnerships, media press, and attendee messages',
+    description: 'General festival enquiries, cultural partnerships, media press, and attendee messages',
     aliases: ['contact', 'contact-inquiry', 'contact inquiry', 'inquiry', 'inquiries', 'enquiry', 'enquiries', 'message', 'messages', 'general', 'support', 'help', 'question', 'feedback', 'contact request']
   },
   'flight-registration': {
@@ -134,7 +134,7 @@ export const ALL_SUBMISSION_STATUS_TAGS: Record<FormSubmissionItem['status'], St
     badgeText: 'text-emerald-400',
     badgeBorder: 'border-emerald-500/30',
     icon: CheckCircle2,
-    description: 'Confirmed order, ticket wristband issued, flight matched, or inquiry answered',
+    description: 'Confirmed order, ticket wristband issued, flight matched, or enquiry answered',
     aliases: ['resolved', 'confirmed', 'paid', 'complete', 'completed', 'done', 'approved', 'processed', 'closed', 'success', 'dispatched']
   }
 };

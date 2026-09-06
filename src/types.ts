@@ -170,9 +170,13 @@ export interface SiteConfig {
 
 export interface PaymentConfig {
   monzoEnabled: boolean;
+  paypalEnabled: boolean;
+  paypalEmail: string;
+  paypalMeSlug: string;
   payNowEnabled: boolean;
   payOnArrivalEnabled: boolean;
   defaultTiming: 'now' | 'arrival';
+  defaultMethod?: 'monzo' | 'paypal';
   accountName: string;
   sortCode: string;
   accountNumber: string;
@@ -292,7 +296,7 @@ export interface CartItem {
 }
 
 export type WristbandPaymentTiming = 'now' | 'arrival';
-export type WristbandPaymentMethod = 'monzo';
+export type WristbandPaymentMethod = 'monzo' | 'paypal';
 
 
 export interface MediaItem {

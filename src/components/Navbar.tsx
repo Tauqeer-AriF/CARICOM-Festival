@@ -297,13 +297,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
 
-              {/* Support Dropdown */}
-              {renderDropdown('support', 'Support', dropdownMenus.find(m => m.id === 'support')?.items || [])}
+              {/* Support Dropdown (Desktop: excludes voucher_download since desktop has dedicated top bar button) */}
+              {renderDropdown(
+                'support', 
+                'Support', 
+                (dropdownMenus.find(m => m.id === 'support')?.items || []).filter(item => item.id !== 'voucher_download')
+              )}
             </nav>
 
             {/* Right Section: Controls */}
             <div className="flex items-center justify-end gap-2 sm:gap-2.5 shrink-0">
-              {/* Extra Secondary Controls (Currency & Flight Arrival) */}
+              {/* Extra Secondary Controls (Currency & Download Wrist Voucher) */}
               <div className="hidden sm:flex items-center gap-2 sm:gap-2.5">
                 {/* Currency Selector */}
                 <div className="flex bg-neutral-900 border border-amber-500/20 rounded-xl p-0.5 text-[11px] font-semibold text-neutral-300 shadow-inner">
@@ -322,14 +326,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ))}
                 </div>
 
-                {/* Flight Arrival VIP Button */}
+                {/* Download Wrist Voucher Button */}
                 <button
-                  onClick={() => handleTabClick('register')}
-                  id="nav-btn-register"
+                  onClick={() => handleTabClick('voucher_download')}
+                  id="nav-btn-download-voucher"
                   className="hidden md:flex px-3 sm:px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap items-center gap-1.5 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
+                  title="Download Wrist Voucher"
                 >
-                  <Plane className="w-3.5 h-3.5 fill-neutral-950" />
-                  <span>Flight Arrival</span>
+                  <Ticket className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Download Wrist Voucher</span>
                 </button>
               </div>
 
@@ -381,6 +386,16 @@ export const Navbar: React.FC<NavbarProps> = ({
       {mobileMenuOpen && (
         <div className="xl:hidden bg-neutral-950/95 backdrop-blur-2xl border-b border-amber-500/30 px-4 pt-3 pb-6 space-y-4 max-h-[80vh] overflow-y-auto animate-fadeIn shadow-2xl">
           <div className="space-y-4">
+            {/* VIP Voucher Primary Action Button (Mobile) */}
+            <button
+              onClick={() => handleTabClick('voucher_download')}
+              id="mobile-nav-btn-download-voucher"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-xl shadow-lg shadow-amber-500/25 border border-amber-300/40 cursor-pointer active:scale-[0.98] transition-all"
+            >
+              <Ticket className="w-4 h-4 stroke-[2.5]" />
+              <span>Download Wrist Voucher</span>
+            </button>
+
             {/* Direct Quick Links */}
             <div className="grid grid-cols-3 gap-2">
               {flatLinks.map((item) => (

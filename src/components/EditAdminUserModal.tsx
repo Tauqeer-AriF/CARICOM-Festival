@@ -41,10 +41,10 @@ const AVAILABLE_ROLES: { role: AdminRole; description: string; badgeColor: strin
   { role: 'Admin', description: 'Full administrative clearance to all standard console features & security operations', badgeColor: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300' },
   { role: 'Executive Lead', description: 'Strategic analytics, executive exports, forms, orders and high-level festival oversight', badgeColor: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
   { role: 'Event Coordinator', description: 'Manages festival itinerary, DJ lineups, locations, timings and schedule', badgeColor: 'border-sky-500/30 bg-sky-500/10 text-sky-300' },
-  { role: 'Ticketing & Passes', description: 'Oversees pass tiers, pricing configurations, orders, and inquiries', badgeColor: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
-  { role: 'Concierge Lead', description: 'Handles guest inquiries, flight registration dossiers and VIP hotels', badgeColor: 'border-rose-500/30 bg-rose-500/10 text-rose-300' },
+  { role: 'Ticketing & Passes', description: 'Oversees pass tiers, pricing configurations, orders, and enquiries', badgeColor: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
+  { role: 'Concierge Lead', description: 'Handles guest enquiries, flight registration dossiers and VIP hotels', badgeColor: 'border-rose-500/30 bg-rose-500/10 text-rose-300' },
   { role: 'Curator', description: 'Curates gallery imagery, promotional media, artwork and video teasers', badgeColor: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' },
-  { role: 'Logistics Lead', description: 'Coordinates hotel accommodations, airport transfers, events and logistics', badgeColor: 'border-teal-500/30 bg-teal-500/10 text-teal-300' },
+  { role: 'Logistics Lead', description: 'Coordinates hotel accommodation, airport transfers, events and logistics', badgeColor: 'border-teal-500/30 bg-teal-500/10 text-teal-300' },
 ];
 
 const TAB_LABELS: Record<AdminTabId, string> = {
@@ -64,7 +64,8 @@ const TAB_LABELS: Record<AdminTabId, string> = {
   'media': 'Media Library',
   'users': 'Console Users',
   'system': 'Operations',
-  'backup': 'Backup & Restore'
+  'backup': 'Backup & Restore',
+  'documentation': 'Admin Guide'
 };
 
 export const EditAdminUserModal: React.FC<EditAdminUserModalProps> = ({

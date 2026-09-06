@@ -56,6 +56,7 @@ import {
 import { 
   ShieldCheck,
   CreditCard,
+  BookOpen,
   Search, 
   Filter, 
   Download, 
@@ -147,6 +148,7 @@ import { CustomConfirmModal } from '../components/CustomConfirmModal';
 import { MediaSelectorModal } from '../components/MediaSelectorModal';
 import { MediaLibraryTab } from '../components/MediaLibraryTab';
 import { BackupRestoreTab } from '../components/BackupRestoreTab';
+import { AdminDocumentationTab } from '../components/AdminDocumentationTab';
 import { AdminAnalyticsTab } from '../components/AdminAnalyticsTab';
 import { AdminBrandingTab } from '../components/AdminBrandingTab';
 import { AdminPageImagesTab } from '../components/AdminPageImagesTab';
@@ -299,7 +301,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setReplyingSubState(sub);
     if (sub) {
       setAttachPassPdf(sub.type === 'pass-order' || sub.type === 'flight-registration');
-      setReplySubject(`Response to your inquiry (Ref: ${sub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
+      setReplySubject(`Response to your enquiry (Ref: ${sub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
       setReplyMethod('email_suite');
       setIsSendingReply(false);
     }
@@ -889,7 +891,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     try {
       await syncWithDatabase();
       loadData();
-      setSaveToast('Entire app state has been successfully re-synchronized with SQLite database!');
+      setSaveToast('Entire app state has been successfully re-synchronised with SQLite database!');
     } catch (err) {
       console.error('Manual re-sync failed:', err);
       setSaveToast('Re-sync failed.');
@@ -1025,10 +1027,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setReplyMessage(`Dear ${name},\n\nWe have received your flight arrival details ("${topic}"). Our official airport VIP transfer liaison will be waiting for you at Maurice Bishop International Airport (GND) arrivals with a dedicated festival shuttle.\n\nPlease keep your booking reference handy upon arrival.\n\nWarm regards,\nGrenada Logistics & Transport Concierge`);
     } else if (templateType === 'vip') {
       setReplySubject(`VIP Cabana & Hospitality Host Allocation (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM 2027`);
-      setReplyMessage(`Dear ${name},\n\nThank you for your inquiry regarding "${topic}". Our VIP Cabana & Hospitality team has placed your reservation on priority status.\n\nA dedicated hostess will reach out to finalize champagne, catering, and personal cabana host preferences.\n\nWarm regards,\nGrenada CARICOM VIP Services`);
+      setReplyMessage(`Dear ${name},\n\nThank you for your enquiry regarding "${topic}". Our VIP Cabana & Hospitality team has placed your reservation on priority status.\n\nA dedicated hostess will reach out to finalise champagne, catering, and personal cabana host preferences.\n\nWarm regards,\nGrenada CARICOM VIP Services`);
     } else {
-      setReplySubject(`Response to your inquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
-      setReplyMessage(`Dear ${name},\n\nThank you for contacting the Grenada CARICOM Festival 2027 team regarding "${topic}".\n\nWe have reviewed your message and updated your inquiry status to Resolved. Should you require any further assistance, please feel free to reply to this message or contact our official festival hotline.\n\nWarm regards,\nFestival Operations Team`);
+      setReplySubject(`Response to your enquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`);
+      setReplyMessage(`Dear ${name},\n\nThank you for contacting the Grenada CARICOM Festival 2027 team regarding "${topic}".\n\nWe have reviewed your message and updated your enquiry status to Resolved. Should you require any further assistance, please feel free to reply to this message or contact our official festival hotline.\n\nWarm regards,\nFestival Operations Team`);
     }
   };
 
@@ -1041,21 +1043,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   const getMailtoUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Enquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `mailto:${encodeURIComponent(replyingSub.email)}?subject=${subject}&body=${body}`;
   };
 
   const getGmailUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Enquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(replyingSub.email)}&su=${subject}&body=${body}`;
   };
 
   const getOutlookUrl = () => {
     if (!replyingSub) return '#';
-    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Inquiry'}`);
+    const subject = encodeURIComponent(replySubject.trim() || `Grenada CARICOM Festival 2027 - Re: ${replyingSub.topicOrPass || 'Concierge Enquiry'}`);
     const body = encodeURIComponent(replyMessage);
     return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(replyingSub.email)}&subject=${subject}&body=${body}`;
   };
@@ -1075,7 +1077,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       } : undefined;
 
       const emailSettings = getEmailSettings();
-      const subject = replySubject.trim() || `Response to your inquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`;
+      const subject = replySubject.trim() || `Response to your enquiry (Ref: ${replyingSub.id.toUpperCase()}) — Grenada CARICOM Festival 2027`;
 
       if (method === 'email_suite') {
         await dispatchEmail({
@@ -1733,7 +1735,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
               {passcodeVerified 
                 ? 'Passcode verified. Please enter your administrator username and password to unlock the workspace.' 
-                : 'Enter security passcode to begin administrator authorization.'}
+                : 'Enter security passcode to begin administrator authorisation.'}
             </p>
           </div>
 
@@ -2246,6 +2248,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <Database className={`w-4 h-4 ${activeAdminTab === 'backup' ? 'text-amber-400' : 'text-neutral-400'}`} /> Backup & Restore
             </button>
           )}
+
+          {hasRoleAccess(currentAdmin?.role, 'documentation') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('documentation');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer mt-4 ${
+                activeAdminTab === 'documentation'
+                  ? 'bg-blue-900/40 text-blue-200 shadow-sm border border-blue-500/20'
+                  : 'bg-blue-950/20 text-blue-400/80 hover:text-blue-300 hover:bg-blue-900/30'
+              }`}
+            >
+              <BookOpen className={`w-4 h-4 ${activeAdminTab === 'documentation' ? 'text-blue-300' : 'text-blue-400/80'}`} /> Admin Guide
+            </button>
+          )}
         </nav>
 
         {/* Sidebar Footer Controls */}
@@ -2301,6 +2319,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 {activeAdminTab === 'system' && 'Infrastructure & Operations'}
                 {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
                 {activeAdminTab === 'backup' && 'System Backup & Recovery'}
+                {activeAdminTab === 'documentation' && 'Documentation & Handover Guide'}
                 {activeAdminTab === 'users' && 'Console Users & Access Control'}
                 {activeAdminTab === 'owner' && 'Owner Control Center'}
               </span>
@@ -2482,7 +2501,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           {filteredSubmissions.length} of {submissions.length}
                         </span>
                       </div>
-                      <p className="text-[11px] text-neutral-400">Manage contact inquiries, flight registrations, shuttle requests, and VIP forms</p>
+                      <p className="text-[11px] text-neutral-400">Manage contact enquiries, flight registrations, shuttle requests, and VIP forms</p>
                     </div>
                   </div>
 
@@ -3842,7 +3861,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div>
                   <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">Event Management Hub</span>
                   <h2 className="text-xl font-bold text-white font-serif mt-0.5">Festival Events & Live Shows</h2>
-                  <p className="text-xs text-neutral-400 font-light">Manage overall festival start & end dates and customize individual event listings.</p>
+                  <p className="text-xs text-neutral-400 font-light">Manage overall festival start & end dates and customise individual event listings.</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
@@ -4656,7 +4675,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <Upload className="w-7 h-7 text-sky-400" />
                     <h4 className="font-bold text-white text-xs uppercase tracking-wider font-serif">Import Records from CSV</h4>
                     <p className="text-xs text-neutral-400 leading-relaxed">
-                      Bulk upload and synchronize guest reservations, pass orders, or form submissions with automatic validation and preview.
+                      Bulk upload and synchronise guest reservations, pass orders, or form submissions with automatic validation and preview.
                     </p>
                   </div>
                   <button
@@ -4960,7 +4979,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             />
           )}
 
-                    {activeAdminTab === 'owner' && (
+          {activeAdminTab === 'documentation' && (
+            <AdminDocumentationTab primaryColor={primaryColor} />
+          )}
+
+          {activeAdminTab === 'owner' && (
             <OwnerControlTab
               primaryColor={primaryColor}
               onToast={(msg) => {
@@ -5819,7 +5842,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         primaryColor={primaryColor}
         onSuccess={(count) => {
           loadData();
-          setSaveToast(`Successfully imported and synchronized ${count} record(s) from CSV!`);
+          setSaveToast(`Successfully imported and synchronised ${count} record(s) from CSV!`);
           setTimeout(() => setSaveToast(null), 3500);
         }}
       />

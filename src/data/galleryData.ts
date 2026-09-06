@@ -125,7 +125,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     year: '2026 Highlight',
     imageUrl: FESTIVAL_IMAGES.gallery7,
     aspectRatio: 'aspect-[16/9]',
-    caption: 'Exclusive host hotel accommodations featuring swim-up suites and direct private beach access.',
+    caption: 'Exclusive host hotel accommodation featuring swim-up suites and direct private beach access.',
     likesCount: 295,
     photographer: 'Royalton Resorts'
   },

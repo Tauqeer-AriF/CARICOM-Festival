@@ -1,8 +1,12 @@
 export interface PaymentConfig {
   monzoEnabled: boolean;
+  paypalEnabled: boolean;
+  paypalEmail: string;
+  paypalMeSlug: string;
   payNowEnabled: boolean;
   payOnArrivalEnabled: boolean;
   defaultTiming: 'now' | 'arrival';
+  defaultMethod?: 'monzo' | 'paypal';
   accountName: string;
   sortCode: string;
   accountNumber: string;
@@ -29,9 +33,13 @@ export interface PaymentConfig {
 
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   monzoEnabled: true,
+  paypalEnabled: true,
+  paypalEmail: 'payments@mellowsentertainment.com',
+  paypalMeSlug: 'mellowsentertainment',
   payNowEnabled: true,
   payOnArrivalEnabled: true,
   defaultTiming: 'now',
+  defaultMethod: 'monzo',
   accountName: 'Mellows Entertainment Ltd',
   sortCode: '04-00-04',
   accountNumber: '89214730',
@@ -43,7 +51,7 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   arrivalDeskName: 'Maurice Bishop Airport (GND) Arrival Concierge',
   arrivalDeskLocation: 'Arrivals Terminal, Point Salines, St. George & Royalton Grenada Welcome Desk',
   arrivalDeskHours: '24/7 during festival week (July 29 – August 7, 2027)',
-  wristbandCollectionNotes: 'Present your reservation voucher to collect RFID wristband and settle via Monzo contactless, card tap, or app transfer.',
+  wristbandCollectionNotes: 'Present your reservation voucher to collect RFID wristband and settle via Monzo or PayPal.',
   supportPhone: '+44 7904 983210',
   supportEmail: 'wristbands@mellowsentertainment.com',
   autoReconcileOrders: false,
@@ -120,3 +128,10 @@ export function getMonzoMeUrl(slug: string, amountGBP: number, reference: string
   const safeRef = encodeURIComponent(reference || 'GCF-2027');
   return `https://monzo.me/${safeSlug}/${amountGBP}?d=${safeRef}`;
 }
+
+export function getPayPalMeUrl(slug: string, amount: number, currency = 'GBP', reference = 'GCF-2027'): string {
+  const safeSlug = (slug || 'mellowsentertainment').replace(/^@/, '').trim();
+  const safeRef = encodeURIComponent(reference || 'GCF-2027');
+  return `https://www.paypal.com/paypalme/${safeSlug}/${amount}${currency}?note=${safeRef}`;
+}
+

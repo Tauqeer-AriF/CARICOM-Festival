@@ -69,7 +69,7 @@ export const VoucherLookupModal: React.FC<VoucherLookupModalProps> = ({
 
   const handlePrint = async () => {
     if (!canShowVoucherCanvas) {
-      alert('Official PDF voucher download before payment settlement is disabled by event organizers.');
+      alert('Official PDF voucher download before payment settlement is disabled by event organisers.');
       return;
     }
     const element = document.getElementById('printable-wristband-voucher');
@@ -197,16 +197,16 @@ Concierge WhatsApp: ${siteConfig.socialLinks?.whatsapp || '+44 7900 123456'}
 
       <div className="relative w-full max-w-4xl bg-[#090D1A] border border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar */}
-        <div className="no-print p-4 sm:p-5 border-b border-white/10 bg-neutral-950 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-neutral-950 flex items-center justify-center font-black shadow-lg shadow-amber-500/20">
-              <Ticket className="w-6 h-6 text-neutral-950" />
+        <div className="no-print p-3.5 sm:p-5 border-b border-white/10 bg-neutral-950 flex items-center justify-between gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-neutral-950 flex items-center justify-center font-black shadow-lg shadow-amber-500/20 shrink-0">
+              <Ticket className="w-5 h-5 sm:w-6 sm:h-6 text-neutral-950" />
             </div>
-            <div>
-              <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block font-mono">
+            <div className="min-w-0 flex-1">
+              <span className="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest block font-mono truncate">
                 SELF-SERVICE CONCIERGE
               </span>
-              <h3 className="text-base font-bold text-white font-serif">
+              <h3 className="text-sm sm:text-base font-bold text-white font-serif truncate">
                 Download Wristband Voucher
               </h3>
             </div>
@@ -214,8 +214,9 @@ Concierge WhatsApp: ${siteConfig.socialLinks?.whatsapp || '+44 7900 123456'}
 
           <button
             onClick={onClose}
-            className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer"
+            className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer shrink-0 -mr-1"
             title="Close Modal"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>

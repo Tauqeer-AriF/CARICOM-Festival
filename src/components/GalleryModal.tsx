@@ -202,7 +202,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
           <AlertCircle className="w-12 h-12 text-amber-400 opacity-80 shrink-0" />
           <h4 className="text-base font-bold text-white font-serif">{item.title}</h4>
           <p className="text-xs text-neutral-400 max-w-md leading-relaxed">
-            Video link format not recognized or video source unavailable. Please verify the video URL (YouTube, Vimeo, or MP4) in the Admin Dashboard.
+            Video link format not recognised or video source unavailable. Please verify the video URL (YouTube, Vimeo, or MP4) in the Admin Dashboard.
           </p>
         </div>
       );
