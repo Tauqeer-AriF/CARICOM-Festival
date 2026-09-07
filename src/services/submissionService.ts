@@ -929,6 +929,51 @@ export const verifyPaymentReceipt = (
   return updatedItem;
 };
 
+/**
+ * Admin action to permanently delete/remove an attached payment receipt from an order
+ */
+export const deletePaymentReceipt = (id: string): FormSubmissionItem | null => {
+  const current = getSubmissions();
+  let updatedItem: FormSubmissionItem | null = null;
+
+  const updated = current.map(item => {
+    if (item.id === id) {
+      const updatedExtra: Record<string, any> = {
+        ...(item.extraDetails || {}),
+        PaymentStatus: 'PENDING_PAYMENT_PROOF',
+        ReceiptDeletedAt: new Date().toISOString(),
+      };
+      delete updatedExtra.ReceiptStatus;
+      delete updatedExtra.PaymentVerifiedAt;
+      delete updatedExtra.VerificationNote;
+
+      updatedItem = {
+        ...item,
+        receiptUrl: undefined,
+        receiptName: undefined,
+        receiptUploadedAt: undefined,
+        receiptNotes: undefined,
+        receiptStatus: undefined,
+        status: 'in-review',
+        extraDetails: updatedExtra,
+      };
+      return updatedItem;
+    }
+    return item;
+  });
+
+  if (updatedItem) {
+    saveSubmissions(updated);
+    safeApiCall(`/api/submissions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedItem)
+    });
+  }
+
+  return updatedItem;
+};
+
 export const addSubmissionReply = (
   id: string,
   replyMessage: string,
