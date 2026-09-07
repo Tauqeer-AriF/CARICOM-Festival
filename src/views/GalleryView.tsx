@@ -24,6 +24,8 @@ import {
   Filter,
   Check,
   RotateCcw,
+  LayoutGrid,
+  Columns3,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -65,6 +67,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState<boolean>(false);
   const [isMediaTypeDropdownOpen, setIsMediaTypeDropdownOpen] = useState<boolean>(false);
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'masonry'>('grid');
   const galleryGridRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const mediaTypeDropdownRef = useRef<HTMLDivElement>(null);
@@ -382,32 +385,62 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
           </div>
         </div>
 
-        {/* Subtle Active Filter Clear & Item Counter */}
-        {isFiltered && (
-          <motion.div 
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-3 pt-1 text-xs text-neutral-400"
-          >
+        {/* Layout Toggle & Subtle Active Filter Clear & Item Counter */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-neutral-400">
+          <div className="flex items-center gap-2">
             <span>
               Showing <strong className="text-white font-mono">{filteredItems.length}</strong> {filteredItems.length === 1 ? 'item' : 'items'}
             </span>
-            <span className="text-neutral-700">•</span>
+            {isFiltered && (
+              <>
+                <span className="text-neutral-700">•</span>
+                <button
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setMediaTypeFilter('all');
+                  }}
+                  className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset filters</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* View Mode Toggle (Horizontal Row Grid vs Masonry) */}
+          <div className="flex items-center gap-1 bg-neutral-900/90 border border-neutral-800 rounded-xl p-1 shadow-inner">
             <button
-              onClick={() => {
-                setSelectedCategory('All');
-                setMediaTypeFilter('all');
-              }}
-              className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold cursor-pointer transition-colors"
+              type="button"
+              onClick={() => setLayoutMode('grid')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                layoutMode === 'grid'
+                  ? 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Horizontal Grid Layout"
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset filters</span>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Grid</span>
             </button>
-          </motion.div>
-        )}
+            <button
+              type="button"
+              onClick={() => setLayoutMode('masonry')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                layoutMode === 'masonry'
+                  ? 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Masonry Waterfall Layout"
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              <span>Masonry</span>
+            </button>
+          </div>
+        </div>
       </motion.div>
 
-      {/* Masonry Grid */}
+      {/* Gallery Grid (Horizontal Row-Major Layout by Default) */}
       <div ref={galleryGridRef} className="scroll-mt-24">
         {filteredItems.length === 0 ? (
           <div className="py-16 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800 px-4">
@@ -427,11 +460,15 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
         ) : (
           <AnimatePresence mode="wait">
             <motion.div 
-              key={`${selectedCategory}-${mediaTypeFilter}-page-${validCurrentPage}`}
+              key={`${selectedCategory}-${mediaTypeFilter}-${layoutMode}-page-${validCurrentPage}`}
               initial="hidden"
               animate="visible"
               variants={staggerContainer}
-              className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4"
+              className={
+                layoutMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+                  : 'columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4'
+              }
             >
               {paginatedItems.map((item, index) => {
                 const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl);
@@ -442,10 +479,18 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
                     key={item.id}
                     variants={fadeInUp}
                     onClick={() => setSelectedPhotoIndex(globalIndex)}
-                    className="break-inside-avoid relative group rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transform-gpu isolate"
+                    className={`${
+                      layoutMode === 'grid' 
+                        ? 'flex flex-col h-full' 
+                        : 'break-inside-avoid'
+                    } relative group rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transform-gpu isolate`}
                   >
                     {/* Image/Video Container */}
-                    <div className={`w-full ${item.aspectRatio || 'aspect-video'} relative overflow-hidden bg-neutral-950 transform-gpu`}>
+                    <div className={`w-full ${
+                      layoutMode === 'grid' 
+                        ? 'aspect-[4/3] sm:aspect-video' 
+                        : (item.aspectRatio || 'aspect-video')
+                    } relative overflow-hidden bg-neutral-950 transform-gpu`}>
                       <GalleryThumbnail
                         item={item}
                         className="absolute inset-0 w-full h-full"
@@ -496,7 +541,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ setActiveTab, galleryI
                     </div>
 
                     {/* Static Card Footer Info */}
-                    <div className="p-3 bg-neutral-950/90 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400 font-medium">
+                    <div className="p-3 bg-neutral-950/90 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400 font-medium mt-auto">
                       <span className="truncate pr-2 font-serif text-neutral-200">{item.title}</span>
                       <div className="flex items-center gap-1 text-amber-400 shrink-0">
                         <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
