@@ -24,7 +24,8 @@ import {
   Shield,
   Compass,
   Camera,
-  Ticket
+  Ticket,
+  Download
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -85,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: 'Support',
       items: [
         { id: 'contact' as ActiveTab, label: 'Concierge Support', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> },
-        { id: 'voucher_download' as any, label: 'Download Wrist Voucher', icon: <Ticket className="w-3.5 h-3.5 text-amber-400" /> },
+        { id: 'voucher_download' as any, label: 'Download Voucher', icon: <Ticket className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'payment_receipt' as any, label: 'Upload Payment Receipt', icon: <Camera className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'terms' as ActiveTab, label: 'Terms & Guidelines', icon: <FileText className="w-3.5 h-3.5 text-amber-400" /> },
       ]
@@ -326,15 +327,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ))}
                 </div>
 
-                {/* Download Wrist Voucher Button */}
+                {/* Voucher Download Quick Action Button */}
                 <button
                   onClick={() => handleTabClick('voucher_download')}
                   id="nav-btn-download-voucher"
-                  className="hidden md:flex px-3 sm:px-3.5 2xl:px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] 2xl:text-xs uppercase tracking-wider whitespace-nowrap items-center gap-1.5 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-95 cursor-pointer border border-amber-300/40"
-                  title="Download Wrist Voucher"
+                  className="hidden md:flex px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-[11px] uppercase tracking-wider whitespace-nowrap items-center gap-1.5 rounded-xl shadow-md shadow-amber-500/25 hover:shadow-lg hover:shadow-amber-500/35 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer border border-amber-300/40"
+                  title="Download / Print Official Voucher"
                 >
                   <Ticket className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Download Wrist Voucher</span>
+                  <span>Voucher</span>
+                  <Download className="w-3 h-3 stroke-[2.5] opacity-80" />
                 </button>
               </div>
 
@@ -390,10 +392,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={() => handleTabClick('voucher_download')}
               id="mobile-nav-btn-download-voucher"
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-xl shadow-lg shadow-amber-500/25 border border-amber-300/40 cursor-pointer active:scale-[0.98] transition-all"
+              className="w-full py-2 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-xl shadow-md shadow-amber-500/25 border border-amber-300/40 cursor-pointer active:scale-[0.98] transition-all"
             >
               <Ticket className="w-4 h-4 stroke-[2.5]" />
-              <span>Download Wrist Voucher</span>
+              <span>Get Wristband Voucher</span>
+              <Download className="w-3.5 h-3.5 stroke-[2.5] opacity-80" />
             </button>
 
             {/* Direct Quick Links */}
