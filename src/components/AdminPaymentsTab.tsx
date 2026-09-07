@@ -30,7 +30,10 @@ import {
   Trash2,
   Download,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CheckSquare,
+  Square,
+  XCircle
 } from 'lucide-react';
 import { FormSubmissionItem } from '../types';
 import { 
@@ -40,7 +43,7 @@ import {
   PaymentConfig, 
   getMonzoMeUrl 
 } from '../services/paymentConfigService';
-import { verifyPaymentReceipt, attachPaymentReceipt } from '../services/submissionService';
+import { verifyPaymentReceipt, attachPaymentReceipt, deletePaymentReceipt } from '../services/submissionService';
 import { ReceiptLightboxModal } from './PaymentReceiptModal';
 
 interface AdminPaymentsTabProps {
@@ -69,6 +72,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
     guestName?: string;
   } | null>(null);
   const [receiptFilter, setReceiptFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState<string[]>([]);
 
   // Test simulator state
   const [simulatorAmount, setSimulatorAmount] = useState<number>(450);
@@ -274,72 +278,82 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
         </div>
 
         {/* Quick Sub-Navigation Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-6 border-t border-neutral-800/80 mt-6 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pt-5 border-t border-neutral-800/80 mt-6 pb-1 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
           <button
             onClick={() => setActiveSubSection('banking')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'banking'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
-            <Building2 className="w-3.5 h-3.5" /> Payment Gateways &amp; Banking
+            <Building2 className="w-3.5 h-3.5" /> <span>Payment Gateways &amp; Banking</span>
           </button>
           <button
             onClick={() => setActiveSubSection('workflows')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'workflows'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
-            <Sliders className="w-3.5 h-3.5" /> Methods &amp; Checkout Rules
+            <Sliders className="w-3.5 h-3.5" /> <span>Methods &amp; Rules</span>
           </button>
           <button
             onClick={() => setActiveSubSection('arrival')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'arrival'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
-            <MapPin className="w-3.5 h-3.5" /> Arrival Desk &amp; Concierge
+            <MapPin className="w-3.5 h-3.5" /> <span>Arrival &amp; Concierge</span>
           </button>
           <button
             onClick={() => setActiveSubSection('preview')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'preview'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
-            <Eye className="w-3.5 h-3.5" /> Live Attendee Preview
+            <Eye className="w-3.5 h-3.5" /> <span>Live Preview</span>
           </button>
           <button
             onClick={() => setActiveSubSection('stats')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'stats'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5" /> Settlement Metrics ({passOrders.length})
+            <TrendingUp className="w-3.5 h-3.5" /> <span>Settlement Metrics ({passOrders.length})</span>
           </button>
           <button
             onClick={() => setActiveSubSection('receipts')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeSubSection === 'receipts'
                 ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>Payment Receipts ({metrics.receiptsCount})</span>
-            {metrics.pendingReceiptsCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500 text-neutral-950 font-mono">
+            <span>Payment Receipts</span>
+            {metrics.pendingReceiptsCount > 0 ? (
+              <span 
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-neutral-950 font-mono leading-none"
+                title={`${metrics.pendingReceiptsCount} pending verification`}
+              >
                 {metrics.pendingReceiptsCount}
               </span>
-            )}
+            ) : metrics.receiptsCount > 0 ? (
+              <span 
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-mono text-neutral-400 bg-neutral-800 border border-neutral-700/60 leading-none"
+                title={`${metrics.receiptsCount} total receipts`}
+              >
+                {metrics.receiptsCount}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>
@@ -1236,6 +1250,81 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                 return true;
               });
 
+            const allFilteredIds = filtered.map(o => o.id);
+            const isAllSelected = filtered.length > 0 && allFilteredIds.every(id => selectedReceiptIds.includes(id));
+            const selectedCount = selectedReceiptIds.filter(id => allFilteredIds.includes(id)).length;
+
+            const toggleSelectAll = () => {
+              if (isAllSelected) {
+                setSelectedReceiptIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+              } else {
+                setSelectedReceiptIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+              }
+            };
+
+            const toggleSelectOne = (id: string) => {
+              setSelectedReceiptIds(prev => 
+                prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+              );
+            };
+
+            const handleBulkVerify = () => {
+              const targetIds = selectedReceiptIds.filter(id => allFilteredIds.includes(id));
+              if (targetIds.length === 0) return;
+
+              triggerConfirm(
+                `Bulk Verify ${targetIds.length} Receipt${targetIds.length > 1 ? 's' : ''}`,
+                `Mark ${targetIds.length} selected reservation(s) as PAID and confirm payment receipts? Attendees will instantly be unlocked for official PDF wrist vouchers.`,
+                () => {
+                  let count = 0;
+                  targetIds.forEach(id => {
+                    verifyPaymentReceipt(id, 'verified', 'Bulk verified by Admin');
+                    count++;
+                  });
+                  setSelectedReceiptIds([]);
+                  onToast(`Successfully verified and confirmed ${count} receipt${count > 1 ? 's' : ''}!`);
+                }
+              );
+            };
+
+            const handleBulkReject = () => {
+              const targetIds = selectedReceiptIds.filter(id => allFilteredIds.includes(id));
+              if (targetIds.length === 0) return;
+
+              triggerConfirm(
+                `Bulk Reject ${targetIds.length} Receipt${targetIds.length > 1 ? 's' : ''}`,
+                `Flag ${targetIds.length} selected receipt(s) as rejected? Customers will be able to re-upload clear payment proofs.`,
+                () => {
+                  let count = 0;
+                  targetIds.forEach(id => {
+                    verifyPaymentReceipt(id, 'rejected', 'Bulk rejected during admin review');
+                    count++;
+                  });
+                  setSelectedReceiptIds([]);
+                  onToast(`Flagged ${count} receipt${count > 1 ? 's' : ''} as rejected.`);
+                }
+              );
+            };
+
+            const handleBulkDelete = () => {
+              const targetIds = selectedReceiptIds.filter(id => allFilteredIds.includes(id));
+              if (targetIds.length === 0) return;
+
+              triggerConfirm(
+                `Bulk Delete ${targetIds.length} Payment Receipt${targetIds.length > 1 ? 's' : ''}`,
+                `Permanently delete and remove the payment proof file for ${targetIds.length} order(s)? The order reservation will remain intact and return to awaiting payment proof status.`,
+                () => {
+                  let count = 0;
+                  targetIds.forEach(id => {
+                    deletePaymentReceipt(id);
+                    count++;
+                  });
+                  setSelectedReceiptIds([]);
+                  onToast(`Permanently removed ${count} payment receipt${count > 1 ? 's' : ''}.`);
+                }
+              );
+            };
+
             if (filtered.length === 0) {
               return (
                 <div className="py-14 text-center space-y-3 bg-neutral-950/40 rounded-2xl border border-dashed border-neutral-800">
@@ -1257,157 +1346,270 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
             }
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map(order => {
-                  const ref = order.extraDetails?.OrderRef || order.id;
-                  const isVerified = order.receiptStatus === 'verified';
-                  const isRejected = order.receiptStatus === 'rejected';
-
-                  return (
-                    <div 
-                      key={order.id}
-                      className="bg-neutral-950/90 border border-neutral-800 rounded-2xl p-4 space-y-4 hover:border-neutral-700 transition-all shadow-md flex flex-col justify-between"
+              <div className="space-y-4">
+                {/* Bulk Actions Header Toolbar */}
+                <div className="bg-neutral-950/90 border border-neutral-800 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer select-none"
                     >
-                      <div className="space-y-3">
-                        {/* Card Header */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-amber-400">
-                                {ref}
-                              </span>
+                      {isAllSelected ? (
+                        <CheckSquare className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-neutral-500" />
+                      )}
+                      <span>{isAllSelected ? 'Deselect All' : 'Select All'} ({filtered.length})</span>
+                    </button>
+
+                    {selectedCount > 0 && (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                        {selectedCount} selected
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bulk Action Trigger Buttons */}
+                  <div className="flex items-center gap-2">
+                    {selectedCount > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReceiptIds([])}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-900 border border-transparent transition-all cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkDelete}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                          title="Permanently remove uploaded receipts"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Bulk Delete ({selectedCount})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkReject}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Bulk Reject ({selectedCount})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkVerify}
+                          className="px-3 py-1.5 rounded-lg text-xs font-black text-neutral-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-500/20 active:scale-95"
+                        >
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          <span>Bulk Verify &amp; Confirm Paid ({selectedCount})</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-neutral-500 italic">
+                        Select one or more receipts to apply bulk actions
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Receipts Card Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filtered.map(order => {
+                    const ref = order.extraDetails?.OrderRef || order.id;
+                    const isVerified = order.receiptStatus === 'verified';
+                    const isRejected = order.receiptStatus === 'rejected';
+                    const isSelected = selectedReceiptIds.includes(order.id);
+
+                    return (
+                      <div 
+                        key={order.id}
+                        className={`bg-neutral-950/90 border rounded-2xl p-4 space-y-4 transition-all shadow-md flex flex-col justify-between ${
+                          isSelected 
+                            ? 'border-amber-500/60 ring-1 ring-amber-500/30 bg-amber-500/[0.02]' 
+                            : 'border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          {/* Card Header */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2.5">
+                              {/* Selection Checkbox */}
                               <button
                                 type="button"
-                                onClick={() => copyToClipboard(ref, ref)}
-                                className="text-neutral-500 hover:text-white transition-colors"
-                                title="Copy Reference"
+                                onClick={() => toggleSelectOne(order.id)}
+                                className="mt-0.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                                title={isSelected ? "Deselect receipt" : "Select receipt"}
                               >
-                                {copiedField === ref ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-amber-400" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-neutral-600 hover:text-neutral-400" />
+                                )}
                               </button>
+
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-xs font-bold text-amber-400">
+                                    {ref}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(ref, ref)}
+                                    className="text-neutral-500 hover:text-white transition-colors"
+                                    title="Copy Reference"
+                                  >
+                                    {copiedField === ref ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                  </button>
+                                </div>
+                                <h4 className="text-sm font-bold text-white mt-0.5">{order.name}</h4>
+                                <p className="text-[11px] text-neutral-400 font-mono">{order.email}</p>
+                              </div>
                             </div>
-                            <h4 className="text-sm font-bold text-white mt-0.5">{order.name}</h4>
-                            <p className="text-[11px] text-neutral-400 font-mono">{order.email}</p>
+
+                            <div className="text-right">
+                              <span className="text-base font-black font-mono text-emerald-400 block">
+                                {order.extraDetails?.TotalPaid || `£${order.amountGBP || 0}`}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono mt-1 ${
+                                isVerified 
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
+                                  : isRejected
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                              }`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                {isVerified ? 'VERIFIED' : isRejected ? 'REJECTED' : 'PENDING REVIEW'}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="text-right">
-                            <span className="text-base font-black font-mono text-emerald-400 block">
-                              {order.extraDetails?.TotalPaid || `£${order.amountGBP || 0}`}
-                            </span>
-                            <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono mt-1 ${
-                              isVerified 
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
-                                : isRejected
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                            }`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                              {isVerified ? 'VERIFIED' : isRejected ? 'REJECTED' : 'PENDING REVIEW'}
-                            </span>
+                          {/* Screenshot Thumbnail & Notes */}
+                          <div className="p-3 bg-neutral-900/90 rounded-xl border border-neutral-800/80 flex gap-3 items-center">
+                            {order.receiptUrl ? (
+                              <div 
+                                className="relative group shrink-0 cursor-pointer overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 w-20 h-20"
+                                onClick={() => setPreviewReceipt({
+                                  url: order.receiptUrl!,
+                                  name: order.receiptName,
+                                  orderRef: ref,
+                                  guestName: order.name
+                                })}
+                              >
+                                {order.receiptUrl.startsWith('data:image') || order.receiptUrl.match(/\.(jpg|jpeg|png|webp)/i) ? (
+                                  <img
+                                    src={order.receiptUrl}
+                                    alt="Receipt proof"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-amber-400 p-1 text-center">
+                                    <FileText className="w-6 h-6" />
+                                    <span className="text-[8px] mt-1 text-neutral-300 truncate w-full">Document</span>
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                  <Eye className="w-4 h-4" />
+                                </div>
+                              </div>
+                            ) : null}
+
+                            <div className="flex-1 min-w-0 text-xs space-y-1">
+                              <div className="text-[10px] text-neutral-400 font-mono">
+                                File: <span className="text-white truncate">{order.receiptName || 'Payment_Proof.jpg'}</span>
+                              </div>
+                              {order.receiptUploadedAt && (
+                                <div className="text-[10px] text-neutral-400 font-mono">
+                                  Uploaded: <span className="text-neutral-300">{new Date(order.receiptUploadedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              )}
+                              {order.receiptNotes && (
+                                <div className="text-[11px] text-amber-300/90 bg-amber-500/10 p-1.5 rounded border border-amber-500/20 line-clamp-2">
+                                  &ldquo;{order.receiptNotes}&rdquo;
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Screenshot Thumbnail & Notes */}
-                        <div className="p-3 bg-neutral-900/90 rounded-xl border border-neutral-800/80 flex gap-3 items-center">
-                          {order.receiptUrl ? (
-                            <div 
-                              className="relative group shrink-0 cursor-pointer overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 w-20 h-20"
+                        {/* Action Buttons */}
+                        <div className="pt-2 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
                               onClick={() => setPreviewReceipt({
                                 url: order.receiptUrl!,
                                 name: order.receiptName,
                                 orderRef: ref,
                                 guestName: order.name
                               })}
+                              className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-neutral-800 transition-colors cursor-pointer"
                             >
-                              {order.receiptUrl.startsWith('data:image') || order.receiptUrl.match(/\.(jpg|jpeg|png|webp)/i) ? (
-                                <img
-                                  src={order.receiptUrl}
-                                  alt="Receipt proof"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-amber-400 p-1 text-center">
-                                  <FileText className="w-6 h-6" />
-                                  <span className="text-[8px] mt-1 text-neutral-300 truncate w-full">Document</span>
-                                </div>
-                              )}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                <Eye className="w-4 h-4" />
-                              </div>
-                            </div>
-                          ) : null}
+                              <Eye className="w-3.5 h-3.5 text-amber-400" />
+                              <span>View Full Size</span>
+                            </button>
 
-                          <div className="flex-1 min-w-0 text-xs space-y-1">
-                            <div className="text-[10px] text-neutral-400 font-mono">
-                              File: <span className="text-white truncate">{order.receiptName || 'Payment_Proof.jpg'}</span>
-                            </div>
-                            {order.receiptUploadedAt && (
-                              <div className="text-[10px] text-neutral-400 font-mono">
-                                Uploaded: <span className="text-neutral-300">{new Date(order.receiptUploadedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                            )}
-                            {order.receiptNotes && (
-                              <div className="text-[11px] text-amber-300/90 bg-amber-500/10 p-1.5 rounded border border-amber-500/20 line-clamp-2">
-                                &ldquo;{order.receiptNotes}&rdquo;
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="pt-2 border-t border-neutral-800 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewReceipt({
-                            url: order.receiptUrl!,
-                            name: order.receiptName,
-                            orderRef: ref,
-                            guestName: order.name
-                          })}
-                          className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-neutral-800 transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-amber-400" />
-                          <span>View Full Size</span>
-                        </button>
-
-                        <div className="flex items-center gap-2">
-                          {!isRejected && (
                             <button
                               type="button"
                               onClick={() => {
                                 triggerConfirm(
-                                  'Reject Payment Receipt',
-                                  `Flag receipt for order ${ref} as rejected? The attendee can upload an amended screenshot.`,
+                                  'Delete Payment Receipt',
+                                  `Permanently delete the attached receipt proof for order ${ref} (${order.name})? The order will return to pending proof status.`,
                                   () => {
-                                    verifyPaymentReceipt(order.id, 'rejected', 'Rejected during admin review');
-                                    onToast(`Receipt for ${ref} flagged as rejected.`);
+                                    deletePaymentReceipt(order.id);
+                                    setSelectedReceiptIds(prev => prev.filter(id => id !== order.id));
+                                    onToast(`Payment receipt for ${ref} deleted.`);
                                   }
                                 );
                               }}
-                              className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-bold transition-all border border-rose-500/30 cursor-pointer"
+                              className="p-1.5 bg-neutral-900 hover:bg-red-500/20 text-neutral-500 hover:text-red-400 rounded-lg text-xs transition-colors border border-neutral-800 hover:border-red-500/30 cursor-pointer"
+                              title="Delete this payment receipt"
                             >
-                              Reject
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                          </div>
 
-                          {!isVerified && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                verifyPaymentReceipt(order.id, 'verified', 'Verified by Admin');
-                                onToast(`Receipt for ${ref} verified and order marked as PAID!`);
-                              }}
-                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Verify &amp; Confirm Paid</span>
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {!isRejected && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  triggerConfirm(
+                                    'Reject Payment Receipt',
+                                    `Flag receipt for order ${ref} as rejected? The attendee can upload an amended screenshot.`,
+                                    () => {
+                                      verifyPaymentReceipt(order.id, 'rejected', 'Rejected during admin review');
+                                      onToast(`Receipt for ${ref} flagged as rejected.`);
+                                    }
+                                  );
+                                }}
+                                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-bold transition-all border border-rose-500/30 cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
+
+                            {!isVerified && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  verifyPaymentReceipt(order.id, 'verified', 'Verified by Admin');
+                                  onToast(`Receipt for ${ref} verified and order marked as PAID!`);
+                                }}
+                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Verify &amp; Confirm Paid</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             );
           })()}
