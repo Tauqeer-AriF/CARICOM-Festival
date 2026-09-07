@@ -19,8 +19,6 @@ import {
   AlertCircle,
   HelpCircle,
   QrCode,
-  ArrowRight,
-  TrendingUp,
   Ticket,
   Calendar,
   Camera,
@@ -40,8 +38,7 @@ import {
   getPaymentConfig, 
   savePaymentConfig, 
   resetPaymentConfig, 
-  PaymentConfig, 
-  getMonzoMeUrl 
+  PaymentConfig 
 } from '../services/paymentConfigService';
 import { verifyPaymentReceipt, attachPaymentReceipt, deletePaymentReceipt } from '../services/submissionService';
 import { ReceiptLightboxModal } from './PaymentReceiptModal';
@@ -63,7 +60,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
 }) => {
   const [config, setConfig] = useState<PaymentConfig>(getPaymentConfig);
   const [isDirty, setIsDirty] = useState(false);
-  const [activeSubSection, setActiveSubSection] = useState<'banking' | 'workflows' | 'arrival' | 'preview' | 'stats' | 'receipts'>('banking');
+  const [activeSubSection, setActiveSubSection] = useState<'banking' | 'workflows' | 'arrival' | 'receipts'>('banking');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [previewReceipt, setPreviewReceipt] = useState<{
     url: string;
@@ -73,10 +70,6 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
   } | null>(null);
   const [receiptFilter, setReceiptFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [selectedReceiptIds, setSelectedReceiptIds] = useState<string[]>([]);
-
-  // Test simulator state
-  const [simulatorAmount, setSimulatorAmount] = useState<number>(450);
-  const [simulatorRef, setSimulatorRef] = useState<string>('GCF-2027-DEMO');
 
   // Collapsible state for Payment Gateways & Banking
   const [openBankingMethods, setOpenBankingMethods] = useState<Record<string, boolean>>({
@@ -223,10 +216,6 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
     };
   }, [passOrders]);
 
-  const testMonzoUrl = useMemo(() => {
-    return getMonzoMeUrl(config.monzoMeSlug, simulatorAmount, simulatorRef);
-  }, [config.monzoMeSlug, simulatorAmount, simulatorRef]);
-
   return (
     <div className="space-y-6 font-sans">
       {/* Top Banner & Action Header */}
@@ -276,68 +265,64 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Quick Sub-Navigation Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-5 border-t border-neutral-800/80 mt-6 pb-1 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+      {/* Main Sub-Navigation Bar */}
+      <div className="flex items-center justify-between gap-2 sm:gap-4 border-b border-neutral-800 pb-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
           <button
+            type="button"
             onClick={() => setActiveSubSection('banking')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubSection === 'banking'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
+            style={activeSubSection === 'banking' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Building2 className="w-3.5 h-3.5" /> <span>Payment Gateways &amp; Banking</span>
+            <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Gateways &amp; Banking</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubSection('workflows')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubSection === 'workflows'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
+            style={activeSubSection === 'workflows' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Sliders className="w-3.5 h-3.5" /> <span>Methods &amp; Rules</span>
+            <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Methods &amp; Rules</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubSection('arrival')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubSection === 'arrival'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
+            style={activeSubSection === 'arrival' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <MapPin className="w-3.5 h-3.5" /> <span>Arrival &amp; Concierge</span>
+            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>Arrival &amp; Concierge</span>
           </button>
+
           <button
-            onClick={() => setActiveSubSection('preview')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSubSection === 'preview'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" /> <span>Live Preview</span>
-          </button>
-          <button
-            onClick={() => setActiveSubSection('stats')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSubSection === 'stats'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" /> <span>Settlement Metrics ({passOrders.length})</span>
-          </button>
-          <button
+            type="button"
             onClick={() => setActiveSubSection('receipts')}
-            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeSubSection === 'receipts'
-                ? 'bg-neutral-800 text-amber-400 border border-amber-500/40 shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/80 border border-transparent'
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
+            style={activeSubSection === 'receipts' ? { borderBottom: `2px solid ${primaryColor}` } : undefined}
           >
-            <Camera className="w-3.5 h-3.5" />
+            <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
             <span>Payment Receipts</span>
             {metrics.pendingReceiptsCount > 0 ? (
               <span 
@@ -348,7 +333,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
               </span>
             ) : metrics.receiptsCount > 0 ? (
               <span 
-                className="px-1.5 py-0.5 rounded-full text-[10px] font-mono text-neutral-400 bg-neutral-800 border border-neutral-700/60 leading-none"
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-300 border border-neutral-750 leading-none"
                 title={`${metrics.receiptsCount} total receipts`}
               >
                 {metrics.receiptsCount}
@@ -986,206 +971,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
         </div>
       )}
 
-      {/* SECTION 4: LIVE PREVIEW & TEST SIMULATOR */}
-      {activeSubSection === 'preview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Simulator Control Column */}
-          <div className="lg:col-span-5 bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 space-y-5 shadow-md">
-            <div>
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-mono">Interactive Tester</span>
-              <h3 className="text-lg font-bold text-white font-serif mt-0.5">Monzo Payment Simulator</h3>
-              <p className="text-xs text-neutral-400 mt-1">
-                Test the generated link and copyable text exactly as attendee devices will format it.
-              </p>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-neutral-300 block">Test Order Amount (£ GBP)</label>
-                <input
-                  type="number"
-                  min={1}
-                  step={10}
-                  value={simulatorAmount}
-                  onChange={(e) => setSimulatorAmount(Number(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-neutral-300 block">Test Order Reference</label>
-                <input
-                  type="text"
-                  value={simulatorRef}
-                  onChange={(e) => setSimulatorRef(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="pt-2 space-y-2">
-                <a
-                  href={testMonzoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all text-center"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Test Open Monzo.me Link
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(`Bank: ${config.bankName}\nBeneficiary: ${config.accountName}\nSort Code: ${config.sortCode}\nAccount: ${config.accountNumber}\nReference: ${simulatorRef}\nAmount: £${simulatorAmount} GBP`, 'all')}
-                  className="w-full py-2.5 px-4 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-neutral-800 transition-all cursor-pointer"
-                >
-                  {copiedField === 'all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  Copy Complete Bank Instructions
-                </button>
-              </div>
-
-              <div className="p-3 bg-neutral-950/80 rounded-xl border border-neutral-800/80 text-[11px] font-mono text-neutral-400 break-all space-y-1">
-                <p className="text-neutral-500 uppercase text-[9px] font-bold">Generated Link:</p>
-                <p className="text-amber-300">{testMonzoUrl}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Attendee Perspective Preview Card */}
-          <div className="lg:col-span-7 bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 space-y-5 shadow-md">
-            <div>
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block font-mono">Live Buyer Card</span>
-              <h3 className="text-lg font-bold text-white font-serif mt-0.5">Attendee Checkout Experience</h3>
-              <p className="text-xs text-neutral-400 mt-1">
-                This exact component renders in the guest's browser upon pass reservation.
-              </p>
-            </div>
-
-            {/* Mock Checkout Modal Card */}
-            <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-rose-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white">Monzo Bank Transfer (Pay Now)</h4>
-                    <p className="text-[10px] text-emerald-400 font-mono">Instant Wristband Allocation</p>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-amber-300 font-mono">
-                  Total: £{simulatorAmount} GBP
-                </span>
-              </div>
-
-              {/* Bank Details Table */}
-              <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3.5 space-y-2.5 text-xs font-mono">
-                <div className="flex items-center justify-between border-b border-neutral-850 pb-1.5">
-                  <span className="text-neutral-500 text-[11px]">Bank:</span>
-                  <span className="text-white font-bold">{config.bankName}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-neutral-850 pb-1.5">
-                  <span className="text-neutral-500 text-[11px]">Account Name:</span>
-                  <span className="text-white font-bold">{config.accountName}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-neutral-850 pb-1.5">
-                  <span className="text-neutral-500 text-[11px]">Sort Code:</span>
-                  <span className="text-amber-300 font-bold">{config.sortCode}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-neutral-850 pb-1.5">
-                  <span className="text-neutral-500 text-[11px]">Account Number:</span>
-                  <span className="text-amber-300 font-bold">{config.accountNumber}</span>
-                </div>
-                <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-neutral-500 text-[11px]">Reference:</span>
-                  <span className="text-rose-400 font-bold">{simulatorRef}</span>
-                </div>
-              </div>
-
-              {/* Handover Notice */}
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-200 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400" /> {config.arrivalDeskName}
-                </p>
-                <p className="text-neutral-300 text-[10px]">
-                  {config.arrivalDeskLocation}
-                </p>
-                <p className="text-neutral-400 text-[9px] pt-1">
-                  Support Helpline: {config.supportPhone}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 5: METRICS & RECONCILIATION */}
-      {activeSubSection === 'stats' && (
-        <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-mono">Financial Telemetry</span>
-              <h2 className="text-xl font-bold text-white font-serif mt-0.5">Monzo Wristband Orders Ledger</h2>
-              <p className="text-xs text-neutral-400 mt-1">
-                Real-time volume and reconciliation telemetry of passes ordered via Monzo.
-              </p>
-            </div>
-            {onNavigateToOrders && (
-              <button
-                onClick={() => onNavigateToOrders()}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
-              >
-                View Pass Orders <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-            <div className="p-4 bg-neutral-950/70 border border-neutral-800 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase font-mono">Total Monzo Volume</span>
-              <p className="text-2xl font-black text-amber-300 font-mono">£{metrics.totalVolumeGBP.toLocaleString()}</p>
-              <p className="text-[10px] text-neutral-500">From {metrics.totalOrders} total pass reservations</p>
-            </div>
-
-            <div className="p-4 bg-neutral-950/70 border border-neutral-800 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase font-mono">Paid / Reconciled</span>
-              <p className="text-2xl font-black text-emerald-400 font-mono">{metrics.paidOrdersCount}</p>
-              <p className="text-[10px] text-emerald-500/80">Wristbands confirmed &amp; allocated</p>
-            </div>
-
-            <div className="p-4 bg-neutral-950/70 border border-neutral-800 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase font-mono">Pay on Arrival</span>
-              <p className="text-2xl font-black text-sky-400 font-mono">{metrics.payOnArrivalOrdersCount}</p>
-              <p className="text-[10px] text-sky-500/80">Reserved for airport/hotel collection</p>
-            </div>
-
-            <div className="p-4 bg-neutral-950/70 border border-neutral-800 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase font-mono">Pay Now Timing</span>
-              <p className="text-2xl font-black text-rose-400 font-mono">{metrics.payNowOrdersCount}</p>
-              <p className="text-[10px] text-rose-400/80">Selected upfront bank transfer</p>
-            </div>
-          </div>
-
-          {/* Quick Filter Jump Buttons */}
-          {onNavigateToOrders && (
-            <div className="pt-4 border-t border-neutral-800 flex flex-wrap items-center gap-3">
-              <span className="text-xs text-neutral-400 font-bold">Quick Filters:</span>
-              <button
-                onClick={() => onNavigateToOrders('now')}
-                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/60 rounded-lg text-xs text-rose-300 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3 text-rose-400" /> Filter "Pay Now" Orders ({metrics.payNowOrdersCount})
-              </button>
-              <button
-                onClick={() => onNavigateToOrders('arrival')}
-                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/60 rounded-lg text-xs text-amber-300 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Clock className="w-3.5 h-3.5 text-amber-400" /> Filter "Pay on Arrival" Orders ({metrics.payOnArrivalOrdersCount})
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SECTION 6: PAYMENT RECEIPTS & SCREENSHOTS */}
+      {/* SECTION 4: PAYMENT RECEIPTS & SCREENSHOTS */}
       {activeSubSection === 'receipts' && (
         <div className="bg-[#0C0F1E] border border-neutral-800/80 rounded-2xl p-6 md:p-8 space-y-6 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
