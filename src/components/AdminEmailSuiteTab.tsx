@@ -62,6 +62,7 @@ import {
   dispatchEmail,
   renderFestivalHtmlEmail
 } from '../services/emailService';
+import { CustomConfirmModal } from './CustomConfirmModal';
 
 interface AdminEmailSuiteTabProps {
   primaryColor?: string;
@@ -119,6 +120,43 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   // Mailbox Setup Instructions Modal State
   const [showSetupInstructionsModal, setShowSetupInstructionsModal] = useState(false);
   const [instructionProviderTab, setInstructionProviderTab] = useState<'resend' | 'gmail' | 'sendgrid' | 'outlook' | 'mailchimp' | 'custom_smtp'>('resend');
+
+  // Custom Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    onConfirm: () => {}
+  });
+
+  const triggerConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel'
+  ) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   const openSetupGuideFor = (provider: 'resend' | 'gmail' | 'sendgrid' | 'outlook' | 'mailchimp' | 'custom_smtp') => {
     setInstructionProviderTab(provider);
@@ -240,12 +278,17 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   };
 
   const handleResetTemplates = () => {
-    if (window.confirm('Are you sure you wish to restore all email templates to the official British English defaults? Custom edits will be overwritten.')) {
-      const def = resetEmailTemplates();
-      setTemplates(def);
-      if (def.length > 0) setEditingTemplate({ ...def[0] });
-      onToast('Email templates restored to official festival defaults.');
-    }
+    triggerConfirm(
+      'Restore Default Templates',
+      'Are you sure you wish to restore all email templates to the official British English defaults? Custom edits will be overwritten.',
+      () => {
+        const def = resetEmailTemplates();
+        setTemplates(def);
+        if (def.length > 0) setEditingTemplate({ ...def[0] });
+        onToast('Email templates restored to official festival defaults.');
+      },
+      'Restore Defaults'
+    );
   };
 
   const handleDispatchCommuniqué = async () => {
@@ -373,18 +416,30 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
   };
 
   const handleDeleteLog = (id: string) => {
-    deleteEmailLog(id);
-    setLogs(getEmailLogs());
-    onToast('Dispatched log entry removed.');
-    if (viewingLog?.id === id) setViewingLog(null);
+    triggerConfirm(
+      'Delete Dispatched Log',
+      'Are you sure you want to delete this dispatched email log record from your outbox? This action cannot be undone.',
+      () => {
+        deleteEmailLog(id);
+        setLogs(getEmailLogs());
+        onToast('Dispatched log entry removed.');
+        if (viewingLog?.id === id) setViewingLog(null);
+      },
+      'Delete Record'
+    );
   };
 
   const handleClearAllLogs = () => {
-    if (window.confirm('Are you sure you wish to clear all dispatched communication logs? This action cannot be undone.')) {
-      clearEmailLogs();
-      setLogs([]);
-      onToast('Outbox logs cleared successfully.');
-    }
+    triggerConfirm(
+      'Clear All Email Logs',
+      'Are you sure you wish to clear all dispatched communication logs? This action is permanent and cannot be undone.',
+      () => {
+        clearEmailLogs();
+        setLogs([]);
+        onToast('Outbox logs cleared successfully.');
+      },
+      'Clear All Outbox'
+    );
   };
 
   const handleExportCsv = () => {
@@ -3030,6 +3085,18 @@ export const AdminEmailSuiteTab: React.FC<AdminEmailSuiteTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Custom Confirmation Modal for Destructive Suite Actions */}
+      <CustomConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        primaryColor={primaryColor}
+      />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { EmailCategory, EmailDeliveryStatus, EmailLog, EmailSettings, EmailTemplate, FormSubmissionItem } from '../types';
+import { getSubmissionReference } from '../utils/orderRef';
 
 const EMAIL_LOGS_STORAGE_KEY = 'grenada_email_logs_db';
 const EMAIL_SETTINGS_STORAGE_KEY = 'grenada_email_settings_db';
@@ -537,6 +538,7 @@ export const dispatchOrderConfirmationEmail = async (order: FormSubmissionItem, 
   const qty = order.extraDetails?.Quantity || '1';
   const total = order.amountGBP ? `£${order.amountGBP.toFixed(2)}` : (order.extraDetails?.TotalPaid || 'Confirmed');
   const attendeeName = order.name || 'Festival Delegate';
+  const orderRef = getSubmissionReference(order);
 
   const headline = tpl.headline.replace('{name}', attendeeName);
   const intro = tpl.introText.replace('{name}', attendeeName);
@@ -553,8 +555,9 @@ export const dispatchOrderConfirmationEmail = async (order: FormSubmissionItem, 
     ctaLabel: tpl.ctaLabel,
     ctaUrl: tpl.ctaUrl,
     footerNote: tpl.footerNote,
-    referenceId: order.id.toUpperCase().replace('SUB-', 'GCF-'),
+    referenceId: orderRef,
     metadata: {
+      'Order Reference': orderRef,
       'Pass Type': passName,
       'Total Passes': qty,
       'Settlement': total,
@@ -573,6 +576,7 @@ export const dispatchWelcomeRegistrationEmail = async (submission: FormSubmissio
   const templates = getEmailTemplates();
   const tpl = templates.find(t => t.category === 'welcome_registration') || DEFAULT_EMAIL_TEMPLATES[1];
   const attendeeName = submission.name || 'Festival Delegate';
+  const regRef = getSubmissionReference(submission);
 
   const headline = tpl.headline.replace('{name}', attendeeName);
   const intro = tpl.introText.replace('{name}', attendeeName);
@@ -588,8 +592,9 @@ export const dispatchWelcomeRegistrationEmail = async (submission: FormSubmissio
     ctaLabel: tpl.ctaLabel,
     ctaUrl: tpl.ctaUrl,
     footerNote: tpl.footerNote,
-    referenceId: submission.id.toUpperCase().replace('SUB-', 'REG-'),
+    referenceId: regRef,
     metadata: {
+      'Registration Reference': regRef,
       'Country of Residence': submission.extraDetails?.Country || 'United Kingdom',
       'Festival Interest': submission.topicOrPass || 'General Programme & Galas'
     },
@@ -610,6 +615,7 @@ export const dispatchEnquiryReplyEmail = async (
   const templates = getEmailTemplates();
   const tpl = templates.find(t => t.category === 'enquiry_reply') || DEFAULT_EMAIL_TEMPLATES[2];
   const recipientName = submission.name || 'Festival Delegate';
+  const subRef = getSubmissionReference(submission);
 
   const body = tpl.bodyText
     .replace('{reply_message}', replyMessage)
@@ -618,7 +624,7 @@ export const dispatchEnquiryReplyEmail = async (
   return await dispatchEmail({
     recipientEmail: submission.email,
     recipientName,
-    subject: tpl.subject.replace('{reference_id}', submission.id),
+    subject: tpl.subject.replace('{reference_id}', subRef),
     category: 'enquiry_reply',
     headline: `Enquiry Update: ${submission.topicOrPass || 'Concierge Service'}`,
     introText: tpl.introText.replace('{name}', recipientName),
@@ -626,8 +632,9 @@ export const dispatchEnquiryReplyEmail = async (
     ctaLabel: tpl.ctaLabel,
     ctaUrl: tpl.ctaUrl,
     footerNote: tpl.footerNote,
-    referenceId: submission.id,
+    referenceId: subRef,
     metadata: {
+      'Reference Code': subRef,
       'Dispatched By': sentBy,
       'Original Enquiry': submission.messageOrDetails ? submission.messageOrDetails.substring(0, 100) + '...' : 'General Enquiry'
     },
@@ -647,7 +654,7 @@ export const dispatchContactAcknowledgementEmail = async (
   const tpl = templates.find(t => t.category === 'contact_acknowledgement') || DEFAULT_EMAIL_TEMPLATES.find(t => t.category === 'contact_acknowledgement')!;
   const attendeeName = submission.name || 'Festival Guest';
   const topic = submission.topicOrPass || 'General Concierge Enquiry';
-  const refCode = submission.id.toUpperCase().replace('SUB-', 'INQ-');
+  const refCode = getSubmissionReference(submission);
 
   const headline = tpl.headline.replace('{name}', attendeeName);
   const intro = tpl.introText.replace('{name}', attendeeName).replace('{topic}', topic);
@@ -695,7 +702,7 @@ export const dispatchTransportConfirmationEmail = async (
     : submission.topicOrPass === 'daily-island-pass' 
       ? 'Daily Island Event & Mellowland Shuttle Pass' 
       : (submission.topicOrPass || 'Island Mobility Transfer');
-  const refCode = submission.id.toUpperCase().replace('SUB-', 'TRN-');
+  const refCode = getSubmissionReference(submission);
   const passengers = submission.extraDetails?.Passengers || '1 Passenger';
   const notes = submission.messageOrDetails || 'Standard transfer scheduling';
 
@@ -741,7 +748,7 @@ export const dispatchNewsletterWelcomeEmail = async (
   const templates = getEmailTemplates();
   const tpl = templates.find(t => t.category === 'newsletter_welcome') || DEFAULT_EMAIL_TEMPLATES.find(t => t.category === 'newsletter_welcome')!;
   const attendeeName = submission.name || submission.email.split('@')[0] || 'VIP Festival Insider';
-  const refCode = submission.id.toUpperCase().replace('SUB-', 'VIP-');
+  const refCode = getSubmissionReference(submission);
 
   const headline = tpl.headline.replace('{name}', attendeeName);
   const intro = tpl.introText.replace('{name}', attendeeName);
@@ -760,6 +767,7 @@ export const dispatchNewsletterWelcomeEmail = async (
     referenceId: refCode,
     metadata: {
       'Membership Tier': 'VIP Festival Insider',
+      'VIP Reference': refCode,
       'Alert Priority': 'Immediate (Email & SMS)',
       'Subscribed Date': new Date().toLocaleDateString('en-GB')
     },
@@ -773,7 +781,7 @@ export const dispatchGeneralSubmissionConfirmationEmail = async (
 ) => {
   if (!submission.email) return null;
   const attendeeName = submission.name || 'Festival Guest';
-  const refCode = submission.id.toUpperCase().replace('SUB-', 'GCF-');
+  const refCode = getSubmissionReference(submission);
 
   return await dispatchEmail({
     recipientEmail: submission.email,
