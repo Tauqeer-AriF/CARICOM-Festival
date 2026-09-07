@@ -149,6 +149,7 @@ import { MediaSelectorModal } from '../components/MediaSelectorModal';
 import { MediaLibraryTab } from '../components/MediaLibraryTab';
 import { BackupRestoreTab } from '../components/BackupRestoreTab';
 import { AdminDocumentationTab } from '../components/AdminDocumentationTab';
+import { AdminGuideWidget } from '../components/AdminGuideWidget';
 import { AdminAnalyticsTab } from '../components/AdminAnalyticsTab';
 import { AdminBrandingTab } from '../components/AdminBrandingTab';
 import { AdminPageImagesTab } from '../components/AdminPageImagesTab';
@@ -5932,6 +5933,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           receiptName={previewReceiptModal.name}
           orderRef={previewReceiptModal.orderRef}
           guestName={previewReceiptModal.guestName}
+        />
+      )}
+
+      {/* Floating Interactive Admin Handover & Quick Guide Widget */}
+      {isAuthenticated && (
+        <AdminGuideWidget
+          primaryColor={primaryColor}
+          activeAdminTab={activeAdminTab}
+          onNavigateTab={(tab) => {
+            setActiveAdminTab(tab);
+          }}
+          onOpenFullDocumentation={() => {
+            setActiveAdminTab('documentation');
+          }}
         />
       )}
 
