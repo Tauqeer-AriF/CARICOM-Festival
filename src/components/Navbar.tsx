@@ -24,6 +24,7 @@ import {
   Shield,
   Compass,
   Camera,
+  Luggage,
   Ticket,
   Download
 } from 'lucide-react';
@@ -75,6 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'planning',
       label: 'Planning',
       items: [
+        { id: 'holiday-packages' as ActiveTab, label: 'Holiday Packages', icon: <Luggage className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'hotels' as ActiveTab, label: 'Partner Hotels', icon: <Building className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'transportation' as ActiveTab, label: 'VIP Shuttles', icon: <Car className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'register' as ActiveTab, label: 'Flight Arrival Log', icon: <Plane className="w-3.5 h-3.5 text-amber-400" /> },
@@ -276,6 +278,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Planning Dropdown */}
               {renderDropdown('planning', 'Planning', [
+                { id: 'holiday-packages', label: 'Holiday Packages', icon: <Luggage className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'hotels', label: 'Partner Hotels', icon: <Building className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'transportation', label: 'VIP Shuttles', icon: <Car className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'register', label: 'Flight Arrival Log', icon: <Plane className="w-3.5 h-3.5 text-amber-400" /> },

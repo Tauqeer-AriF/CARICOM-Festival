@@ -320,6 +320,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
               Travel & Logistics
             </h4>
             <ul className="space-y-2.5 text-xs text-slate-400 font-light">
+              <li><button onClick={() => handleTab('holiday-packages')} className="hover:text-amber-300 cursor-pointer transition-colors">Holiday Packages</button></li>
               <li><button onClick={() => handleTab('transportation')} className="hover:text-amber-300 cursor-pointer transition-colors">Airport Transfers</button></li>
               <li><button onClick={() => handleTab('hotels')} className="hover:text-amber-300 cursor-pointer transition-colors">Hotels (Royalton Stay)</button></li>
               <li><button onClick={() => handleTab('register')} className="hover:text-amber-300 cursor-pointer transition-colors">Register Flight Details</button></li>

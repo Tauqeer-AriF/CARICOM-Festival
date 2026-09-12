@@ -14,6 +14,7 @@ import { AboutGrenadaView } from './views/AboutGrenadaView';
 import { AboutMellowlandView } from './views/AboutMellowlandView';
 import { TransportationView } from './views/TransportationView';
 import { HotelsView } from './views/HotelsView';
+import { HolidayPackagesView } from './views/HolidayPackagesView';
 import { TestimonialsView } from './views/TestimonialsView';
 import { ShopView } from './views/ShopView';
 import { TravelInsuranceView } from './views/TravelInsuranceView';
@@ -48,6 +49,7 @@ const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
   if (current === 'about-mellowland') return 'about-mellowland';
   if (current === 'transportation') return 'transportation';
   if (current === 'hotels') return 'hotels';
+  if (current === 'holiday-packages') return 'holiday-packages';
   if (current === 'testimonials') return 'testimonials';
   if (current === 'shop') return 'shop';
   if (current === 'register') return 'register';
@@ -303,6 +305,7 @@ export default function App() {
       case 'about-mellowland': return 'Mellowland Experience & Tubing';
       case 'transportation': return 'VIP Shuttles & Airport Pickup';
       case 'hotels': return 'Royalton & Partner Hotels';
+      case 'holiday-packages': return 'Official Holiday & Flight Packages';
       case 'shop': return 'Festival Passes & VIP Packages';
       case 'register': return 'Flight & Logistics Registration';
       case 'testimonials': return 'Reveler Testimonials';
@@ -820,6 +823,10 @@ export default function App() {
 
             {activeTab === 'hotels' && (
               <HotelsView setActiveTab={setActiveTab} hotels={hotels} />
+            )}
+
+            {activeTab === 'holiday-packages' && (
+              <HolidayPackagesView setActiveTab={setActiveTab} />
             )}
 
             {activeTab === 'testimonials' && (

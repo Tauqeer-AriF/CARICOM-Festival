@@ -6,6 +6,7 @@ export type ActiveTab =
   | 'about-mellowland'
   | 'transportation'
   | 'hotels'
+  | 'holiday-packages'
   | 'testimonials'
   | 'shop'
   | 'register'
