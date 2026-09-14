@@ -1549,6 +1549,234 @@ async function startServer() {
     }
   });
 
+  async function purgeMediaUrlFromDatabase(targetUrl: string) {
+    if (!targetUrl || typeof targetUrl !== 'string') return;
+    const normUrl = targetUrl.trim();
+    if (!normUrl) return;
+
+    const variants = new Set<string>([normUrl]);
+    try {
+      const decoded = decodeURIComponent(normUrl);
+      if (decoded) variants.add(decoded);
+      if (normUrl.startsWith('http://') || normUrl.startsWith('https://')) {
+        const parsed = new URL(normUrl);
+        if (parsed.pathname) {
+          variants.add(parsed.pathname);
+          variants.add(decodeURIComponent(parsed.pathname));
+        }
+      }
+    } catch {}
+
+    const matchesUrl = (str: string | undefined | null) => {
+      if (!str || typeof str !== 'string') return false;
+      const trimmed = str.trim();
+      if (!trimmed) return false;
+      if (variants.has(trimmed)) return true;
+      try {
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          const p = new URL(trimmed);
+          if (p.pathname && variants.has(p.pathname)) return true;
+        }
+      } catch {}
+      return false;
+    };
+
+    // 1. Unlink physical file from disk if in uploadsDir
+    if (normUrl.includes('/uploads/')) {
+      try {
+        const fileName = path.basename(normUrl.split('?')[0]);
+        if (fileName) {
+          const filePath = path.join(uploadsDir, fileName);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`[MEDIA DELETION] Unlinked physical file from disk: ${filePath}`);
+          }
+        }
+      } catch (err) {
+        console.error('[MEDIA DELETION] Error unlinking physical file:', err);
+      }
+    }
+
+    // 2. Site Config
+    try {
+      const cfgRow = await db.get('SELECT id, data_json FROM site_config WHERE id = ?', 'main');
+      if (cfgRow && cfgRow.data_json) {
+        const config = JSON.parse(cfgRow.data_json);
+        let changed = false;
+
+        if (matchesUrl(config.appLogoUrl)) { config.appLogoUrl = ''; changed = true; }
+        if (matchesUrl(config.appFaviconUrl)) { config.appFaviconUrl = ''; changed = true; }
+        if (config.footer && matchesUrl(config.footer.logoUrl)) { config.footer.logoUrl = ''; changed = true; }
+        if (config.hero && matchesUrl(config.hero.videoUrl)) { config.hero.videoUrl = ''; changed = true; }
+
+        if (config.hero && Array.isArray(config.hero.images)) {
+          const origLen = config.hero.images.length;
+          config.hero.images = config.hero.images.filter((img: any) => !matchesUrl(img?.url));
+          if (config.hero.images.length !== origLen) changed = true;
+        }
+
+        if (config.pageImages && typeof config.pageImages === 'object') {
+          Object.keys(config.pageImages).forEach(key => {
+            if (matchesUrl(config.pageImages[key])) {
+              config.pageImages[key] = '';
+              changed = true;
+            }
+          });
+        }
+
+        if (changed) {
+          config.updatedAt = new Date().toISOString();
+          await db.run('INSERT OR REPLACE INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(config));
+          broadcast('config');
+        }
+      }
+    } catch (e) {
+      console.error('Error purging media from site_config:', e);
+    }
+
+    // 3. Events
+    try {
+      const eventRows = await db.all('SELECT id, data_json FROM events');
+      let eventsChanged = false;
+      for (const r of eventRows) {
+        const item = JSON.parse(r.data_json);
+        let itemChanged = false;
+
+        if (matchesUrl(item.imageUrl)) { item.imageUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.bannerUrl)) { item.bannerUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.videoUrl)) { item.videoUrl = ''; itemChanged = true; }
+
+        if (Array.isArray(item.gallery)) {
+          const origLen = item.gallery.length;
+          item.gallery = item.gallery.filter((gUrl: any) => {
+            const urlStr = typeof gUrl === 'string' ? gUrl : gUrl?.url;
+            return !matchesUrl(urlStr);
+          });
+          if (item.gallery.length !== origLen) itemChanged = true;
+        }
+
+        if (itemChanged) {
+          await db.run('INSERT OR REPLACE INTO events (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          eventsChanged = true;
+        }
+      }
+      if (eventsChanged) broadcast('events');
+    } catch (e) {
+      console.error('Error purging media from events:', e);
+    }
+
+    // 4. Gallery Items
+    try {
+      const galRows = await db.all('SELECT id, data_json FROM gallery');
+      let galChanged = false;
+      for (const r of galRows) {
+        const item = JSON.parse(r.data_json);
+        if (matchesUrl(item.imageUrl) || matchesUrl(item.url) || matchesUrl(item.videoUrl) || matchesUrl(item.thumbnailUrl)) {
+          await db.run('DELETE FROM gallery WHERE id = ?', r.id);
+          galChanged = true;
+        }
+      }
+      if (galChanged) broadcast('gallery');
+    } catch (e) {
+      console.error('Error purging media from gallery:', e);
+    }
+
+    // 5. Hotels
+    try {
+      const hotelRows = await db.all('SELECT id, data_json FROM hotels');
+      let hotelsChanged = false;
+      for (const r of hotelRows) {
+        const item = JSON.parse(r.data_json);
+        let itemChanged = false;
+
+        if (matchesUrl(item.imageUrl)) { item.imageUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.videoUrl)) { item.videoUrl = ''; itemChanged = true; }
+
+        if (Array.isArray(item.images)) {
+          const origLen = item.images.length;
+          item.images = item.images.filter((imgUrl: any) => {
+            const urlStr = typeof imgUrl === 'string' ? imgUrl : imgUrl?.url;
+            return !matchesUrl(urlStr);
+          });
+          if (item.images.length !== origLen) itemChanged = true;
+        }
+
+        if (itemChanged) {
+          await db.run('INSERT OR REPLACE INTO hotels (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          hotelsChanged = true;
+        }
+      }
+      if (hotelsChanged) broadcast('hotels');
+    } catch (e) {
+      console.error('Error purging media from hotels:', e);
+    }
+
+    // 6. Passes
+    try {
+      const passRows = await db.all('SELECT id, data_json FROM passes');
+      let passesChanged = false;
+      for (const r of passRows) {
+        const item = JSON.parse(r.data_json);
+        let itemChanged = false;
+
+        if (matchesUrl(item.imageUrl)) { item.imageUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.badgeUrl)) { item.badgeUrl = ''; itemChanged = true; }
+
+        if (itemChanged) {
+          await db.run('INSERT OR REPLACE INTO passes (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          passesChanged = true;
+        }
+      }
+      if (passesChanged) broadcast('passes');
+    } catch (e) {
+      console.error('Error purging media from passes:', e);
+    }
+
+    // 7. Testimonials
+    try {
+      const testRows = await db.all('SELECT id, data_json FROM testimonials');
+      let testChanged = false;
+      for (const r of testRows) {
+        const item = JSON.parse(r.data_json);
+        let itemChanged = false;
+
+        if (matchesUrl(item.avatarUrl)) { item.avatarUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.imageUrl)) { item.imageUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.videoUrl)) { item.videoUrl = ''; itemChanged = true; }
+
+        if (itemChanged) {
+          await db.run('INSERT OR REPLACE INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          testChanged = true;
+        }
+      }
+      if (testChanged) broadcast('testimonials');
+    } catch (e) {
+      console.error('Error purging media from testimonials:', e);
+    }
+
+    // 8. DJ Bios
+    try {
+      const djRows = await db.all('SELECT id, data_json FROM djs');
+      let djsChanged = false;
+      for (const r of djRows) {
+        const item = JSON.parse(r.data_json);
+        let itemChanged = false;
+
+        if (matchesUrl(item.photo)) { item.photo = ''; itemChanged = true; }
+        if (matchesUrl(item.imageUrl)) { item.imageUrl = ''; itemChanged = true; }
+        if (matchesUrl(item.avatarUrl)) { item.avatarUrl = ''; itemChanged = true; }
+
+        if (itemChanged) {
+          await db.run('INSERT OR REPLACE INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          djsChanged = true;
+        }
+      }
+      if (djsChanged) broadcast('djs');
+    } catch (e) {
+      console.error('Error purging media from djs:', e);
+    }
+  }
+
   app.delete('/api/media/:id', async (req, res) => {
     try {
       const { id } = req.params;
@@ -1558,6 +1786,7 @@ async function startServer() {
           const parsed = JSON.parse(row.data_json);
           if (parsed.url && parsed.url.trim()) {
             await db.run('INSERT OR IGNORE INTO deleted_media_urls (url) VALUES (?)', parsed.url.trim());
+            await purgeMediaUrlFromDatabase(parsed.url.trim());
           }
         } catch {}
       }
