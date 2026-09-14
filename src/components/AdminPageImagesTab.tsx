@@ -141,7 +141,7 @@ export const AdminPageImagesTab: React.FC<AdminPageImagesTabProps> = ({
                             <div className="space-y-1">
                               <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
                               <input
-                                type="url"
+                                type="text"
                                 value={currentVal}
                                 onChange={(e) => {
                                   const url = e.target.value;
@@ -257,7 +257,7 @@ export const AdminPageImagesTab: React.FC<AdminPageImagesTabProps> = ({
                             <div className="space-y-1">
                               <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
                               <input
-                                type="url"
+                                type="text"
                                 value={currentVal}
                                 onChange={(e) => {
                                   const url = e.target.value;
@@ -370,7 +370,7 @@ export const AdminPageImagesTab: React.FC<AdminPageImagesTabProps> = ({
                             <div className="space-y-1">
                               <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
                               <input
-                                type="url"
+                                type="text"
                                 value={currentVal}
                                 onChange={(e) => {
                                   const url = e.target.value;
@@ -497,7 +497,7 @@ export const AdminPageImagesTab: React.FC<AdminPageImagesTabProps> = ({
                             <div className="space-y-1">
                               <label className="text-[10px] font-bold uppercase text-neutral-400">Image Source URL</label>
                               <input
-                                type="url"
+                                type="text"
                                 value={currentVal}
                                 onChange={(e) => {
                                   const url = e.target.value;
