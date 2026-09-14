@@ -708,9 +708,9 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
                   </div>
                   <div className="flex-1 space-y-2 w-full">
                     <input
-                      type="url"
+                      type="text"
                       required
-                      placeholder="https://images.unsplash.com/..."
+                      placeholder="Image URL or relative path (e.g. /uploads/...)"
                       value={formData.photo || ''}
                       onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
