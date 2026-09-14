@@ -1,6 +1,7 @@
 export type ActiveTab = 
   | 'home'
   | 'events'
+  | 'dj-bios'
   | 'gallery'
   | 'about-grenada'
   | 'about-mellowland'
@@ -273,6 +274,32 @@ export interface TestimonialItem {
   quote: string;
   rating: number;
   avatar: string;
+}
+
+export interface DjBioSocialLinks {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  soundcloud?: string;
+  mixcloud?: string;
+  youtube?: string;
+  spotify?: string;
+}
+
+export interface DjBioItem {
+  id: string;
+  name: string;
+  stageName?: string;
+  roleOrTitle?: string;     // e.g. "UK Headline Resident", "Spice Isle Soca Selector"
+  genres?: string[];        // e.g. ["Soca", "Afrobeats", "Dancehall", "UK Garage"]
+  country?: string;         // e.g. "United Kingdom", "Grenada"
+  city?: string;            // e.g. "London, UK", "St. George's, Grenada"
+  photo: string;            // Image URL or uploaded photo
+  bio: string;              // The write-up / biography under the photo
+  socialLinks: DjBioSocialLinks;
+  featured?: boolean;
+  orderIndex?: number;
+  featuredEvents?: string[]; // Related festival events/stages
 }
 
 export interface FlightRegistration {

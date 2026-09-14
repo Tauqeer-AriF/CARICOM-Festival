@@ -20,6 +20,7 @@ import {
   Crown,
   Flame,
   Music,
+  Headphones,
   Globe,
   Shield,
   Compass,
@@ -66,6 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'experience',
       label: 'Experience',
       items: [
+        { id: 'dj-bios' as ActiveTab, label: 'DJs', icon: <Headphones className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'about-grenada' as ActiveTab, label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'about-mellowland' as ActiveTab, label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
         { id: 'gallery' as ActiveTab, label: 'Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },
@@ -270,6 +272,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Experience Dropdown */}
               {renderDropdown('experience', 'Experience', [
+                { id: 'dj-bios', label: 'DJs', icon: <Headphones className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'about-grenada', label: 'Spice Isle Guide', icon: <Palmtree className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'about-mellowland', label: 'Mellowland Tubing', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
                 { id: 'gallery', label: 'Gallery', icon: <Image className="w-3.5 h-3.5 text-amber-400" /> },

@@ -13,6 +13,7 @@ export type AdminTabId =
   | 'branding' 
   | 'page-images' 
   | 'events' 
+  | 'dj-bios'
   | 'gallery' 
   | 'passes' 
   | 'hotels' 
@@ -38,6 +39,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'branding', 
     'page-images', 
     'events', 
+    'dj-bios',
     'gallery', 
     'passes', 
     'hotels', 
@@ -57,6 +59,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'branding', 
     'page-images', 
     'events', 
+    'dj-bios',
     'gallery', 
     'passes', 
     'hotels', 
@@ -73,6 +76,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
     'orders', 
     'payments',
     'emails',
+    'dj-bios',
     'passes', 
     'hotels', 
     'testimonials', 
@@ -81,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
   ],
   'Event Coordinator': [
     'events', 
+    'dj-bios',
     'gallery', 
     'analytics', 
     'media', 
@@ -107,6 +112,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminTabId[]> = {
   ],
   'Curator': [
     'gallery', 
+    'dj-bios',
     'page-images', 
     'media', 
     'testimonials', 

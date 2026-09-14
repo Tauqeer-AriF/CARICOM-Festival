@@ -138,6 +138,10 @@ export async function getDb(): Promise<any> {
         id TEXT PRIMARY KEY,
         data_json TEXT
       );
+      CREATE TABLE IF NOT EXISTS djs (
+        id TEXT PRIMARY KEY,
+        data_json TEXT
+      );
       CREATE TABLE IF NOT EXISTS media (
         id TEXT PRIMARY KEY,
         data_json TEXT

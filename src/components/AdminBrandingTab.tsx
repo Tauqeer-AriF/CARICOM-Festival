@@ -231,7 +231,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                           </label>
                           <textarea
                             rows={3}
-                            value={siteConfig.appTagline || "Where London's top DJs & revelers unite with Grenada's tropical warmth. A 10-day luxury festival of Caribbean culture, music, beach fetes, and river tubing."}
+                            value={siteConfig.appTagline || "Where London's top DJs & revellers unite with Grenada's tropical warmth. A 10-day luxury festival of Caribbean culture, music, beach fetes, and river tubing."}
                             onChange={(e) => {
                               const updated = { ...siteConfig, appTagline: e.target.value };
                               setSiteConfigState(updated);

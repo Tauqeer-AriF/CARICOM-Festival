@@ -129,6 +129,7 @@ import {
   Sliders,
   CalendarCheck,
   ArrowRight,
+  Headphones,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -153,6 +154,7 @@ import { AdminGuideWidget } from '../components/AdminGuideWidget';
 import { AdminAnalyticsTab } from '../components/AdminAnalyticsTab';
 import { AdminBrandingTab } from '../components/AdminBrandingTab';
 import { AdminPageImagesTab } from '../components/AdminPageImagesTab';
+import { DjBiosAdminTab } from '../components/DjBiosAdminTab';
 
 import { PassBadgePdfModal, parseSubmissionItems } from '../components/PassBadgePdfModal';
 import { ImportCsvModal } from '../components/ImportCsvModal';
@@ -2155,6 +2157,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </button>
           )}
 
+          {hasRoleAccess(currentAdmin?.role, 'dj-bios') && (
+            <button
+              onClick={() => {
+                setActiveAdminTab('dj-bios');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeAdminTab === 'dj-bios'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
+              }`}
+              style={activeAdminTab === 'dj-bios' ? { borderLeft: `3px solid ${primaryColor}` } : undefined}
+            >
+              <Headphones className={`w-4 h-4 ${activeAdminTab === 'dj-bios' ? 'text-amber-400' : 'text-neutral-400'}`} /> DJ Bios & Line-up
+            </button>
+          )}
+
           {hasRoleAccess(currentAdmin?.role, 'media') && (
             <button
               onClick={() => {
@@ -2319,6 +2338,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 {activeAdminTab === 'media' && 'Asset & Media Library'}
                 {activeAdminTab === 'system' && 'Infrastructure & Operations'}
                 {activeAdminTab === 'testimonials' && 'Testimonials Manager'}
+                {activeAdminTab === 'dj-bios' && 'DJ Bios & Artiste Line-up'}
                 {activeAdminTab === 'backup' && 'System Backup & Recovery'}
                 {activeAdminTab === 'documentation' && 'Documentation & Handover Guide'}
                 {activeAdminTab === 'users' && 'Console Users & Access Control'}
@@ -4970,6 +4990,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 )}
               </div>
             </div>
+          )}
+
+          {activeAdminTab === 'dj-bios' && (
+            <DjBiosAdminTab
+              primaryColor={primaryColor}
+              onOpenMediaSelector={openMediaLibraryWithCallback}
+              triggerConfirm={triggerConfirm}
+            />
           )}
 
           {activeAdminTab === 'backup' && (

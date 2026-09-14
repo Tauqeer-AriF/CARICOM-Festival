@@ -1,4 +1,4 @@
-import { EventItem, HotelItem, PassItem, TestimonialItem } from '../types';
+import { EventItem, HotelItem, PassItem, TestimonialItem, DjBioItem } from '../types';
 
 export const FESTIVAL_DATE_STRING = '2027-05-22T18:00:00';
 
@@ -201,8 +201,8 @@ export const FESTIVAL_EVENTS: EventItem[] = [
     category: 'Cultural',
     location: 'St. George’s Parade Route to Mellowland',
     time: '08:00 - 20:00',
-    description: 'The ultimate climax! Jump on the road with colourful mas costumes, paint, powder, and high-energy music trucks bringing London and Grenadian revelers together in unity.',
-    djLineup: ['All Festival DJs Combined', 'Live Soca Artists'],
+    description: 'The ultimate climax! Jump on the road with colourful mas costumes, paint, powder, and high-energy music trucks bringing London and Grenadian revellers together in unity.',
+    djLineup: ['All Festival DJs Combined', 'Live Soca Artistes'],
     dressCode: 'Festival T-Shirt / Costume / Jouvert Wear',
     wristbandRequired: true,
     highlightImage: FESTIVAL_IMAGES.day9_road_parade,
@@ -394,3 +394,122 @@ export const FESTIVAL_TESTIMONIALS: TestimonialItem[] = [
     avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80'
   }
 ];
+
+export const FESTIVAL_DJS: DjBioItem[] = [
+  {
+    id: 'dj-1',
+    name: 'DJ Slick',
+    stageName: 'The London Maestro',
+    roleOrTitle: 'Headline UK Resident Selector',
+    genres: ['Soca', 'Afrobeats', 'UK Garage', 'Dancehall'],
+    country: 'United Kingdom',
+    city: 'London, UK',
+    photo: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d2e?auto=format&fit=crop&w=800&q=80',
+    bio: 'Renowned across London’s elite West End venues and Notting Hill Carnival sound systems, DJ Slick bridges authentic British underground rhythms with infectious Caribbean energy. Having headlined major arenas across the UK and Europe, he brings his signature rapid-fire mixing style and crowd-captivating stage presence exclusively to Grenada for the 2027 CARICOM Festival.',
+    socialLinks: {
+      instagram: 'https://instagram.com/djslickuk',
+      facebook: 'https://facebook.com/djslickuk',
+      tiktok: 'https://tiktok.com/@djslickuk',
+      soundcloud: 'https://soundcloud.com/djslickuk'
+    },
+    featured: true,
+    orderIndex: 1,
+    featuredEvents: ['Spice Isle Touchdown & VIP Welcome Lime', 'The Flagship White Gala Sunset Party']
+  },
+  {
+    id: 'dj-2',
+    name: 'DJ Spice',
+    stageName: 'Spice Isle Ambassador',
+    roleOrTitle: 'Grenada Resident & Soca Specialist',
+    genres: ['Soca', 'Jab Jab', 'Calypso', 'Bouyon'],
+    country: 'Grenada',
+    city: 'St. George’s, Grenada',
+    photo: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=800&q=80',
+    bio: 'Born and raised in the heart of St. George’s, DJ Spice is recognised internationally as the heartbeat of Grenadian carnival culture. A virtuoso on the turntables with over fifteen years steering the biggest J’ouvert road parades, DJ Spice ensures UK visitors and CARICOM revellers experience the raw, unadulterated euphoria of true Spice Isle Carnival vibes.',
+    socialLinks: {
+      instagram: 'https://instagram.com/djspicegrenada',
+      facebook: 'https://facebook.com/djspicegrenada',
+      tiktok: 'https://tiktok.com/@djspicegrenada'
+    },
+    featured: true,
+    orderIndex: 2,
+    featuredEvents: ['London Meets Spice Isle Beach Fete', 'CARICOM Carnival Road Parade & Jouvert Energy']
+  },
+  {
+    id: 'dj-3',
+    name: 'DJ Likkle',
+    stageName: 'London Bass Heavyweight',
+    roleOrTitle: 'Soundsystem Veteran & UK Selector',
+    genres: ['Dancehall', 'Reggae', 'UK Bass', 'Jungle'],
+    country: 'United Kingdom',
+    city: 'London, UK (Brixton)',
+    photo: 'https://images.unsplash.com/photo-1516873240891-4bf014598ab4?auto=format&fit=crop&w=800&q=80',
+    bio: 'A staple of South London’s vibrant heritage sound systems, DJ Likkle has curated dance floors from Brixton to Bristol. Known for dropping rare dubplates, deep basslines, and classic dancehall anthems that unite generations, he is set to ignite the Grand Anse Beach Club and Rainforest Rave with unforgettable London sound clash energy.',
+    socialLinks: {
+      instagram: 'https://instagram.com/djlikkle_ldn',
+      facebook: 'https://facebook.com/djlikklelondon',
+      tiktok: 'https://tiktok.com/@djlikkle_ldn'
+    },
+    featured: true,
+    orderIndex: 3,
+    featuredEvents: ['London Meets Spice Isle Beach Fete', 'Jungle & Afrobeat Rainforest Rave']
+  },
+  {
+    id: 'dj-4',
+    name: 'Selecta Quad',
+    stageName: 'The Road General',
+    roleOrTitle: 'CARICOM Carnival Headliner',
+    genres: ['Soca', 'Afrobeats', 'Chutney Soca', 'Dembow'],
+    country: 'Trinidad & Tobago',
+    city: 'Port of Spain / London',
+    photo: 'https://images.unsplash.com/photo-1520523839898-507125cd53c1?auto=format&fit=crop&w=800&q=80',
+    bio: 'A multi-award-winning Caribbean selector who splits his time between Port of Spain and London, Selecta Quad is famous for marathon carnival sets that keep thousands of masqueraders moving until dawn. His high-octane track selection and unmatched microphone hype make him one of the most requested festival selectors in the Commonwealth.',
+    socialLinks: {
+      instagram: 'https://instagram.com/selectaquad',
+      facebook: 'https://facebook.com/selectaquad',
+      tiktok: 'https://tiktok.com/@selectaquad'
+    },
+    featured: false,
+    orderIndex: 4,
+    featuredEvents: ['Spice Isle Touchdown & VIP Welcome Lime', 'CARICOM Carnival Road Parade & Jouvert Energy']
+  },
+  {
+    id: 'dj-5',
+    name: 'DJ Oceanic',
+    stageName: 'The Sunset Alchemist',
+    roleOrTitle: 'Catamaran Cruise & Lounge Resident',
+    genres: ['Afro House', 'Tropical House', 'Soulful Soca', 'Amapiano'],
+    country: 'Barbados',
+    city: 'Bridgetown / St. George’s',
+    photo: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
+    bio: 'Specialising in lush, warm oceanfront soundscapes, DJ Oceanic creates euphoric musical journeys for luxury catamaran voyages and golden hour beach sessions. Blending warm afro-house percussion with smooth Caribbean vocal hooks, his performances at the Molinière Bay catamaran cruise and Royalton Sunset Pavilion offer sheer paradise.',
+    socialLinks: {
+      instagram: 'https://instagram.com/djoceanic_carib',
+      facebook: 'https://facebook.com/djoceanic',
+      tiktok: 'https://tiktok.com/@djoceanic_music'
+    },
+    featured: false,
+    orderIndex: 5,
+    featuredEvents: ['Underwater Sculpture Park & Catamaran Sunset Cruise', 'Mellowland Farewell Tropical Brunch']
+  },
+  {
+    id: 'dj-6',
+    name: 'DJ Roots UK',
+    stageName: 'The Vinyl Specialist',
+    roleOrTitle: 'Mellowland Resident & Roots Selector',
+    genres: ['Roots Reggae', 'Lovers Rock', 'Dub', 'Ska'],
+    country: 'United Kingdom',
+    city: 'Birmingham & London, UK',
+    photo: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=80',
+    bio: 'A true connoisseur of vinyl and sound system heritage, DJ Roots UK delivers conscious vibrations, deep roots reggae, and uplifting lovers rock classics. Providing the soundtrack to our scenic river tubing adventures and farm-to-table garden lymes at Mellows, his sets are a refreshing cultural masterclass.',
+    socialLinks: {
+      instagram: 'https://instagram.com/djrootsuk',
+      facebook: 'https://facebook.com/djrootsuk',
+      tiktok: 'https://tiktok.com/@djrootsuk'
+    },
+    featured: false,
+    orderIndex: 6,
+    featuredEvents: ['Mellowland River Tubing & Farm-to-Table Garden Lime', 'CARICOM Sister Islands Cultural Showcase']
+  }
+];
+

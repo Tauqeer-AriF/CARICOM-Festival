@@ -6,7 +6,7 @@ import { WhatsAppFloating } from './components/WhatsAppFloating';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { CartDrawer } from './components/CartDrawer';
 import { LuxurySkeletonOverlay } from './components/LuxurySkeletonOverlay';
-import { getSiteConfig, getEvents, getGalleryItems, getHotels, getPasses, getTestimonials } from './services/submissionService';
+import { getSiteConfig, getEvents, getGalleryItems, getHotels, getPasses, getTestimonials, getDjBios } from './services/submissionService';
 
 import { HomeView } from './views/HomeView';
 import { EventListingView } from './views/EventListingView';
@@ -15,6 +15,7 @@ import { AboutMellowlandView } from './views/AboutMellowlandView';
 import { TransportationView } from './views/TransportationView';
 import { HotelsView } from './views/HotelsView';
 import { HolidayPackagesView } from './views/HolidayPackagesView';
+import { DJBioView } from './views/DJBioView';
 import { TestimonialsView } from './views/TestimonialsView';
 import { ShopView } from './views/ShopView';
 import { TravelInsuranceView } from './views/TravelInsuranceView';
@@ -50,6 +51,7 @@ const getTabFromUrl = (overrideConfig?: SiteConfig): ActiveTab => {
   if (current === 'transportation') return 'transportation';
   if (current === 'hotels') return 'hotels';
   if (current === 'holiday-packages') return 'holiday-packages';
+  if (current === 'dj-bios' || current === 'dj-bio' || current === 'djs') return 'dj-bios';
   if (current === 'testimonials') return 'testimonials';
   if (current === 'shop') return 'shop';
   if (current === 'register') return 'register';
@@ -115,6 +117,7 @@ export default function App() {
   const [hotels, setHotels] = useState(() => getHotels());
   const [passes, setPasses] = useState(() => getPasses());
   const [testimonials, setTestimonials] = useState(() => getTestimonials());
+  const [djBios, setDjBios] = useState(() => getDjBios());
 
   // Listen for data updates from executive panel
   useEffect(() => {
@@ -123,12 +126,14 @@ export default function App() {
     const handleHotelsUpdate = () => setHotels(getHotels());
     const handlePassesUpdate = () => setPasses(getPasses());
     const handleTestimonialsUpdate = () => setTestimonials(getTestimonials());
+    const handleDjsUpdate = () => setDjBios(getDjBios());
 
     window.addEventListener('events_updated', handleEventsUpdate);
     window.addEventListener('gallery_updated', handleGalleryUpdate);
     window.addEventListener('hotels_updated', handleHotelsUpdate);
     window.addEventListener('passes_updated', handlePassesUpdate);
     window.addEventListener('testimonials_updated', handleTestimonialsUpdate);
+    window.addEventListener('djs_updated', handleDjsUpdate);
 
     return () => {
       window.removeEventListener('events_updated', handleEventsUpdate);
@@ -136,6 +141,7 @@ export default function App() {
       window.removeEventListener('hotels_updated', handleHotelsUpdate);
       window.removeEventListener('passes_updated', handlePassesUpdate);
       window.removeEventListener('testimonials_updated', handleTestimonialsUpdate);
+      window.removeEventListener('djs_updated', handleDjsUpdate);
     };
   }, []);
 
@@ -306,9 +312,10 @@ export default function App() {
       case 'transportation': return 'VIP Shuttles & Airport Pickup';
       case 'hotels': return 'Royalton & Partner Hotels';
       case 'holiday-packages': return 'Official Holiday & Flight Packages';
+      case 'dj-bios': return 'Festival DJ Line-up & Bios';
       case 'shop': return 'Festival Passes & VIP Packages';
       case 'register': return 'Flight & Logistics Registration';
-      case 'testimonials': return 'Reveler Testimonials';
+      case 'testimonials': return 'Reveller Testimonials';
       case 'contact': return 'Mellows Concierge Helpdesk';
       case 'travel-insurance': return 'Travel Insurance & Peace of Mind';
       case 'not-found': return 'Page Not Found';
@@ -827,6 +834,10 @@ export default function App() {
 
             {activeTab === 'holiday-packages' && (
               <HolidayPackagesView setActiveTab={setActiveTab} />
+            )}
+
+            {activeTab === 'dj-bios' && (
+              <DJBioView setActiveTab={setActiveTab} djBios={djBios} />
             )}
 
             {activeTab === 'testimonials' && (

@@ -306,29 +306,54 @@
   animation: bodyPulseGlow 10s ease-in-out infinite 3s;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-color-dynamic, #080A0F);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(var(--primary-rgb, 245, 158, 11), 0.35);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-color-dynamic, #F59E0B);
+/* --- Globally Hidden Scrollbars (Full Scrollability Preserved) --- */
+html,
+body,
+*,
+*::before,
+*::after {
+  scrollbar-width: none !important; /* Firefox and standard CSS */
+  -ms-overflow-style: none !important; /* IE and Legacy Edge */
 }
 
-/* Hide scrollbar for clean horizontal chip bars */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* WebKit browsers (Chrome, Safari, Edge, Opera, iOS, Android) */
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent !important;
+  display: none !important;
+}
+
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  display: none !important;
+  border: none !important;
+}
+
+/* Explicit class helpers for any targeted components */
+.no-scrollbar,
+.scrollbar-none,
+.scrollbar-thin,
+.custom-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-thin::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }
 
 /* --- High-Efficiency Senior Light Mode Theme Engine --- */

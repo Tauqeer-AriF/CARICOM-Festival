@@ -66,6 +66,7 @@ const TAB_LABELS: Record<AdminTabId, string> = {
   'gallery': 'Gallery Media',
   'passes': 'Pass Manager',
   'hotels': 'Hotels',
+  'dj-bios': 'DJ Bios & Line-up',
   'testimonials': 'Testimonials',
   'media': 'Media Library',
   'users': 'Console Users',

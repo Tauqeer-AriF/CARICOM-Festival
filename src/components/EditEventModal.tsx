@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -19,16 +19,19 @@ import {
   Shirt, 
   Check, 
   Plus, 
-  Trash2 
+  Trash2,
+  Headphones,
+  Users,
+  Search
 } from 'lucide-react';
-import { EventItem } from '../types';
+import { EventItem, DjBioItem } from '../types';
 import { 
   formatEventDateRange, 
   calculateDurationDays, 
   formatIsoDate, 
   parseTextDateToIso 
 } from '../utils/dateUtils';
-import { uploadFileToServer } from '../services/submissionService';
+import { uploadFileToServer, getDjBios } from '../services/submissionService';
 
 interface EditEventModalProps {
   isOpen: boolean;
@@ -87,8 +90,143 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
 
   const [genresInput, setGenresInput] = useState('');
   const [djInput, setDjInput] = useState('');
+  const [customDjInput, setCustomDjInput] = useState('');
+  const [djSearchQuery, setDjSearchQuery] = useState('');
+  const [showRawDjInput, setShowRawDjInput] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Available DJs from the official DJ Bios database
+  const availableDjs = useMemo(() => {
+    try {
+      return getDjBios();
+    } catch {
+      return [];
+    }
+  }, [isOpen]);
+
+  // Parse current list of selected DJ strings
+  const selectedDjsList = useMemo(() => {
+    return djInput
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }, [djInput]);
+
+  // Check if a DJ from the lineup is currently selected in the event
+  const isDjSelected = (dj: DjBioItem) => {
+    const stageName = (dj.stageName || dj.name || '').trim().toLowerCase();
+    const realName = (dj.name || '').trim().toLowerCase();
+    if (!stageName && !realName) return false;
+
+    return selectedDjsList.some(item => {
+      const lower = item.toLowerCase();
+      return (
+        lower === stageName ||
+        lower === realName ||
+        lower.startsWith(stageName) ||
+        lower.startsWith(realName) ||
+        lower.includes(stageName)
+      );
+    });
+  };
+
+  // Toggle selection of a DJ from the lineup
+  const toggleDj = (dj: DjBioItem) => {
+    const stageName = (dj.stageName || dj.name || '').trim();
+    if (!stageName) return;
+
+    const formattedName = `${stageName}${
+      dj.city ? ` (${dj.city.split(',')[0].trim()})` : dj.country ? ` (${dj.country})` : ''
+    }`;
+
+    if (isDjSelected(dj)) {
+      // Remove any matching entries
+      const lowerStage = stageName.toLowerCase();
+      const lowerReal = (dj.name || '').trim().toLowerCase();
+      const updated = selectedDjsList.filter(item => {
+        const lower = item.toLowerCase();
+        return !(
+          lower === lowerStage ||
+          lower === lowerReal ||
+          lower.startsWith(lowerStage) ||
+          lower.startsWith(lowerReal) ||
+          lower.includes(lowerStage)
+        );
+      });
+      setDjInput(updated.join(', '));
+    } else {
+      // Add the DJ
+      const updated = [...selectedDjsList, formattedName];
+      setDjInput(updated.join(', '));
+    }
+  };
+
+  // Remove a specific DJ or act from the event
+  const removeDj = (nameToRemove: string) => {
+    const updated = selectedDjsList.filter(name => name !== nameToRemove);
+    setDjInput(updated.join(', '));
+  };
+
+  // Add custom guest act or performer
+  const handleAddCustomDj = () => {
+    const trimmed = customDjInput.trim();
+    if (!trimmed) return;
+    if (!selectedDjsList.includes(trimmed)) {
+      const updated = [...selectedDjsList, trimmed];
+      setDjInput(updated.join(', '));
+    }
+    setCustomDjInput('');
+  };
+
+  // Select all lineup DJs
+  const handleSelectAllDjs = () => {
+    const allFormatted = availableDjs.map(dj => {
+      const stageName = (dj.stageName || dj.name || '').trim();
+      return `${stageName}${
+        dj.city ? ` (${dj.city.split(',')[0].trim()})` : dj.country ? ` (${dj.country})` : ''
+      }`;
+    });
+
+    // Merge without duplicates
+    const combined = Array.from(new Set([...selectedDjsList, ...allFormatted]));
+    setDjInput(combined.join(', '));
+  };
+
+  // Auto-sync genres from selected lineup DJs
+  const handleSyncGenresFromDjs = () => {
+    const djGenres = new Set<string>();
+    availableDjs.forEach(dj => {
+      if (isDjSelected(dj) && dj.genres && Array.isArray(dj.genres)) {
+        dj.genres.forEach(g => {
+          if (g && g.trim()) djGenres.add(g.trim());
+        });
+      }
+    });
+
+    if (djGenres.size === 0) return;
+
+    const currentGenres = genresInput
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const merged = Array.from(new Set([...currentGenres, ...Array.from(djGenres)]));
+    setGenresInput(merged.join(', '));
+  };
+
+  // Filtered DJs for search inside modal
+  const filteredAvailableDjs = useMemo(() => {
+    if (!djSearchQuery.trim()) return availableDjs;
+    const query = djSearchQuery.toLowerCase();
+    return availableDjs.filter(dj => 
+      (dj.stageName || '').toLowerCase().includes(query) ||
+      (dj.name || '').toLowerCase().includes(query) ||
+      (dj.city || '').toLowerCase().includes(query) ||
+      (dj.country || '').toLowerCase().includes(query) ||
+      (dj.genres || []).some(g => g.toLowerCase().includes(query))
+    );
+  }, [availableDjs, djSearchQuery]);
 
   useEffect(() => {
     if (isOpen) {
@@ -645,34 +783,250 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
               </div>
             </div>
 
-            {/* Music Genres & DJ Lineup */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Music Genres & DJ Lineup Selection System */}
+            <div className="space-y-4 pt-1">
+              {/* Music Genres Field */}
               <div className="space-y-1.5">
-                <label className="text-neutral-400 font-bold uppercase block flex items-center gap-1">
-                  <Music className="w-3.5 h-3.5 text-amber-400" />
-                  Music Genres <span className="text-neutral-500 font-normal">(Comma-separated)</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-neutral-400 font-bold uppercase block flex items-center gap-1 text-xs">
+                    <Music className="w-3.5 h-3.5 text-amber-400" />
+                    Music Genres <span className="text-neutral-500 font-normal">(Comma-separated)</span>
+                  </label>
+                  {selectedDjsList.length > 0 && availableDjs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSyncGenresFromDjs}
+                      className="text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Import all sound styles from selected line-up DJs"
+                    >
+                      <Sparkles className="w-3 h-3" /> Auto-sync Genres from Selected DJs
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={genresInput}
                   onChange={(e) => setGenresInput(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
-                  placeholder="e.g. Soca, Reggae, Dancehall, Afrobeat"
+                  placeholder="e.g. Soca, Calypso, Jab Jab, Dancehall, Reggae, Bouyon, UK Garage"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-neutral-400 font-bold uppercase block flex items-center gap-1">
-                  <Disc className="w-3.5 h-3.5 text-amber-400" />
-                  DJs & Artists <span className="text-neutral-500 font-normal">(Comma-separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={djInput}
-                  onChange={(e) => setDjInput(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
-                  placeholder="e.g. DJ Slick, Selecta Quad, DJ Spice"
-                />
+              {/* Interactive DJ & Artistes Line-up Picker */}
+              <div className="bg-neutral-950/90 border border-neutral-800/90 rounded-2xl p-4 space-y-3.5 shadow-inner">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-neutral-800/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0 shadow-sm">
+                      <Headphones className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold uppercase text-white tracking-wider block flex items-center gap-2">
+                        <span>Select DJs & Artistes from Line-up</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-750 text-amber-400 font-mono font-bold">
+                          {selectedDjsList.length} Selected
+                        </span>
+                      </label>
+                      <p className="text-[11px] text-neutral-400">
+                        Click any selector from your festival line-up to assign them to this event.
+                      </p>
+                    </div>
+                  </div>
+
+                  {availableDjs.length > 0 && (
+                    <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllDjs}
+                        className="text-[10px] font-bold text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 cursor-pointer transition-colors whitespace-nowrap"
+                      >
+                        Select All ({availableDjs.length})
+                      </button>
+                      {selectedDjsList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDjInput('')}
+                          className="text-[10px] font-bold text-neutral-400 hover:text-rose-400 px-2.5 py-1 rounded-lg bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 cursor-pointer transition-colors whitespace-nowrap"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search in DJ Lineup if more than 4 DJs */}
+                {availableDjs.length > 4 && (
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={djSearchQuery}
+                      onChange={(e) => setDjSearchQuery(e.target.value)}
+                      placeholder="Search line-up DJs by moniker, name, origin, or sound style..."
+                      className="w-full bg-neutral-900/80 border border-neutral-800/90 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                    />
+                    {djSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setDjSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-xs p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Festival Line-up DJ Grid */}
+                {availableDjs.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1 no-scrollbar">
+                      {filteredAvailableDjs.map((dj) => {
+                        const isSelected = isDjSelected(dj);
+                        const stageName = dj.stageName || dj.name;
+                        const location = dj.city ? dj.city.split(',')[0].trim() : (dj.country || '');
+                        const genresList = (dj.genres || []).slice(0, 2).join(', ');
+
+                        return (
+                          <button
+                            key={dj.id}
+                            type="button"
+                            onClick={() => toggleDj(dj)}
+                            className={`p-2.5 rounded-xl text-left transition-all cursor-pointer border flex items-center gap-3 select-none ${
+                              isSelected
+                                ? 'bg-amber-500/15 border-amber-500/70 shadow-md text-white ring-1 ring-amber-400/50'
+                                : 'bg-neutral-900/70 hover:bg-neutral-900 border-neutral-800/90 text-neutral-300 hover:border-neutral-700'
+                            }`}
+                          >
+                            <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-neutral-700 bg-neutral-800">
+                              <img
+                                src={dj.photo || 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80'}
+                                alt={stageName}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80';
+                                }}
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-amber-500/80 flex items-center justify-center text-neutral-950 shadow-inner">
+                                  <Check className="w-4 h-4 stroke-[3]" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-bold truncate block">{stageName}</span>
+                                {isSelected ? (
+                                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 shadow-sm" />
+                                ) : (
+                                  <span className="text-[10px] text-neutral-500 font-mono">+Add</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 truncate">
+                                {location && <span className="font-medium text-neutral-300">{location}</span>}
+                                {location && genresList && <span>•</span>}
+                                {genresList && <span className="text-amber-400/80 truncate">{genresList}</span>}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {filteredAvailableDjs.length === 0 && (
+                      <p className="text-xs text-neutral-500 text-center py-4 bg-neutral-900/40 rounded-xl">
+                        No lineup DJs match &ldquo;{djSearchQuery}&rdquo;.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-neutral-400 p-3.5 bg-neutral-900/50 rounded-xl border border-neutral-800/70 text-center">
+                    No DJs registered in the DJ database yet. Add them under the <strong className="text-amber-400">&ldquo;DJ Bios & Artiste Line-up&rdquo;</strong> tab or type custom names below.
+                  </div>
+                )}
+
+                {/* Selected DJ Badges Display */}
+                {selectedDjsList.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-neutral-800/70">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                      Assigned to this Event ({selectedDjsList.length}):
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedDjsList.map((name, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-neutral-950 shadow-sm"
+                        >
+                          <span>{name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeDj(name)}
+                            className="hover:bg-neutral-950/20 rounded-full p-0.5 transition-colors cursor-pointer"
+                            title={`Remove ${name}`}
+                          >
+                            <X className="w-3 h-3 text-neutral-950" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Guest Artiste / Custom DJ Act */}
+                <div className="pt-2 border-t border-neutral-800/80 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={customDjInput}
+                      onChange={(e) => setCustomDjInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomDj();
+                        }
+                      }}
+                      placeholder="Add guest artiste or custom act (e.g. Live Soca Artistes, Special Guest UK DJ)..."
+                      className="flex-1 bg-neutral-900/90 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomDj}
+                      disabled={!customDjInput.trim()}
+                      className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed text-amber-400 hover:text-amber-300 text-xs font-bold rounded-xl border border-neutral-750 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Guest Act</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                    <span>Tip: Click any DJ card above or type a guest artiste and press Enter.</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowRawDjInput(!showRawDjInput)}
+                      className="text-neutral-400 hover:text-amber-400 transition-colors underline cursor-pointer"
+                    >
+                      {showRawDjInput ? 'Hide manual text' : 'Manual text edit'}
+                    </button>
+                  </div>
+
+                  {showRawDjInput && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-neutral-400 font-mono">
+                        Direct comma-separated string:
+                      </label>
+                      <input
+                        type="text"
+                        value={djInput}
+                        onChange={(e) => setDjInput(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs font-mono"
+                        placeholder="Comma-separated DJs (e.g. DJ Slick (London), DJ Spice (Grenada), Selecta Quad)"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

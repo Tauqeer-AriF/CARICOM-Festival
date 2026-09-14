@@ -421,7 +421,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, s
           </h1>
 
           <p className="text-sm sm:text-xl font-light text-slate-300 max-w-2xl mx-auto leading-relaxed px-2">
-            Where London's top DJs & revelers unite with Grenada's tropical warmth. A luxury festival of Caribbean culture, music, beach fetes, and river tubing.
+            Where London's top DJs & revellers unite with Grenada's tropical warmth. A luxury festival of Caribbean culture, music, beach fetes, and river tubing.
           </p>
 
           {/* Sophisticated Hero Countdown Timer */}
@@ -689,7 +689,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, s
             Pack your bags, bring your energy, and let the Spice Isle capture your heart.
           </p>
           <p className="text-xs text-slate-400">
-            Passes are limited to ensure an intimate, high-end reveler experience.
+            Passes are limited to ensure an intimate, high-end reveller experience.
           </p>
         </motion.div>
       </section>

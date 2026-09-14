@@ -238,7 +238,7 @@ export const EditPassModal: React.FC<EditPassModalProps> = ({
                 value={formData.subtitle || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, subtitle: e.target.value }))}
                 className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
-                placeholder="e.g. Full premium experience for true revelers"
+                placeholder="e.g. Full premium experience for true revellers"
               />
             </div>
 

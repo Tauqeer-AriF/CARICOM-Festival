@@ -1,5 +1,5 @@
-import { FormSubmissionItem, SubmissionReply, SiteConfig, EventItem, HotelItem, PassItem, GalleryItem, MediaItem, TestimonialItem } from '../types';
-import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES } from '../data/festivalData';
+import { FormSubmissionItem, SubmissionReply, SiteConfig, EventItem, HotelItem, PassItem, GalleryItem, MediaItem, TestimonialItem, DjBioItem } from '../types';
+import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES, FESTIVAL_DJS } from '../data/festivalData';
 import { GALLERY_ITEMS } from '../data/galleryData';
 import { 
   ALL_SUBMISSION_TYPE_TAGS, 
@@ -24,6 +24,7 @@ const GALLERY_KEY = 'grenada_caricom_gallery_v3';
 const HOTELS_KEY = 'grenada_caricom_hotels_v2';
 const PASSES_KEY = 'grenada_caricom_passes_v2';
 const TESTIMONIALS_KEY = 'grenada_caricom_testimonials_v2';
+const DJS_KEY = 'grenada_caricom_djs_v1';
 const MEDIA_KEY = 'grenada_caricom_media_v2';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -32,7 +33,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   appLogoUrl: '',
   appFaviconUrl: '/src/assets/images/favicon_icon_1786434632871.jpg',
   appLogoIcon: 'Palmtree',
-  appTagline: "Where London's top DJs & revelers unite with Grenada's tropical warmth.",
+  appTagline: "Where London's top DJs & revellers unite with Grenada's tropical warmth.",
   appYearBadge: '2027',
   socialLinks: {
     instagram: 'https://instagram.com',
@@ -536,6 +537,15 @@ export async function syncResource(type: string): Promise<void> {
         }
         break;
       }
+      case 'djs': {
+        const resDjs = await fetchWithRetry('/api/djs');
+        if (resDjs?.ok) {
+          const djs = await resDjs.json();
+          safeSetItem(DJS_KEY, JSON.stringify(djs));
+          window.dispatchEvent(new Event('djs_updated'));
+        }
+        break;
+      }
     }
   } catch (err) {
     console.warn(`Background selective sync for ${type} deferred:`, err);
@@ -567,6 +577,9 @@ export async function syncWithDatabase(): Promise<void> {
 
     // 8. Sync Media
     await syncResource('media');
+
+    // 9. Sync DJ Bios
+    await syncResource('djs');
   } catch (err) {
     console.warn('Background SQLite sync deferred:', err);
   }
@@ -1813,6 +1826,41 @@ export const saveTestimonials = (testimonials: TestimonialItem[]): void => {
 };
 
 
+// --- DJ BIOS SERVICE ---
+export const getDjBios = (): DjBioItem[] => {
+  try {
+    const raw = safeGetItem(DJS_KEY);
+    if (!raw) {
+      safeSetItem(DJS_KEY, JSON.stringify(FESTIVAL_DJS));
+      return FESTIVAL_DJS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Error loading DJ bios:', e);
+    return FESTIVAL_DJS;
+  }
+};
+
+export const saveDjBios = (djs: DjBioItem[]): void => {
+  try {
+    const success = safeSetItem(DJS_KEY, JSON.stringify(djs));
+    if (!success) {
+      throw new Error('Write verification failed for DJ bios');
+    }
+    window.dispatchEvent(new Event('djs_updated'));
+
+    // Sync to backend SQLite
+    safeApiCall('/api/djs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(djs)
+    });
+  } catch (e) {
+    console.error('Error saving DJ bios:', e);
+  }
+};
+
+
 // --- MEDIA SERVICE ---
 export const getMediaItems = (): MediaItem[] => {
   try {
@@ -2008,6 +2056,15 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
         if (t.avatarUrl) addUsage(t.avatarUrl, `Testimonial Avatar: ${name}`);
         if (t.imageUrl) addUsage(t.imageUrl, `Testimonial Photo: ${name}`);
         if (t.videoUrl) addUsage(t.videoUrl, `Testimonial Video: ${name}`);
+      });
+    }
+
+    // 5b. DJ Bios
+    const djs = getDjBios();
+    if (Array.isArray(djs)) {
+      djs.forEach((d: any) => {
+        const djName = d.stageName || d.name || 'DJ';
+        if (d.photo) addUsage(d.photo, `DJ Bio Photo: ${djName}`);
       });
     }
 
@@ -2212,6 +2269,7 @@ export const resetAllDynamicDataToDefault = (): void => {
     safeRemoveItem(HOTELS_KEY);
     safeRemoveItem(PASSES_KEY);
     safeRemoveItem(TESTIMONIALS_KEY);
+    safeRemoveItem(DJS_KEY);
     safeRemoveItem(MEDIA_KEY);
 
     // Validate that removal succeeded before triggering broadcasts
@@ -2221,6 +2279,7 @@ export const resetAllDynamicDataToDefault = (): void => {
       safeGetItem(HOTELS_KEY) !== null ||
       safeGetItem(PASSES_KEY) !== null ||
       safeGetItem(TESTIMONIALS_KEY) !== null ||
+      safeGetItem(DJS_KEY) !== null ||
       safeGetItem(MEDIA_KEY) !== null
     ) {
       throw new Error('Verification failed: One or more localStorage keys were not deleted');
@@ -2231,6 +2290,7 @@ export const resetAllDynamicDataToDefault = (): void => {
     window.dispatchEvent(new Event('hotels_updated'));
     window.dispatchEvent(new Event('passes_updated'));
     window.dispatchEvent(new Event('testimonials_updated'));
+    window.dispatchEvent(new Event('djs_updated'));
     window.dispatchEvent(new Event('media_updated'));
 
     // Trigger SQLite seed resets
@@ -2258,6 +2318,11 @@ export const resetAllDynamicDataToDefault = (): void => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(FESTIVAL_TESTIMONIALS)
+    });
+    safeApiCall('/api/djs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(FESTIVAL_DJS)
     });
   } catch (e) {
     console.error('Error resetting all dynamic data:', e);

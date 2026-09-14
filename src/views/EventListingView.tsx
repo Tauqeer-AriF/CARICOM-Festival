@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ActiveTab, EventItem } from '../types';
-import { getSiteConfig, getPageImage } from '../services/submissionService';
+import { ActiveTab, EventItem, DjBioItem } from '../types';
+import { getSiteConfig, getPageImage, getDjBios } from '../services/submissionService';
 import { formatEventDateRange, calculateDurationDays, getEffectiveFestivalDateRange } from '../utils/dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -18,7 +18,10 @@ import {
   ShieldCheck,
   Disc,
   Radio,
-  X
+  X,
+  Headphones,
+  ExternalLink,
+  Mic
 } from 'lucide-react';
 
 interface EventListingViewProps {
@@ -33,6 +36,55 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeEventModal, setActiveEventModal] = useState<EventItem | null>(null);
+
+  // Official DJs from the festival roster
+  const [officialDjs, setOfficialDjs] = useState<DjBioItem[]>(() => {
+    try {
+      return getDjBios();
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync with DJ database updates
+  useEffect(() => {
+    const handleDjsUpdate = () => {
+      try {
+        setOfficialDjs(getDjBios());
+      } catch {}
+    };
+    window.addEventListener('djs_updated', handleDjsUpdate);
+    return () => window.removeEventListener('djs_updated', handleDjsUpdate);
+  }, []);
+
+  // Check if a DJ name belongs to an official line-up selector
+  const getMatchedOfficialDj = useCallback((djName: string): DjBioItem | undefined => {
+    if (!djName) return undefined;
+    const clean = djName.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+    const raw = djName.trim().toLowerCase();
+
+    return officialDjs.find(dj => {
+      const id = (dj.id || '').toLowerCase();
+      const stage = (dj.stageName || '').trim().toLowerCase();
+      const name = (dj.name || '').trim().toLowerCase();
+      return (
+        id === raw ||
+        stage === clean ||
+        name === clean ||
+        stage === raw ||
+        name === raw ||
+        (clean.length >= 3 && (stage.includes(clean) || clean.includes(stage))) ||
+        (clean.length >= 3 && (name.includes(clean) || clean.includes(name)))
+      );
+    });
+  }, [officialDjs]);
+
+  // Navigate to DJ's full profile & bio modal
+  const handleNavigateToDj = (djName: string) => {
+    sessionStorage.setItem('open_dj_name', djName);
+    setActiveTab('dj-bios');
+    window.dispatchEvent(new CustomEvent('open_dj_profile', { detail: { djName } }));
+  };
 
   // Dynamically compute filter buttons: only show categories that have at least one related event
   const categories = useMemo(() => {
@@ -223,11 +275,48 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
                 </div>
 
                 {event.djLineup && event.djLineup.length > 0 && (
-                  <div className="flex items-center gap-2 text-neutral-400">
-                    <Disc className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate text-[11px]">
-                      DJs: {event.djLineup.join(', ')}
-                    </span>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400">
+                      <Disc className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Line-up Selectors & Performers:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {event.djLineup.map((dj, i) => {
+                        const isOfficial = Boolean(getMatchedOfficialDj(dj));
+                        
+                        if (isOfficial) {
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleNavigateToDj(dj);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-neutral-900/90 hover:bg-amber-500 text-neutral-300 hover:text-neutral-950 border border-neutral-800 hover:border-amber-400 text-[10px] font-semibold transition-all cursor-pointer group/dj"
+                              title={`Click to view ${dj}'s official line-up profile and bio`}
+                            >
+                              <Headphones className="w-2.5 h-2.5 text-amber-400 group-hover/dj:text-neutral-950 transition-colors shrink-0" />
+                              <span className="truncate max-w-[140px]">{dj}</span>
+                              <ExternalLink className="w-2 h-2 opacity-50 group-hover/dj:opacity-100 transition-opacity shrink-0" />
+                            </button>
+                          );
+                        }
+
+                        // Guest act / custom non-lineup DJ - Non-clickable badge
+                        return (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-neutral-950/80 text-neutral-400 border border-neutral-800/80 text-[10px] font-medium select-none cursor-default"
+                            title={`Guest Act / Special Performer: ${dj}`}
+                          >
+                            <Mic className="w-2.5 h-2.5 text-neutral-500 shrink-0" />
+                            <span className="truncate max-w-[140px]">{dj}</span>
+                            <span className="text-[9px] text-neutral-500 font-normal">Guest</span>
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -367,15 +456,53 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
 
                   {activeEventModal.djLineup && activeEventModal.djLineup.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                        <Disc className="w-4 h-4" /> DJ Lineup & Entertainers
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          <Disc className="w-4 h-4" /> DJ Lineup & Entertainers
+                        </h4>
+                        <span className="text-[10px] text-neutral-400">Official DJs link to biography</span>
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                        {activeEventModal.djLineup.map((dj, i) => (
-                          <span key={i} className="px-3 py-1 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-xs font-medium">
-                            🎧 {dj}
-                          </span>
-                        ))}
+                        {activeEventModal.djLineup.map((dj, i) => {
+                          const isOfficial = Boolean(getMatchedOfficialDj(dj));
+
+                          if (isOfficial) {
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  setActiveEventModal(null);
+                                  handleNavigateToDj(dj);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-amber-500 border border-neutral-750 hover:border-amber-400 text-white hover:text-neutral-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 group/dj shadow-sm hover:scale-[1.03] active:scale-95"
+                                title={`View official line-up profile for ${dj}`}
+                              >
+                                <Headphones className="w-3.5 h-3.5 text-amber-400 group-hover/dj:text-neutral-950 transition-colors" />
+                                <span>{dj}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 group-hover/dj:bg-neutral-950/20 text-amber-300 group-hover/dj:text-neutral-950 transition-colors flex items-center gap-1 font-semibold">
+                                  <span>Profile</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </span>
+                              </button>
+                            );
+                          }
+
+                          // Guest Act / Special custom act - non-clickable
+                          return (
+                            <span
+                              key={i}
+                              className="px-3 py-1.5 rounded-xl bg-neutral-950/90 border border-neutral-800 text-neutral-300 text-xs font-medium inline-flex items-center gap-2 select-none cursor-default"
+                              title={`Guest Act / Special Performer: ${dj}`}
+                            >
+                              <Mic className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                              <span>{dj}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-750 text-neutral-400 font-medium">
+                                Guest Act
+                              </span>
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

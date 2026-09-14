@@ -307,10 +307,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, siteConfig }) => {
             </h4>
             <ul className="space-y-2.5 text-xs text-slate-400 font-light">
               <li><button onClick={() => handleTab('home')} className="hover:text-amber-300 cursor-pointer transition-colors">Home Overview</button></li>
-              <li><button onClick={() => handleTab('events')} className="hover:text-amber-300 cursor-pointer transition-colors">Official Event Lineup</button></li>
+              <li><button onClick={() => handleTab('events')} className="hover:text-amber-300 cursor-pointer transition-colors">Official Event Line-up</button></li>
+              <li><button onClick={() => handleTab('dj-bios')} className="hover:text-amber-300 cursor-pointer transition-colors">DJ Bios & Line-up</button></li>
               <li><button onClick={() => handleTab('about-grenada')} className="hover:text-amber-300 cursor-pointer transition-colors">Spice Isle Grenada</button></li>
               <li><button onClick={() => handleTab('about-mellowland')} className="hover:text-amber-300 cursor-pointer transition-colors">About Mellowland</button></li>
-              <li><button onClick={() => handleTab('testimonials')} className="hover:text-amber-300 cursor-pointer transition-colors">Reveler Testimonials</button></li>
+              <li><button onClick={() => handleTab('testimonials')} className="hover:text-amber-300 cursor-pointer transition-colors">Reveller Testimonials</button></li>
             </ul>
           </div>
 

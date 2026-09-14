@@ -53,7 +53,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     imageUrl: FESTIVAL_IMAGES.gallery1,
     mediaType: 'image',
     aspectRatio: 'aspect-[4/3]',
-    caption: 'UK & Caribbean revelers celebrating arrival day with golden sunset coconut cocktails and live Soca selections.',
+    caption: 'UK & Caribbean revellers celebrating arrival day with golden sunset coconut cocktails and live Soca selections.',
     likesCount: 342,
     photographer: 'Mellows Media Team'
   },

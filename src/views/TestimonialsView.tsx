@@ -30,7 +30,7 @@ export const TestimonialsView: React.FC<TestimonialsViewProps> = ({ setActiveTab
             Guest <span className="text-gold-gradient">Testimonials & Reviews</span>
           </h1>
           <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
-            Hear directly from festival revelers, UK DJs, and Grenadian locals who experienced the euphoria of our past island celebrations.
+            Hear directly from festival revellers, UK DJs, and Grenadian locals who experienced the euphoria of our past island celebrations.
           </p>
         </div>
       </div>

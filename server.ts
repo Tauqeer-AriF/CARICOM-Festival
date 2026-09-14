@@ -10,7 +10,7 @@ import { getDb } from './src/db/database';
 
 // Import default/initial data to seed SQLite
 import { DEFAULT_SITE_CONFIG, INITIAL_DEMO_SUBMISSIONS, INITIAL_DEMO_MEDIA } from './src/services/submissionService';
-import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES } from './src/data/festivalData';
+import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES, FESTIVAL_DJS } from './src/data/festivalData';
 import { GALLERY_ITEMS } from './src/data/galleryData';
 
 async function startServer() {
@@ -136,8 +136,25 @@ async function startServer() {
           }
         }
 
+        // Seed djs
+        const djCount = await db.get('SELECT COUNT(*) as count FROM djs');
+        if (!djCount || djCount.count === 0) {
+          for (const item of FESTIVAL_DJS) {
+            await db.run('INSERT OR REPLACE INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+          }
+        }
+
         await db.run("INSERT OR REPLACE INTO system_meta (key, value) VALUES ('seeded', 'true')");
         console.log('[DATABASE SEED] Initial seed complete and locked.');
+      }
+
+      // Ensure djs is populated if database was already created
+      const djEnsureCount = await db.get('SELECT COUNT(*) as count FROM djs');
+      if (!djEnsureCount || djEnsureCount.count === 0) {
+        for (const item of FESTIVAL_DJS) {
+          await db.run('INSERT OR REPLACE INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+        }
+        console.log('[DATABASE SEED] Seeded initial DJ bios into djs table.');
       }
     } catch (err) {
       console.error('[DATABASE SEED ERROR]', err);
@@ -1238,6 +1255,36 @@ async function startServer() {
     }
   });
 
+  // API Route: DJ Bios
+  app.get('/api/djs', async (req, res) => {
+    try {
+      const rows = await db.all('SELECT data_json FROM djs');
+      const items = rows.map(r => JSON.parse(r.data_json));
+      items.sort((a: any, b: any) => (a.orderIndex || 99) - (b.orderIndex || 99));
+      res.json(items);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/djs', async (req, res) => {
+    try {
+      const list = req.body;
+      if (!Array.isArray(list)) {
+        return res.status(400).json({ error: 'Expected an array of DJ bios' });
+      }
+      await db.run('DELETE FROM djs');
+      for (const item of list) {
+        await db.run('INSERT INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('djs', senderId);
+      res.json(list);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // API Route: Media
   app.get('/api/media', async (req, res) => {
     try {
@@ -1292,6 +1339,7 @@ async function startServer() {
       const hotelsRows = await db.all('SELECT * FROM hotels');
       const passesRows = await db.all('SELECT * FROM passes');
       const testimonialsRows = await db.all('SELECT * FROM testimonials');
+      const djsRows = await db.all('SELECT * FROM djs');
       const mediaRows = await db.all('SELECT * FROM media');
 
       const parseRows = (rows: any[]) => rows.map(r => {
@@ -1310,6 +1358,7 @@ async function startServer() {
         hotels: parseRows(hotelsRows),
         passes: parseRows(passesRows),
         testimonials: parseRows(testimonialsRows),
+        djs: parseRows(djsRows),
         media: parseRows(mediaRows)
       };
 
@@ -1497,6 +1546,7 @@ async function startServer() {
       if (tables.hotels) await restoreTable('hotels', tables.hotels);
       if (tables.passes) await restoreTable('passes', tables.passes);
       if (tables.testimonials) await restoreTable('testimonials', tables.testimonials);
+      if (tables.djs) await restoreTable('djs', tables.djs);
       if (tables.media) await restoreTable('media', tables.media);
 
       broadcast('system_restored');
@@ -1636,6 +1686,7 @@ async function startServer() {
       if (tables.hotels) await restoreTable('hotels', tables.hotels);
       if (tables.passes) await restoreTable('passes', tables.passes);
       if (tables.testimonials) await restoreTable('testimonials', tables.testimonials);
+      if (tables.djs) await restoreTable('djs', tables.djs);
       if (tables.media) await restoreTable('media', tables.media);
 
       broadcast('system_restored');
@@ -2414,6 +2465,9 @@ async function startServer() {
       }
       for (const item of FESTIVAL_TESTIMONIALS) {
         await db.run('INSERT INTO testimonials (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      }
+      for (const item of FESTIVAL_DJS) {
+        await db.run('INSERT INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
       }
       for (const item of INITIAL_DEMO_MEDIA) {
         await db.run('INSERT INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
