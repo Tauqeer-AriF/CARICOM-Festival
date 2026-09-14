@@ -19,7 +19,8 @@ import {
   ExternalLink,
   Video,
   Eye,
-  Copy
+  Copy,
+  Youtube
 } from 'lucide-react';
 
 interface DjBiosAdminTabProps {
@@ -105,7 +106,10 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
       socialLinks: {
         instagram: '',
         facebook: '',
-        tiktok: ''
+        tiktok: '',
+        soundcloud: '',
+        spotify: '',
+        youtube: ''
       },
       featured: false
     });
@@ -121,7 +125,8 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
         facebook: dj.socialLinks?.facebook || '',
         tiktok: dj.socialLinks?.tiktok || '',
         soundcloud: dj.socialLinks?.soundcloud || '',
-        spotify: dj.socialLinks?.spotify || ''
+        spotify: dj.socialLinks?.spotify || '',
+        youtube: dj.socialLinks?.youtube || ''
       }
     });
     setIsModalOpen(true);
@@ -241,7 +246,8 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
       facebook: formData.socialLinks?.facebook?.trim() || undefined,
       tiktok: formData.socialLinks?.tiktok?.trim() || undefined,
       soundcloud: formData.socialLinks?.soundcloud?.trim() || undefined,
-      spotify: formData.socialLinks?.spotify?.trim() || undefined
+      spotify: formData.socialLinks?.spotify?.trim() || undefined,
+      youtube: formData.socialLinks?.youtube?.trim() || undefined
     };
 
     if (editingDj) {
@@ -457,6 +463,7 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
               const hasInstagram = Boolean(dj.socialLinks?.instagram);
               const hasFacebook = Boolean(dj.socialLinks?.facebook);
               const hasTiktok = Boolean(dj.socialLinks?.tiktok);
+              const hasYoutube = Boolean(dj.socialLinks?.youtube);
 
               return (
                 <div 
@@ -551,6 +558,11 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
                           {hasTiktok && (
                             <span className="text-[10px] font-bold text-rose-300 flex items-center gap-0.5" title={dj.socialLinks.tiktok}>
                               <Video className="w-3 h-3" /> TikTok
+                            </span>
+                          )}
+                          {hasYoutube && (
+                            <span className="text-[10px] font-bold text-red-500 flex items-center gap-0.5" title={dj.socialLinks.youtube}>
+                              <Youtube className="w-3 h-3" /> YouTube
                             </span>
                           )}
                         </div>
@@ -918,6 +930,28 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* YouTube Link */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-neutral-900 border border-neutral-800 text-red-500 flex items-center justify-center shrink-0">
+                      <Youtube className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="url"
+                        placeholder="https://youtube.com/@djchannel"
+                        value={formData.socialLinks?.youtube || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          socialLinks: {
+                            ...formData.socialLinks,
+                            youtube: e.target.value
+                          }
+                        })}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1009,6 +1043,11 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
                 {previewDj.socialLinks?.tiktok && (
                   <a href={previewDj.socialLinks.tiktok} target="_blank" rel="noreferrer" className="text-rose-300 text-xs font-bold hover:underline flex items-center gap-1">
                     <Video className="w-3 h-3" /> TikTok
+                  </a>
+                )}
+                {previewDj.socialLinks?.youtube && (
+                  <a href={previewDj.socialLinks.youtube} target="_blank" rel="noreferrer" className="text-red-500 text-xs font-bold hover:underline flex items-center gap-1">
+                    <Youtube className="w-3 h-3" /> YouTube
                   </a>
                 )}
               </div>
