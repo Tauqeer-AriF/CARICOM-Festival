@@ -410,7 +410,8 @@ export const FESTIVAL_DJS: DjBioItem[] = [
       instagram: 'https://instagram.com/djslickuk',
       facebook: 'https://facebook.com/djslickuk',
       tiktok: 'https://tiktok.com/@djslickuk',
-      soundcloud: 'https://soundcloud.com/djslickuk'
+      soundcloud: 'https://soundcloud.com/djslickuk',
+      youtube: 'https://youtube.com/@djslickuk'
     },
     featured: true,
     orderIndex: 1,
@@ -429,7 +430,8 @@ export const FESTIVAL_DJS: DjBioItem[] = [
     socialLinks: {
       instagram: 'https://instagram.com/djspicegrenada',
       facebook: 'https://facebook.com/djspicegrenada',
-      tiktok: 'https://tiktok.com/@djspicegrenada'
+      tiktok: 'https://tiktok.com/@djspicegrenada',
+      youtube: 'https://youtube.com/@djspicegrenada'
     },
     featured: true,
     orderIndex: 2,
