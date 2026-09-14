@@ -132,7 +132,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
             style={{ maxHeight: '100%', maxWidth: '100%' }}
           >
             <iframe
-              src={ytEmbed}
+              src={ytEmbed || undefined}
               title={item.title}
               className="w-full h-full rounded-xl sm:rounded-2xl object-contain"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -151,7 +151,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
             style={{ maxHeight: '100%', maxWidth: '100%' }}
           >
             <iframe
-              src={vimeoEmbed}
+              src={vimeoEmbed || undefined}
               title={item.title}
               className="w-full h-full rounded-xl sm:rounded-2xl object-contain"
               allow="autoplay; fullscreen; picture-in-picture"
@@ -167,7 +167,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
       if (directVideoSrc) {
         return (
           <video
-            src={directVideoSrc}
+            src={directVideoSrc || undefined}
             controls
             autoPlay
             playsInline
@@ -184,7 +184,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
       if (rawImageUrl) {
         return (
           <img
-            src={rawImageUrl}
+            src={rawImageUrl || undefined}
             alt={item.title}
             referrerPolicy="no-referrer"
             onError={(e) => {
@@ -212,7 +212,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
 
     return (
       <img
-        src={photoSrc}
+        src={photoSrc || undefined}
         alt={item.title}
         referrerPolicy="no-referrer"
         onError={(e) => {

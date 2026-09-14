@@ -346,10 +346,10 @@ export const EditHotelModal: React.FC<EditHotelModalProps> = ({
                   className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
                   placeholder="https://..."
                 />
-                {formData.image && (
+                {!!formData.image && (
                   <div className="w-12 h-10 rounded-lg overflow-hidden border border-neutral-800 shrink-0 bg-neutral-900">
                     <img 
-                      src={formData.image} 
+                      src={formData.image || undefined} 
                       alt="Hotel preview" 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"

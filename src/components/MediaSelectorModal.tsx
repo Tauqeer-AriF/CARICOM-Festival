@@ -527,14 +527,14 @@ export const MediaSelectorModal: React.FC<MediaSelectorModalProps> = ({
                           >
                             {isVideo ? (
                               <video
-                                src={item.url}
+                                src={item.url || undefined}
                                 className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
                                 muted
                                 playsInline
                               />
                             ) : (
                               <img
-                                src={item.url}
+                                src={item.url || undefined}
                                 alt={item.name}
                                 referrerPolicy="no-referrer"
                                 onError={(e) => {

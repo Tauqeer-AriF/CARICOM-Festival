@@ -4053,7 +4053,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                   className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0"
                                 />
                                 <img
-                                  src={ev.highlightImage}
+                                  src={ev.highlightImage || undefined}
                                   alt={ev.title}
                                   referrerPolicy="no-referrer"
                                   onError={(e) => {
@@ -4576,7 +4576,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
                               />
                               <img
-                                src={hotel.image}
+                                src={hotel.image || undefined}
                                 alt={hotel.name}
                                 referrerPolicy="no-referrer"
                                 onError={(e) => {
@@ -4908,7 +4908,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 className="rounded border-neutral-700 bg-neutral-950 text-amber-500 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer shrink-0 mt-1"
                               />
                               <img
-                                src={t.avatar}
+                                src={t.avatar || undefined}
                                 alt={t.name}
                                 referrerPolicy="no-referrer"
                                 onError={(e) => {
@@ -5225,7 +5225,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           >
                             {selectedPassOrder.receiptUrl.startsWith('data:image') || selectedPassOrder.receiptUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ? (
                               <img
-                                src={selectedPassOrder.receiptUrl}
+                                src={selectedPassOrder.receiptUrl || undefined}
                                 alt="Receipt thumbnail"
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 onError={(e) => {

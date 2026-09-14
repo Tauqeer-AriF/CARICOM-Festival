@@ -143,7 +143,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
       return (
         <div className={wrapperClass}>
           <img
-            src={ytThumb}
+            src={ytThumb || undefined}
             alt={alt || item.title || 'Video Preview'}
             loading={loading}
             referrerPolicy="no-referrer"
@@ -157,7 +157,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     return (
       <div className={wrapperClass}>
         <video
-          src={`${cleanVideoUrl}#t=0.001`}
+          src={cleanVideoUrl ? `${cleanVideoUrl}#t=0.001` : undefined}
           poster={getFallbackImage(item)}
           autoPlay
           loop
@@ -175,7 +175,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     return (
       <div className={wrapperClass}>
         <video
-          src={`${currentSrc}#t=0.001`}
+          src={currentSrc ? `${currentSrc}#t=0.001` : undefined}
           poster={getFallbackImage(item)}
           autoPlay
           loop
@@ -193,7 +193,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     return (
       <div className={wrapperClass}>
         <img
-          src={currentSrc}
+          src={currentSrc || undefined}
           alt={alt || item.title || 'Festival Media'}
           loading={loading}
           referrerPolicy="no-referrer"
@@ -209,7 +209,7 @@ export const GalleryThumbnail: React.FC<GalleryThumbnailProps> = ({
     return (
       <div className={wrapperClass}>
         <video
-          src={`${cleanVideoUrl}#t=0.001`}
+          src={cleanVideoUrl ? `${cleanVideoUrl}#t=0.001` : undefined}
           poster={getFallbackImage(item)}
           autoPlay
           loop

@@ -888,7 +888,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                       >
                         {isVideo ? (
                           <video
-                            src={item.url}
+                            src={item.url || undefined}
                             className="w-full h-full object-cover"
                             muted
                           />
@@ -920,7 +920,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                           </div>
                         ) : (
                           <img
-                            src={item.url}
+                            src={item.url || undefined}
                             alt={item.name}
                             referrerPolicy="no-referrer"
                             onError={(e) => {
@@ -1218,7 +1218,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 >
                   {isVideoItem(currentItem) ? (
                     <video
-                      src={currentItem.url}
+                      src={currentItem.url || undefined}
                       controls
                       autoPlay
                       className="max-h-[75vh] max-w-full rounded-2xl border border-neutral-800 shadow-2xl object-contain bg-black"
@@ -1234,7 +1234,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                         </h3>
                         <p className="text-xs text-neutral-400 font-mono">Audio Track</p>
                       </div>
-                      <audio src={currentItem.url} controls autoPlay className="w-full mt-2" />
+                      <audio src={currentItem.url || undefined} controls autoPlay className="w-full mt-2" />
                     </div>
                   ) : isDocumentItem(currentItem) ? (
                     currentItem.name.toLowerCase().endsWith('.pdf') || currentItem.type === 'application/pdf' ? (
@@ -1285,7 +1285,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                     )
                   ) : (
                     <img
-                      src={currentItem.url}
+                      src={currentItem.url || undefined}
                       alt={currentItem.name}
                       referrerPolicy="no-referrer"
                       className="max-h-[75vh] max-w-full object-contain rounded-2xl border border-neutral-800 shadow-2xl bg-neutral-950"

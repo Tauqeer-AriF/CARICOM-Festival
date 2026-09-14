@@ -316,7 +316,7 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
               <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800 max-w-xs mx-auto flex items-center gap-3 text-left">
                 {selectedFile.dataUrl.startsWith('data:image') ? (
                   <img 
-                    src={selectedFile.dataUrl} 
+                    src={selectedFile.dataUrl || undefined} 
                     alt="Receipt Thumbnail" 
                     className="w-12 h-12 object-cover rounded-lg border border-neutral-700 shrink-0" 
                   />
@@ -391,7 +391,7 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                   <div className="flex items-center gap-3 overflow-hidden">
                     {selectedFile.dataUrl.startsWith('data:image') ? (
                       <img 
-                        src={selectedFile.dataUrl} 
+                        src={selectedFile.dataUrl || undefined} 
                         alt="Receipt preview" 
                         className="w-14 h-14 object-cover rounded-lg border border-neutral-800 shrink-0 cursor-pointer"
                         onClick={() => fileInputRef.current?.click()}
@@ -585,7 +585,7 @@ export const ReceiptLightboxModal: React.FC<{
         <div className="p-3 sm:p-6 overflow-auto flex-1 flex items-center justify-center bg-black/40">
           {receiptUrl.startsWith('data:image') || receiptUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ? (
             <img 
-              src={receiptUrl} 
+              src={receiptUrl || undefined} 
               alt={receiptName || "Payment Receipt Screenshot"} 
               className="max-h-[70vh] max-w-full object-contain rounded-lg border border-neutral-800 shadow-lg"
             />

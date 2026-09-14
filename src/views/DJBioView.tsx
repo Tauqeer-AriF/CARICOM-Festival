@@ -455,7 +455,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                   {/* DJ Photo Frame */}
                   <div className="relative h-64 sm:h-72 overflow-hidden bg-neutral-950">
                     <img
-                      src={dj.photo}
+                      src={dj.photo || undefined}
                       alt={dj.stageName || dj.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 brightness-95 group-hover:brightness-100"
@@ -693,7 +693,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
             {/* Modal Header Image */}
             <div className="relative h-64 sm:h-80 overflow-hidden bg-neutral-950 rounded-t-3xl">
               <img
-                src={selectedDjModal.photo}
+                src={selectedDjModal.photo || undefined}
                 alt={selectedDjModal.stageName || selectedDjModal.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center"

@@ -365,7 +365,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, s
                         }}
                       >
                         <img
-                          src={srcUrl}
+                          src={srcUrl || undefined}
                           alt={imgItem.alt || "Grenada CARICOM Festival Background"}
                           referrerPolicy="no-referrer"
                           onError={() => {
@@ -594,7 +594,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ setActiveTab, onAddToCart, s
 
           <div className="relative rounded-2xl overflow-hidden border border-white/15 shadow-2xl h-[380px] group">
             <img 
-              src={getPageImage('homeWhiteGala', FESTIVAL_IMAGES.whiteGala)} 
+              src={getPageImage('homeWhiteGala', FESTIVAL_IMAGES.whiteGala) || undefined} 
               alt="White Gala Party Grenada" 
               referrerPolicy="no-referrer"
               onError={(e) => {

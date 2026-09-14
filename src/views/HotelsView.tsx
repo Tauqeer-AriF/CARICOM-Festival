@@ -59,7 +59,7 @@ export const HotelsView: React.FC<HotelsViewProps> = ({ setActiveTab, hotels }) 
             <div>
               <div className="relative h-52 overflow-hidden">
                 <img
-                  src={hotel.image}
+                  src={hotel.image || undefined}
                   alt={hotel.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
@@ -139,7 +139,7 @@ export const HotelsView: React.FC<HotelsViewProps> = ({ setActiveTab, hotels }) 
                 className="bg-neutral-900 border border-amber-500/30 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col z-[10000]"
               >
                 <div className="relative h-56 shrink-0">
-                  <img src={activeHotelModal.image} alt={activeHotelModal.name} className="w-full h-full object-cover" />
+                  <img src={activeHotelModal.image || undefined} alt={activeHotelModal.name} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
                   <button
                     onClick={() => setActiveHotelModal(null)}

@@ -269,7 +269,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                             <div className="w-14 h-14 rounded-2xl bg-neutral-950 border border-amber-500/40 flex items-center justify-center overflow-hidden shadow-inner p-1">
                               {siteConfig.appLogoUrl ? (
                                 <img
-                                  src={siteConfig.appLogoUrl}
+                                  src={siteConfig.appLogoUrl || undefined}
                                   alt="Current Application Logo"
                                   className="w-full h-full object-cover rounded-xl"
                                 />
@@ -544,7 +544,7 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                           <div className="flex items-center gap-3">
                             {siteConfig.appLogoUrl ? (
                               <img
-                                src={siteConfig.appLogoUrl}
+                                src={siteConfig.appLogoUrl || undefined}
                                 alt="Logo Preview"
                                 className="w-10 h-10 object-cover rounded-xl border border-amber-500/40"
                               />

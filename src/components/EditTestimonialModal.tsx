@@ -288,10 +288,10 @@ export const EditTestimonialModal: React.FC<EditTestimonialModalProps> = ({
                   className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-xs"
                   placeholder="https://..."
                 />
-                {formData.avatar && (
+                {!!formData.avatar && (
                   <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-800 shrink-0 bg-neutral-900">
                     <img 
-                      src={formData.avatar} 
+                      src={formData.avatar || undefined} 
                       alt="Avatar preview" 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"

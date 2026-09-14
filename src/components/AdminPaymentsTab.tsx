@@ -1286,7 +1286,7 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
                               >
                                 {order.receiptUrl.startsWith('data:image') || order.receiptUrl.match(/\.(jpg|jpeg|png|webp)/i) ? (
                                   <img
-                                    src={order.receiptUrl}
+                                    src={order.receiptUrl || undefined}
                                     alt="Receipt proof"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   />

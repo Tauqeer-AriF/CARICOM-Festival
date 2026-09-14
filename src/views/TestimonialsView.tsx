@@ -59,7 +59,7 @@ export const TestimonialsView: React.FC<TestimonialsViewProps> = ({ setActiveTab
               </div>
 
               <div className="flex items-center gap-3 pt-4 border-t border-neutral-800">
-                <img src={rev.avatar} alt={rev.name} className="w-10 h-10 rounded-full object-cover border border-amber-500/40" />
+                <img src={rev.avatar || undefined} alt={rev.name} className="w-10 h-10 rounded-full object-cover border border-amber-500/40" />
                 <div>
                   <h4 className="text-xs font-bold text-white font-serif">{rev.name}</h4>
                   <p className="text-[10px] text-amber-400/90 font-mono">{rev.role} • {rev.location}</p>

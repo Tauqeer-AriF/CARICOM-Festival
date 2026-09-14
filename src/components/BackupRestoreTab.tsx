@@ -901,7 +901,7 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
               <div className="flex items-center gap-3">
                 {driveUser.photoURL ? (
                   <img 
-                    src={driveUser.photoURL} 
+                    src={driveUser.photoURL || undefined} 
                     alt="User avatar" 
                     referrerPolicy="no-referrer"
                     className="w-8 h-8 rounded-full border border-neutral-800 object-cover" 

@@ -132,7 +132,7 @@ export const AboutGrenadaView: React.FC<AboutGrenadaViewProps> = ({ setActiveTab
               >
                 <div className="sm:w-2/5 relative h-48 sm:h-auto overflow-hidden">
                   <img 
-                    src={highlight.image} 
+                    src={highlight.image || undefined} 
                     alt={highlight.title} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

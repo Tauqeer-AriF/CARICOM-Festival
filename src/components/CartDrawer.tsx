@@ -894,7 +894,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <div className="flex items-center gap-2.5 overflow-hidden">
                           {attachedReceipt.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(attachedReceipt.url) ? (
                             <img
-                              src={attachedReceipt.url}
+                              src={attachedReceipt.url || undefined}
                               alt="Receipt Proof"
                               className="w-12 h-12 object-cover rounded-lg border border-emerald-500/40 shrink-0 cursor-pointer shadow-sm hover:opacity-90"
                               onClick={() => setIsViewingReceipt(true)}
@@ -1277,7 +1277,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             {attachedReceipt.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(attachedReceipt.url) ? (
                               <img
-                                src={attachedReceipt.url}
+                                src={attachedReceipt.url || undefined}
                                 alt="Receipt"
                                 className="w-10 h-10 object-cover rounded-md border border-neutral-700 shrink-0 cursor-pointer hover:opacity-90"
                                 onClick={() => setIsViewingReceipt(true)}

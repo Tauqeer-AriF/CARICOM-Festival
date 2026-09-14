@@ -210,7 +210,7 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
             {/* Thumbnail Image */}
             <div className="relative h-48 overflow-hidden">
               <img
-                src={event.highlightImage}
+                src={event.highlightImage || undefined}
                 alt={event.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -356,7 +356,7 @@ export const EventListingView: React.FC<EventListingViewProps> = ({ setActiveTab
                 {/* Modal Header Image */}
                 <div className="relative h-60 sm:h-72 shrink-0">
                   <img
-                    src={activeEventModal.highlightImage}
+                    src={activeEventModal.highlightImage || undefined}
                     alt={activeEventModal.title}
                     className="w-full h-full object-cover"
                   />

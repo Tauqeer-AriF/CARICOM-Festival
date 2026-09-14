@@ -478,7 +478,7 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
                     {/* DJ Thumbnail */}
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-800 shrink-0">
                       <img
-                        src={dj.photo}
+                        src={dj.photo || undefined}
                         alt={dj.stageName || dj.name}
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover"
@@ -974,7 +974,7 @@ export const DjBiosAdminTab: React.FC<DjBiosAdminTabProps> = ({
 
             <div className="h-60 overflow-hidden bg-neutral-950 relative">
               <img
-                src={previewDj.photo}
+                src={previewDj.photo || undefined}
                 alt={previewDj.stageName || previewDj.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
