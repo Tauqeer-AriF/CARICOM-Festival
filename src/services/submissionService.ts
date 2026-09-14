@@ -2114,11 +2114,195 @@ export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
   }
 };
 
+export const purgeDeletedMediaUrlsFromAllCollections = (urlsToDelete: string[]): void => {
+  if (!urlsToDelete || !urlsToDelete.length) return;
+
+  const normalizeUrlVariants = (rawUrl: string): Set<string> => {
+    const set = new Set<string>();
+    if (!rawUrl || typeof rawUrl !== 'string') return set;
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return set;
+    set.add(trimmed);
+    try {
+      const decoded = decodeURIComponent(trimmed);
+      if (decoded) set.add(decoded);
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const parsed = new URL(trimmed);
+        if (parsed.pathname) {
+          set.add(parsed.pathname);
+          set.add(decodeURIComponent(parsed.pathname));
+        }
+      }
+    } catch {}
+    return set;
+  };
+
+  const allVariants = new Set<string>();
+  urlsToDelete.forEach(u => {
+    normalizeUrlVariants(u).forEach(v => allVariants.add(v));
+  });
+
+  const matchesUrl = (str: string | undefined | null) => {
+    if (!str || typeof str !== 'string') return false;
+    const trimmed = str.trim();
+    if (!trimmed) return false;
+    if (allVariants.has(trimmed)) return true;
+    try {
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const p = new URL(trimmed);
+        if (p.pathname && allVariants.has(p.pathname)) return true;
+      }
+    } catch {}
+    return false;
+  };
+
+  // 1. Site Config
+  try {
+    const config = getSiteConfig();
+    if (config) {
+      let changed = false;
+      if (matchesUrl(config.appLogoUrl)) { config.appLogoUrl = ''; changed = true; }
+      if (matchesUrl(config.appFaviconUrl)) { config.appFaviconUrl = ''; changed = true; }
+      if (config.footer && matchesUrl(config.footer.logoUrl)) { config.footer.logoUrl = ''; changed = true; }
+      if (config.hero && matchesUrl(config.hero.videoUrl)) { config.hero.videoUrl = ''; changed = true; }
+
+      if (config.hero && Array.isArray(config.hero.images)) {
+        const origLen = config.hero.images.length;
+        config.hero.images = config.hero.images.filter((img: any) => !matchesUrl(img?.url));
+        if (config.hero.images.length !== origLen) changed = true;
+      }
+
+      if (config.pageImages && typeof config.pageImages === 'object') {
+        Object.keys(config.pageImages).forEach(key => {
+          if (matchesUrl((config.pageImages as any)[key])) {
+            (config.pageImages as any)[key] = '';
+            changed = true;
+          }
+        });
+      }
+
+      if (changed) {
+        saveSiteConfig(config);
+      }
+    }
+  } catch (e) {
+    console.error('Error purging media from site config on client:', e);
+  }
+
+  // 2. Events
+  try {
+    const events = getEvents();
+    if (Array.isArray(events)) {
+      let changed = false;
+      events.forEach((e: any) => {
+        if (matchesUrl(e.imageUrl)) { e.imageUrl = ''; changed = true; }
+        if (matchesUrl(e.bannerUrl)) { e.bannerUrl = ''; changed = true; }
+        if (matchesUrl(e.videoUrl)) { e.videoUrl = ''; changed = true; }
+        if (Array.isArray(e.gallery)) {
+          const origLen = e.gallery.length;
+          e.gallery = e.gallery.filter((gUrl: any) => {
+            const urlStr = typeof gUrl === 'string' ? gUrl : gUrl?.url;
+            return !matchesUrl(urlStr);
+          });
+          if (e.gallery.length !== origLen) changed = true;
+        }
+      });
+      if (changed) saveEvents(events);
+    }
+  } catch (e) {
+    console.error('Error purging media from events on client:', e);
+  }
+
+  // 3. Gallery
+  try {
+    const gallery = getGalleryItems();
+    if (Array.isArray(gallery)) {
+      const filtered = gallery.filter((g: any) => 
+        !matchesUrl(g.imageUrl) && !matchesUrl(g.url) && !matchesUrl(g.videoUrl) && !matchesUrl(g.thumbnailUrl)
+      );
+      if (filtered.length !== gallery.length) saveGalleryItems(filtered);
+    }
+  } catch (e) {
+    console.error('Error purging media from gallery on client:', e);
+  }
+
+  // 4. Hotels
+  try {
+    const hotels = getHotels();
+    if (Array.isArray(hotels)) {
+      let changed = false;
+      hotels.forEach((h: any) => {
+        if (matchesUrl(h.imageUrl)) { h.imageUrl = ''; changed = true; }
+        if (matchesUrl(h.videoUrl)) { h.videoUrl = ''; changed = true; }
+        if (Array.isArray(h.images)) {
+          const origLen = h.images.length;
+          h.images = h.images.filter((imgUrl: any) => {
+            const urlStr = typeof imgUrl === 'string' ? imgUrl : imgUrl?.url;
+            return !matchesUrl(urlStr);
+          });
+          if (h.images.length !== origLen) changed = true;
+        }
+      });
+      if (changed) saveHotels(hotels);
+    }
+  } catch (e) {
+    console.error('Error purging media from hotels on client:', e);
+  }
+
+  // 5. Passes
+  try {
+    const passes = getPasses();
+    if (Array.isArray(passes)) {
+      let changed = false;
+      passes.forEach((p: any) => {
+        if (matchesUrl(p.imageUrl)) { p.imageUrl = ''; changed = true; }
+        if (matchesUrl(p.badgeUrl)) { p.badgeUrl = ''; changed = true; }
+      });
+      if (changed) savePasses(passes);
+    }
+  } catch (e) {
+    console.error('Error purging media from passes on client:', e);
+  }
+
+  // 6. Testimonials
+  try {
+    const testimonials = getTestimonials();
+    if (Array.isArray(testimonials)) {
+      let changed = false;
+      testimonials.forEach((t: any) => {
+        if (matchesUrl(t.avatarUrl)) { t.avatarUrl = ''; changed = true; }
+        if (matchesUrl(t.imageUrl)) { t.imageUrl = ''; changed = true; }
+        if (matchesUrl(t.videoUrl)) { t.videoUrl = ''; changed = true; }
+      });
+      if (changed) saveTestimonials(testimonials);
+    }
+  } catch (e) {
+    console.error('Error purging media from testimonials on client:', e);
+  }
+
+  // 7. DJ Bios
+  try {
+    const djs = getDjBios();
+    if (Array.isArray(djs)) {
+      let changed = false;
+      djs.forEach((d: any) => {
+        if (matchesUrl(d.photo)) { d.photo = ''; changed = true; }
+        if (matchesUrl(d.imageUrl)) { d.imageUrl = ''; changed = true; }
+        if (matchesUrl(d.avatarUrl)) { d.avatarUrl = ''; changed = true; }
+      });
+      if (changed) saveDjBios(djs);
+    }
+  } catch (e) {
+    console.error('Error purging media from djs on client:', e);
+  }
+};
+
 export const deleteMediaItem = async (id: string): Promise<void> => {
   const current = getMediaItems();
   const target = current.find(item => item.id === id);
   if (target && target.url) {
     trackDeletedMediaUrls([target.url]);
+    purgeDeletedMediaUrlsFromAllCollections([target.url]);
   }
 
   const updated = current.filter(item => item.id !== id);
@@ -2142,6 +2326,7 @@ export const deleteMultipleMediaItems = async (ids: string[]): Promise<void> => 
 
   if (deletedUrls.length > 0) {
     trackDeletedMediaUrls(deletedUrls);
+    purgeDeletedMediaUrlsFromAllCollections(deletedUrls);
   }
 
   const updated = current.filter(item => !idSet.has(item.id));
