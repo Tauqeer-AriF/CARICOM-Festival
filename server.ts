@@ -156,6 +156,39 @@ async function startServer() {
         }
         console.log('[DATABASE SEED] Seeded initial DJ bios into djs table.');
       }
+
+      // Ensure all submission receipts are mirrored into media table
+      try {
+        const subRows = await db.all('SELECT data_json FROM submissions');
+        const mediaRows = await db.all('SELECT data_json FROM media');
+        const knownUrls = new Set(mediaRows.map((r: any) => {
+          try { return JSON.parse(r.data_json).url; } catch { return ''; }
+        }));
+
+        for (const sRow of subRows) {
+          try {
+            const sData = JSON.parse(sRow.data_json);
+            if (sData.receiptUrl && sData.receiptUrl.trim() && !knownUrls.has(sData.receiptUrl.trim())) {
+              const normUrl = sData.receiptUrl.trim();
+              knownUrls.add(normUrl);
+              const mediaId = `media_sub_${sData.id}`;
+              const isPdf = normUrl.startsWith('data:application/pdf') || normUrl.toLowerCase().endsWith('.pdf');
+              const mediaItem = {
+                id: mediaId,
+                name: sData.receiptName || `Receipt_${sData.extraDetails?.OrderRef || sData.id}.${isPdf ? 'pdf' : 'jpg'}`,
+                url: normUrl,
+                originalSize: 102400,
+                compressedSize: 102400,
+                type: isPdf ? 'application/pdf' : 'image/jpeg',
+                uploadedAt: sData.receiptUploadedAt || sData.submittedAt || new Date().toISOString()
+              };
+              await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaId, JSON.stringify(mediaItem));
+            }
+          } catch {}
+        }
+      } catch (receiptSyncErr) {
+        console.warn('[DATABASE SEED] Receipt sync error:', receiptSyncErr);
+      }
     } catch (err) {
       console.error('[DATABASE SEED ERROR]', err);
     }
@@ -221,6 +254,24 @@ async function startServer() {
 
         console.log(`[IMAGE OPTIMIZER] Converted ${req.file.originalname} -> ${webpFilename} (${(originalSize / 1024).toFixed(1)} KB -> ${(compressedSize / 1024).toFixed(1)} KB, ${savingsPercent}% savings)`);
 
+        const mediaItem = {
+          id: `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          name: req.file.originalname,
+          url: `/uploads/${webpFilename}`,
+          originalSize,
+          compressedSize,
+          type: 'image/webp',
+          uploadedAt: new Date().toISOString()
+        };
+
+        try {
+          await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaItem.id, JSON.stringify(mediaItem));
+          const senderId = req.headers['x-client-id'] as string;
+          broadcast('media', senderId);
+        } catch (dbErr) {
+          console.warn('[Upload DB Save Error]', dbErr);
+        }
+
         return res.json({
           url: `/uploads/${webpFilename}`,
           filename: webpFilename,
@@ -230,10 +281,11 @@ async function startServer() {
           compressedSize,
           savingsPercent: `${savingsPercent}%`,
           mimetype: 'image/webp',
-          format: 'webp'
+          format: 'webp',
+          mediaItem
         });
       } else {
-        // Non-raster image (SVG) or Video/Audio/PDF: save directly to disk
+        // Non-raster image (SVG) or Video/Audio/PDF/Document: save directly to disk
         const baseName = path.basename(req.file.originalname || 'media', rawExt);
         const sanitizedBase = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50) || 'media';
         const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedBase}${originalExt}`;
@@ -252,9 +304,36 @@ async function startServer() {
           else if (originalExt === '.avi') determinedMime = 'video/x-msvideo';
           else if (originalExt === '.mkv') determinedMime = 'video/x-matroska';
           else if (originalExt === '.svg') determinedMime = 'image/svg+xml';
+          else if (originalExt === '.pdf') determinedMime = 'application/pdf';
+          else if (originalExt === '.doc') determinedMime = 'application/msword';
+          else if (originalExt === '.docx') determinedMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (originalExt === '.xls') determinedMime = 'application/vnd.ms-excel';
+          else if (originalExt === '.xlsx') determinedMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          else if (originalExt === '.csv') determinedMime = 'text/csv';
+          else if (originalExt === '.txt') determinedMime = 'text/plain';
+          else if (originalExt === '.mp3') determinedMime = 'audio/mpeg';
+          else if (originalExt === '.wav') determinedMime = 'audio/wav';
         }
 
         console.log(`[MEDIA UPLOAD] Saved ${req.file.originalname} -> ${uniqueName} (${(originalSize / 1024).toFixed(1)} KB, mime: ${determinedMime})`);
+
+        const mediaItem = {
+          id: `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          name: req.file.originalname,
+          url: `/uploads/${uniqueName}`,
+          originalSize,
+          compressedSize: originalSize,
+          type: determinedMime,
+          uploadedAt: new Date().toISOString()
+        };
+
+        try {
+          await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaItem.id, JSON.stringify(mediaItem));
+          const senderId = req.headers['x-client-id'] as string;
+          broadcast('media', senderId);
+        } catch (dbErr) {
+          console.warn('[Upload DB Save Error]', dbErr);
+        }
 
         return res.json({
           url: `/uploads/${uniqueName}`,
@@ -265,7 +344,8 @@ async function startServer() {
           compressedSize: originalSize,
           savingsPercent: '0%',
           mimetype: determinedMime,
-          format: originalExt.replace('.', '')
+          format: originalExt.replace('.', ''),
+          mediaItem
         });
       }
     } catch (err: any) {
@@ -452,6 +532,35 @@ async function startServer() {
         status: sub.status || 'new'
       };
       await db.run('INSERT OR REPLACE INTO submissions (id, data_json) VALUES (?, ?)', newSub.id, JSON.stringify(newSub));
+
+      // Auto-register receipt in media table if present
+      if (newSub.receiptUrl) {
+        try {
+          const existingMediaRows = await db.all('SELECT data_json FROM media');
+          const normReceiptUrl = newSub.receiptUrl.trim();
+          const exists = existingMediaRows.some((r: any) => {
+            try { return JSON.parse(r.data_json).url?.trim() === normReceiptUrl; } catch { return false; }
+          });
+          if (!exists) {
+            const mediaId = `media_sub_${newSub.id}`;
+            const isPdf = normReceiptUrl.startsWith('data:application/pdf') || normReceiptUrl.toLowerCase().endsWith('.pdf');
+            const mediaItem = {
+              id: mediaId,
+              name: newSub.receiptName || `Receipt_${newSub.extraDetails?.OrderRef || newSub.id}.${isPdf ? 'pdf' : 'jpg'}`,
+              url: normReceiptUrl,
+              originalSize: 102400,
+              compressedSize: 102400,
+              type: isPdf ? 'application/pdf' : 'image/jpeg',
+              uploadedAt: newSub.receiptUploadedAt || newSub.submittedAt || new Date().toISOString()
+            };
+            await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaId, JSON.stringify(mediaItem));
+            broadcast('media');
+          }
+        } catch (mErr) {
+          console.warn('[Submission Media Sync Error]', mErr);
+        }
+      }
+
       const senderId = req.headers['x-client-id'] as string;
       broadcast('submissions', senderId);
       res.json(newSub);
@@ -499,6 +608,35 @@ async function startServer() {
       const existing = JSON.parse(row.data_json);
       const merged = { ...existing, ...updatedData, id };
       await db.run('UPDATE submissions SET data_json = ? WHERE id = ?', JSON.stringify(merged), id);
+
+      // Auto-register receipt in media table if updated/attached
+      if (merged.receiptUrl) {
+        try {
+          const existingMediaRows = await db.all('SELECT data_json FROM media');
+          const normReceiptUrl = merged.receiptUrl.trim();
+          const exists = existingMediaRows.some((r: any) => {
+            try { return JSON.parse(r.data_json).url?.trim() === normReceiptUrl; } catch { return false; }
+          });
+          if (!exists) {
+            const mediaId = `media_sub_${merged.id}`;
+            const isPdf = normReceiptUrl.startsWith('data:application/pdf') || normReceiptUrl.toLowerCase().endsWith('.pdf');
+            const mediaItem = {
+              id: mediaId,
+              name: merged.receiptName || `Receipt_${merged.extraDetails?.OrderRef || merged.id}.${isPdf ? 'pdf' : 'jpg'}`,
+              url: normReceiptUrl,
+              originalSize: 102400,
+              compressedSize: 102400,
+              type: isPdf ? 'application/pdf' : 'image/jpeg',
+              uploadedAt: merged.receiptUploadedAt || merged.submittedAt || new Date().toISOString()
+            };
+            await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaId, JSON.stringify(mediaItem));
+            broadcast('media');
+          }
+        } catch (mErr) {
+          console.warn('[Submission Update Media Sync Error]', mErr);
+        }
+      }
+
       const senderId = req.headers['x-client-id'] as string;
       broadcast('submissions', senderId);
       res.json(merged);
@@ -1288,10 +1426,91 @@ async function startServer() {
   // API Route: Media
   app.get('/api/media', async (req, res) => {
     try {
-      const rows = await db.all('SELECT data_json FROM media');
-      const items = rows.map(r => JSON.parse(r.data_json));
-      items.sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
-      res.json(items);
+      const deletedRows = await db.all('SELECT url FROM deleted_media_urls');
+      const deletedUrls = new Set(deletedRows.map(r => r.url ? r.url.trim() : ''));
+
+      const rows = await db.all('SELECT id, data_json FROM media');
+      const items = rows.map(r => ({ dbId: r.id, ...JSON.parse(r.data_json) }));
+
+      const seenUrls = new Set<string>();
+      const uniqueItems: any[] = [];
+      const dupDbIds: string[] = [];
+
+      for (const item of items) {
+        if (!item || !item.url) continue;
+        const normUrl = item.url.trim();
+        if (deletedUrls.has(normUrl)) {
+          if (item.dbId) dupDbIds.push(item.dbId);
+        } else if (seenUrls.has(normUrl)) {
+          if (item.dbId) dupDbIds.push(item.dbId);
+        } else {
+          seenUrls.add(normUrl);
+          const { dbId, ...cleanItem } = item;
+          uniqueItems.push(cleanItem);
+        }
+      }
+
+      // Auto-sync any receipts from submissions that aren't yet in media & aren't deleted
+      const subRows = await db.all('SELECT data_json FROM submissions');
+      let addedFromSubs = false;
+      for (const sRow of subRows) {
+        try {
+          const sData = JSON.parse(sRow.data_json);
+          if (
+            sData.receiptUrl && 
+            sData.receiptUrl.trim() && 
+            !seenUrls.has(sData.receiptUrl.trim()) &&
+            !deletedUrls.has(sData.receiptUrl.trim())
+          ) {
+            const normUrl = sData.receiptUrl.trim();
+            seenUrls.add(normUrl);
+            const mediaId = `media_sub_${sData.id}`;
+            const isPdf = normUrl.startsWith('data:application/pdf') || normUrl.toLowerCase().endsWith('.pdf');
+            const mediaItem = {
+              id: mediaId,
+              name: sData.receiptName || `Receipt_${sData.extraDetails?.OrderRef || sData.id}.${isPdf ? 'pdf' : 'jpg'}`,
+              url: normUrl,
+              originalSize: 102400,
+              compressedSize: 102400,
+              type: isPdf ? 'application/pdf' : 'image/jpeg',
+              uploadedAt: sData.receiptUploadedAt || sData.submittedAt || new Date().toISOString()
+            };
+            await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', mediaId, JSON.stringify(mediaItem));
+            uniqueItems.push(mediaItem);
+            addedFromSubs = true;
+          }
+        } catch {}
+      }
+
+      // Clean up any duplicate or deleted records found in SQLite DB
+      if (dupDbIds.length > 0) {
+        for (const dId of dupDbIds) {
+          db.run('DELETE FROM media WHERE id = ?', dId).catch(() => {});
+        }
+      }
+
+      if (addedFromSubs || dupDbIds.length > 0) {
+        broadcast('media');
+      }
+
+      uniqueItems.sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+      res.json(uniqueItems);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/media/deleted-urls', async (req, res) => {
+    try {
+      const { urls } = req.body;
+      if (Array.isArray(urls)) {
+        for (const u of urls) {
+          if (u && typeof u === 'string' && u.trim()) {
+            await db.run('INSERT OR IGNORE INTO deleted_media_urls (url) VALUES (?)', u.trim());
+          }
+        }
+      }
+      res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -1300,10 +1519,31 @@ async function startServer() {
   app.post('/api/media', async (req, res) => {
     try {
       const item = req.body;
-      await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
+      if (!item || !item.url) {
+        return res.status(400).json({ error: 'Invalid media item' });
+      }
+
+      const normUrl = item.url.trim();
+
+      // Check if item with same URL already exists in DB
+      const existingRows = await db.all('SELECT id, data_json FROM media');
+      const existingMatch = existingRows.find(r => {
+        try {
+          const parsed = JSON.parse(r.data_json);
+          return parsed.url && parsed.url.trim() === normUrl;
+        } catch { return false; }
+      });
+
+      if (existingMatch) {
+        const existingData = JSON.parse(existingMatch.data_json);
+        return res.json(existingData);
+      }
+
+      const cleanItem = { ...item, url: normUrl };
+      await db.run('INSERT OR REPLACE INTO media (id, data_json) VALUES (?, ?)', cleanItem.id, JSON.stringify(cleanItem));
       const senderId = req.headers['x-client-id'] as string;
       broadcast('media', senderId);
-      res.json(item);
+      res.json(cleanItem);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -1312,6 +1552,15 @@ async function startServer() {
   app.delete('/api/media/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const row = await db.get('SELECT data_json FROM media WHERE id = ?', id);
+      if (row && row.data_json) {
+        try {
+          const parsed = JSON.parse(row.data_json);
+          if (parsed.url && parsed.url.trim()) {
+            await db.run('INSERT OR IGNORE INTO deleted_media_urls (url) VALUES (?)', parsed.url.trim());
+          }
+        } catch {}
+      }
       await db.run('DELETE FROM media WHERE id = ?', id);
       const senderId = req.headers['x-client-id'] as string;
       broadcast('media', senderId);

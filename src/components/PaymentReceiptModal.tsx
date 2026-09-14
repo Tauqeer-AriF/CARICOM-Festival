@@ -16,8 +16,9 @@ import {
   Eye,
   Download
 } from 'lucide-react';
-import { attachPaymentReceipt, getSubmissionByOrderRef, getSubmissions } from '../services/submissionService';
+import { attachPaymentReceipt, getSubmissionByOrderRef, getSubmissions, uploadFileToServer, registerUploadedMedia } from '../services/submissionService';
 import { FormSubmissionItem } from '../types';
+import { PdfViewer } from './PdfViewer';
 
 interface PaymentReceiptModalProps {
   isOpen: boolean;
@@ -165,11 +166,26 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
     }
 
     try {
-      const processed = await compressImageFile(file);
-      setSelectedFile(processed);
+      const serverResult = await uploadFileToServer(file);
+      if (serverResult && serverResult.url) {
+        setSelectedFile({
+          dataUrl: serverResult.url,
+          sizeKb: Math.round(serverResult.size / 1024),
+          name: serverResult.name
+        });
+      } else {
+        const processed = await compressImageFile(file);
+        setSelectedFile(processed);
+        registerUploadedMedia({
+          name: processed.name,
+          size: processed.sizeKb * 1024,
+          type: file.type
+        }, processed.dataUrl).catch(e => console.warn(e));
+      }
     } catch (err) {
       console.error('File compression error:', err);
-      setErrorMessage('Failed to read file. Please try another image.');
+      const processed = await compressImageFile(file);
+      setSelectedFile(processed);
     }
   };
 
@@ -574,11 +590,13 @@ export const ReceiptLightboxModal: React.FC<{
               className="max-h-[70vh] max-w-full object-contain rounded-lg border border-neutral-800 shadow-lg"
             />
           ) : (
-            <iframe 
-              src={receiptUrl} 
-              title="Receipt Document" 
-              className="w-full h-[65vh] rounded-lg border border-neutral-800"
-            />
+            <div className="w-full max-h-[70vh]">
+              <PdfViewer 
+                url={receiptUrl} 
+                title={receiptName || `receipt-${orderRef || 'document'}.pdf`}
+                maxHeight="65vh"
+              />
+            </div>
           )}
         </div>
       </div>

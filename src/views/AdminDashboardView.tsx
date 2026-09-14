@@ -5215,7 +5215,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                         <div className="flex items-center gap-3">
                           <div 
-                            className="relative group shrink-0 cursor-pointer overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 w-16 h-16"
+                            className="relative group shrink-0 cursor-pointer overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 w-16 h-16 flex items-center justify-center"
                             onClick={() => setPreviewReceiptModal({
                               url: selectedPassOrder.receiptUrl!,
                               name: selectedPassOrder.receiptName,
@@ -5223,11 +5223,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               guestName: selectedPassOrder.name
                             })}
                           >
-                            <img
-                              src={selectedPassOrder.receiptUrl}
-                              alt="Receipt thumbnail"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
+                            {selectedPassOrder.receiptUrl.startsWith('data:image') || selectedPassOrder.receiptUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ? (
+                              <img
+                                src={selectedPassOrder.receiptUrl}
+                                alt="Receipt thumbnail"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  // Fallback if image fails to render
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                  const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback');
+                                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            {(!selectedPassOrder.receiptUrl.startsWith('data:image') && !selectedPassOrder.receiptUrl.match(/\.(jpg|jpeg|png|webp|gif)/i)) && (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-rose-950/40 text-rose-400 p-1 group-hover:scale-105 transition-transform">
+                                <FileText className="w-6 h-6 text-rose-400" />
+                                <span className="text-[8px] font-mono font-bold text-rose-300 uppercase mt-0.5">
+                                  {selectedPassOrder.receiptName?.toLowerCase().endsWith('.pdf') || selectedPassOrder.receiptUrl.toLowerCase().endsWith('.pdf') || selectedPassOrder.receiptUrl.startsWith('data:application/pdf') ? 'PDF' : 'DOC'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="img-fallback hidden w-full h-full flex-col items-center justify-center bg-neutral-900 text-amber-400 p-1">
+                              <FileText className="w-6 h-6" />
+                              <span className="text-[8px] font-mono text-neutral-400">File</span>
+                            </div>
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                               <Eye className="w-4 h-4" />
                             </div>

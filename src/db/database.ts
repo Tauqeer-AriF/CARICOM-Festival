@@ -146,6 +146,9 @@ export async function getDb(): Promise<any> {
         id TEXT PRIMARY KEY,
         data_json TEXT
       );
+      CREATE TABLE IF NOT EXISTS deleted_media_urls (
+        url TEXT PRIMARY KEY
+      );
       CREATE TABLE IF NOT EXISTS email_logs (
         id TEXT PRIMARY KEY,
         data_json TEXT,

@@ -22,10 +22,20 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Music,
+  FileSpreadsheet,
+  FileArchive,
+  FileCode,
+  File as FileIcon,
+  ExternalLink,
+  Eye,
+  Play
 } from 'lucide-react';
 import { MediaItem } from '../types';
 import { CustomConfirmModal } from './CustomConfirmModal';
+import { PdfViewer } from './PdfViewer';
 import { 
   getMediaItems, 
   addMediaItem, 
@@ -54,7 +64,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   const [usedUrls, setUsedUrls] = useState<Set<string>>(new Set());
   const [usageMap, setUsageMap] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'used' | 'unused'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'document' | 'audio' | 'used' | 'unused'>('all');
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -313,8 +323,8 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
       confirmText: 'Delete',
       cancelText: 'Cancel',
       primaryColor: '#EF4444',
-      onConfirm: () => {
-        deleteMediaItem(id);
+      onConfirm: async () => {
+        await deleteMediaItem(id);
         setSelectedIds(prev => prev.filter(item => item !== id));
         loadMedia();
         showToast('Asset deleted!');
@@ -325,16 +335,17 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
 
   const handleBulkDelete = () => {
     if (!selectedIds.length) return;
+    const count = selectedIds.length;
     setConfirmState({
       isOpen: true,
       title: 'Bulk Delete Assets',
-      message: `Are you sure you want to permanently delete the ${selectedIds.length} selected asset${selectedIds.length > 1 ? 's' : ''}?`,
+      message: `Are you sure you want to permanently delete the ${count} selected asset${count > 1 ? 's' : ''}?`,
       confirmText: 'Delete All',
       cancelText: 'Cancel',
       primaryColor: '#EF4444',
-      onConfirm: () => {
-        deleteMultipleMediaItems(selectedIds);
-        showToast(`Successfully deleted ${selectedIds.length} asset${selectedIds.length > 1 ? 's' : ''}!`);
+      onConfirm: async () => {
+        await deleteMultipleMediaItems(selectedIds);
+        showToast(`Successfully deleted ${count} asset${count > 1 ? 's' : ''}!`);
         setSelectedIds([]);
         loadMedia();
         setConfirmState(prev => ({ ...prev, isOpen: false }));
@@ -414,7 +425,40 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
     );
   };
 
-  const isImageItem = (item: MediaItem): boolean => !isVideoItem(item);
+  const isAudioItem = (item: MediaItem): boolean => {
+    if (!item) return false;
+    const type = (item.type || '').toLowerCase();
+    const url = (item.url || '').toLowerCase();
+    const name = (item.name || '').toLowerCase();
+    return (
+      type.startsWith('audio/') ||
+      type === 'audio' ||
+      url.includes('data:audio') ||
+      /\.(mp3|wav|ogg|m4a|aac|flac|wma)(\?.*)?$/i.test(url) ||
+      /\.(mp3|wav|ogg|m4a|aac|flac|wma)$/i.test(name)
+    );
+  };
+
+  const isDocumentItem = (item: MediaItem): boolean => {
+    if (!item) return false;
+    const type = (item.type || '').toLowerCase();
+    const url = (item.url || '').toLowerCase();
+    const name = (item.name || '').toLowerCase();
+    return (
+      type.startsWith('application/') ||
+      type.startsWith('text/') ||
+      type === 'document' ||
+      type === 'pdf' ||
+      url.includes('data:application') ||
+      url.includes('data:text') ||
+      /\.(pdf|doc|docx|xls|xlsx|csv|txt|rtf|ppt|pptx|zip|json|xml)(\?.*)?$/i.test(url) ||
+      /\.(pdf|doc|docx|xls|xlsx|csv|txt|rtf|ppt|pptx|zip|json|xml)$/i.test(name)
+    );
+  };
+
+  const isImageItem = (item: MediaItem): boolean => {
+    return !isVideoItem(item) && !isAudioItem(item) && !isDocumentItem(item);
+  };
 
   const getItemUsage = (item: MediaItem): string[] => {
     return isMediaItemUsed(item, usageMap);
@@ -427,11 +471,16 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
   const filteredMedia = media.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const isVideo = isVideoItem(item);
+    const isAudio = isAudioItem(item);
+    const isDoc = isDocumentItem(item);
+    const isImg = isImageItem(item);
     const locations = getItemUsage(item);
     const isUsed = locations.length > 0;
 
     if (typeFilter === 'video' && !isVideo) return false;
-    if (typeFilter === 'image' && isVideo) return false;
+    if (typeFilter === 'image' && !isImg) return false;
+    if (typeFilter === 'document' && !isDoc) return false;
+    if (typeFilter === 'audio' && !isAudio) return false;
     if (typeFilter === 'used' && !isUsed) return false;
     if (typeFilter === 'unused' && isUsed) return false;
     return matchesSearch;
@@ -573,6 +622,8 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           { id: 'all', label: 'All Media', icon: Film, count: media.length },
           { id: 'image', label: 'Photos', icon: ImageIcon, count: media.filter(isImageItem).length },
           { id: 'video', label: 'Videos', icon: Video, count: media.filter(isVideoItem).length },
+          { id: 'document', label: 'Documents', icon: FileText, count: media.filter(isDocumentItem).length },
+          { id: 'audio', label: 'Audio', icon: Music, count: media.filter(isAudioItem).length },
           { id: 'used', label: 'In Use', icon: CheckCircle2, count: usedCount },
           { id: 'unused', label: 'Unused', icon: AlertTriangle, count: unusedCount }
         ].map((tab) => {
@@ -606,10 +657,10 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           <div className="bg-[#0C0F1E] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-sm">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider font-sans flex items-center justify-between">
               <span>Upload Assets</span>
-              <span className="text-[10px] text-amber-400 font-mono font-bold">Multi-File Ready</span>
+              <span className="text-[10px] text-amber-400 font-mono font-bold">All Formats</span>
             </h3>
             <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-              Drag and drop single or multiple photos and videos. Video files (MP4, WebM, QuickTime MOV, MKV, etc.) and photos are safely stored and indexed.
+              Drag and drop images, videos, audio tracks, or documents (PDF, tickets, receipts, spreadsheets, word docs). All assets are securely saved and indexed.
             </p>
 
             <div
@@ -626,7 +677,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*,video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v,.3gp,.ogv"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.ppt,.pptx,.zip,.json,.xml"
                 className="hidden"
                 onChange={(e) => handleFileUpload(e.target.files)}
               />
@@ -645,7 +696,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-xs font-bold text-white">Click to Browse Files</p>
-                    <p className="text-[10px] text-neutral-500 font-light">Select multiple photos or videos</p>
+                    <p className="text-[10px] text-neutral-500 font-light">Upload photos, videos, or documents</p>
                   </div>
                 </>
               )}
@@ -817,7 +868,9 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 {paginatedMedia.map((item) => {
                   const pctSavings = Math.round((1 - item.compressedSize / item.originalSize) * 100);
                   const isSelected = selectedIds.includes(item.id);
-                  const isVideo = item.type?.startsWith('video/') || item.url?.includes('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(item.url);
+                  const isVideo = isVideoItem(item);
+                  const isAudio = isAudioItem(item);
+                  const isDoc = isDocumentItem(item);
 
                   return (
                     <div
@@ -839,6 +892,32 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                             className="w-full h-full object-cover"
                             muted
                           />
+                        ) : isAudio ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-neutral-900 to-neutral-950 text-amber-400">
+                            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl mb-1.5">
+                              <Music className="w-6 h-6 text-amber-400" />
+                            </div>
+                            <p className="text-[11px] font-mono text-neutral-300 font-bold truncate max-w-[85%]">{item.name}</p>
+                            <span className="text-[9px] text-neutral-500 font-mono">Audio Track</span>
+                          </div>
+                        ) : isDoc ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-neutral-900 to-neutral-950 text-sky-400">
+                            <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl mb-1.5">
+                              {item.name.toLowerCase().endsWith('.pdf') ? (
+                                <FileText className="w-6 h-6 text-rose-400" />
+                              ) : item.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? (
+                                <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+                              ) : item.name.toLowerCase().match(/\.(zip|tar|gz|rar)$/) ? (
+                                <FileArchive className="w-6 h-6 text-amber-400" />
+                              ) : (
+                                <FileIcon className="w-6 h-6 text-sky-400" />
+                              )}
+                            </div>
+                            <p className="text-[11px] font-mono text-neutral-200 font-bold truncate max-w-[85%]">{item.name}</p>
+                            <span className="text-[9px] text-neutral-500 font-mono">
+                              {item.name.split('.').pop()?.toUpperCase() || 'DOCUMENT'} File
+                            </span>
+                          </div>
                         ) : (
                           <img
                             src={item.url}
@@ -860,7 +939,9 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                         {/* Technical Meta badge */}
                         <span className="absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md border border-neutral-800 text-[8px] font-extrabold text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono z-10 flex items-center gap-1">
                           {isVideo && <Video className="w-2.5 h-2.5 text-rose-400" />}
-                          <span>{item.type?.split('/')[1]?.toUpperCase() || 'MEDIA'}</span>
+                          {isAudio && <Music className="w-2.5 h-2.5 text-amber-400" />}
+                          {isDoc && <FileText className="w-2.5 h-2.5 text-sky-400" />}
+                          <span>{item.type?.split('/')[1]?.toUpperCase() || item.name.split('.').pop()?.toUpperCase() || 'MEDIA'}</span>
                         </span>
 
                         {/* Multi-Select Checkbox Top-Right */}
@@ -1135,13 +1216,73 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                   transition={{ duration: 0.2 }}
                   className="max-w-full max-h-full flex items-center justify-center p-2"
                 >
-                  {isVideo ? (
+                  {isVideoItem(currentItem) ? (
                     <video
                       src={currentItem.url}
                       controls
                       autoPlay
                       className="max-h-[75vh] max-w-full rounded-2xl border border-neutral-800 shadow-2xl object-contain bg-black"
                     />
+                  ) : isAudioItem(currentItem) ? (
+                    <div className="bg-[#0C0F1E] border border-neutral-800 p-8 rounded-2xl flex flex-col items-center gap-5 max-w-md w-full shadow-2xl">
+                      <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400">
+                        <Music className="w-12 h-12" />
+                      </div>
+                      <div className="text-center space-y-1 w-full">
+                        <h3 className="text-white font-bold text-base truncate w-full" title={currentItem.name}>
+                          {currentItem.name}
+                        </h3>
+                        <p className="text-xs text-neutral-400 font-mono">Audio Track</p>
+                      </div>
+                      <audio src={currentItem.url} controls autoPlay className="w-full mt-2" />
+                    </div>
+                  ) : isDocumentItem(currentItem) ? (
+                    currentItem.name.toLowerCase().endsWith('.pdf') || currentItem.type === 'application/pdf' ? (
+                      <div className="w-[90vw] max-w-4xl max-h-[80vh]">
+                        <PdfViewer
+                          url={currentItem.url}
+                          title={currentItem.name}
+                          maxHeight="70vh"
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-[#0C0F1E] border border-neutral-800 p-8 rounded-2xl flex flex-col items-center gap-5 max-w-md w-full shadow-2xl">
+                        <div className="p-5 bg-sky-500/10 border border-sky-500/30 rounded-2xl text-sky-400">
+                          {currentItem.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? (
+                            <FileSpreadsheet className="w-12 h-12 text-emerald-400" />
+                          ) : (
+                            <FileText className="w-12 h-12" />
+                          )}
+                        </div>
+                        <div className="text-center space-y-1 w-full">
+                          <h3 className="text-white font-bold text-base truncate w-full" title={currentItem.name}>
+                            {currentItem.name}
+                          </h3>
+                          <p className="text-xs text-neutral-400 font-mono">
+                            {currentItem.name.split('.').pop()?.toUpperCase() || 'DOCUMENT'} File
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 w-full">
+                          <a
+                            href={currentItem.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-2.5 bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            <span>View / Open</span>
+                          </a>
+                          <a
+                            href={currentItem.url}
+                            download={currentItem.name}
+                            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>Download</span>
+                          </a>
+                        </div>
+                      </div>
+                    )
                   ) : (
                     <img
                       src={currentItem.url}

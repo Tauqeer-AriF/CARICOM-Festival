@@ -6,7 +6,7 @@ import {
   Compass, Flame, Plus, Trash2, Edit3, Lock, ExternalLink, FolderOpen,
   Crown, Music, Shield, Palmtree, Clock, ChevronUp, ChevronDown, Phone, Settings as SettingsIcon, RefreshCw
 } from 'lucide-react';
-import { saveSiteConfig, uploadFileToServer, addMediaItem } from '../services/submissionService';
+import { saveSiteConfig, uploadFileToServer, addMediaItem, registerUploadedMedia } from '../services/submissionService';
 import { MediaItem } from '../types';
 import { FESTIVAL_IMAGES } from '../data/festivalData';
 
@@ -968,11 +968,31 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                                               const files = e.target.files;
                                               if (files && files[0]) {
                                                 const file = files[0];
-                                                setSaveToast(`Compressing "${file.name}"...`);
+                                                setSaveToast(`Uploading "${file.name}"...`);
                                                 try {
-                                                  const result = await compressImage(file, 1200, 0.8);
+                                                  let resultUrl = '';
+                                                  let resultCompSize = file.size;
+                                                  let resultFileType = file.type || 'image/jpeg';
+
+                                                  const serverRes = await uploadFileToServer(file);
+                                                  if (serverRes && serverRes.url) {
+                                                    resultUrl = serverRes.url;
+                                                    resultCompSize = serverRes.size;
+                                                    resultFileType = serverRes.type || resultFileType;
+                                                  } else {
+                                                    const result = await compressImage(file, 1200, 0.8);
+                                                    resultUrl = result.compressedUrl;
+                                                    resultCompSize = result.compressedSize;
+                                                    await registerUploadedMedia({
+                                                      name: file.name,
+                                                      originalSize: file.size,
+                                                      size: resultCompSize,
+                                                      type: resultFileType
+                                                    }, resultUrl);
+                                                  }
+
                                                   const updated = [...imagesList];
-                                                  updated[index] = { ...updated[index], url: result.compressedUrl };
+                                                  updated[index] = { ...updated[index], url: resultUrl };
                                                   setSiteConfigState({
                                                     ...siteConfig,
                                                     hero: {
@@ -980,18 +1000,6 @@ export const AdminBrandingTab: React.FC<AdminBrandingTabProps> = ({
                                                       images: updated
                                                     }
                                                   });
-
-                                                  // Also save to Media Library so they can reuse it
-                                                  const newItem = {
-                                                    id: 'media-' + Date.now(),
-                                                    name: file.name,
-                                                    url: result.compressedUrl,
-                                                    originalSize: file.size,
-                                                    compressedSize: result.compressedSize,
-                                                    type: file.type,
-                                                    uploadedAt: new Date().toISOString()
-                                                  };
-                                                  addMediaItem(newItem);
 
                                                   setSaveToast(`Directly updated and saved Slide #${index + 1}!`);
                                                 } catch (err) {

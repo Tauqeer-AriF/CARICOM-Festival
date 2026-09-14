@@ -361,6 +361,46 @@ export function safeRemoveItem(key: string): void {
   }
 }
 
+export async function registerUploadedMedia(
+  meta: { name: string; size?: number; type?: string; originalSize?: number },
+  url: string
+): Promise<MediaItem> {
+  if (!url) throw new Error('Invalid URL');
+  const normalizedUrl = url.trim();
+  const current = getMediaItems();
+  const existing = current.find(item => item.url.trim() === normalizedUrl);
+  if (existing) {
+    return existing;
+  }
+
+  const determinedType = meta.type || (
+    normalizedUrl.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|svg|avif)$/i.test(normalizedUrl) ? 'image/jpeg' :
+    normalizedUrl.startsWith('data:video') || /\.(mp4|webm|mov|m4v|mkv|avi|3gp|ogv)$/i.test(normalizedUrl) ? 'video/mp4' :
+    normalizedUrl.startsWith('data:audio') || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(normalizedUrl) ? 'audio/mpeg' :
+    normalizedUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(normalizedUrl) ? 'application/pdf' :
+    normalizedUrl.startsWith('data:application/msword') || /\.(doc|docx)$/i.test(normalizedUrl) ? 'application/msword' :
+    normalizedUrl.startsWith('data:text') || /\.(txt|csv|json|xml)$/i.test(normalizedUrl) ? 'text/plain' :
+    'application/octet-stream'
+  );
+
+  const approxSize = meta.size || (
+    normalizedUrl.startsWith('data:') ? Math.round((normalizedUrl.length * 3) / 4) : 102400
+  );
+
+  const newItem: MediaItem = {
+    id: `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    name: meta.name || 'Uploaded Media',
+    url: normalizedUrl,
+    originalSize: meta.originalSize || approxSize,
+    compressedSize: approxSize,
+    type: determinedType,
+    uploadedAt: new Date().toISOString()
+  };
+
+  await addMediaItem(newItem);
+  return newItem;
+}
+
 export async function uploadFileToServer(file: File): Promise<{ url: string; size: number; name: string; type: string } | null> {
   try {
     const formData = new FormData();
@@ -376,16 +416,57 @@ export async function uploadFileToServer(file: File): Promise<{ url: string; siz
     });
     if (res.ok) {
       const data = await res.json();
-      return {
+      const result = {
         url: data.url,
         size: data.size,
         name: data.originalName || file.name,
         type: data.mimetype || file.type
       };
+
+      // Automatically register uploaded media asset in media library
+      await registerUploadedMedia({
+        name: result.name,
+        size: result.size,
+        originalSize: data.originalSize || file.size,
+        type: result.type
+      }, result.url);
+
+      return result;
     }
   } catch (err) {
     console.warn('[Upload] Binary file upload to server deferred/failed:', err);
   }
+
+  // Fallback to client-side FileReader if server is unreachable
+  try {
+    const base64Url = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    if (base64Url) {
+      const result = {
+        url: base64Url,
+        size: file.size,
+        name: file.name,
+        type: file.type || 'application/octet-stream'
+      };
+
+      await registerUploadedMedia({
+        name: file.name,
+        size: file.size,
+        originalSize: file.size,
+        type: file.type
+      }, base64Url);
+
+      return result;
+    }
+  } catch (readerErr) {
+    console.warn('[Upload] FileReader fallback error:', readerErr);
+  }
+
   return null;
 }
 
@@ -692,6 +773,14 @@ export const addSubmission = (sub: Omit<FormSubmissionItem, 'id' | 'submittedAt'
     body: JSON.stringify(newSub)
   });
 
+  // If payment receipt attached, ensure it is instantly registered in the Media Library
+  if (newSub.receiptUrl) {
+    registerUploadedMedia({
+      name: newSub.receiptName || `Receipt_${newSub.extraDetails?.OrderRef || newSub.id}.jpg`,
+      type: newSub.receiptUrl.startsWith('data:application/pdf') || newSub.receiptUrl.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+    }, newSub.receiptUrl).catch(e => console.warn('[addSubmission Receipt Media Register Error]', e));
+  }
+
   // Automated transactional email triggers for all received form submissions and pass orders
   try {
     dispatchAutomaticSubmissionEmail(newSub).catch(e => 
@@ -890,6 +979,13 @@ export const attachPaymentReceipt = (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedItem)
     });
+
+    if (receiptData.receiptUrl) {
+      registerUploadedMedia({
+        name: receiptData.receiptName || 'Payment Receipt',
+        type: receiptData.receiptUrl.startsWith('data:application/pdf') || receiptData.receiptUrl.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+      }, receiptData.receiptUrl).catch(e => console.warn('[Receipt Media Register Error]', e));
+    }
   }
 
   return updatedItem;
@@ -1862,17 +1958,116 @@ export const saveDjBios = (djs: DjBioItem[]): void => {
 
 
 // --- MEDIA SERVICE ---
+const DELETED_MEDIA_URLS_KEY = 'grenada_caricom_deleted_media_urls_v1';
+
+export const getDeletedMediaUrls = (): Set<string> => {
+  try {
+    const raw = safeGetItem(DELETED_MEDIA_URLS_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return new Set(arr.map((u: string) => String(u).trim()));
+      }
+    }
+  } catch {}
+  return new Set();
+};
+
+export const trackDeletedMediaUrls = (urls: string[]): void => {
+  try {
+    const current = getDeletedMediaUrls();
+    urls.forEach(u => {
+      if (u) current.add(String(u).trim());
+    });
+    const arr = Array.from(current);
+    safeSetItem(DELETED_MEDIA_URLS_KEY, JSON.stringify(arr));
+
+    safeApiCall('/api/media/deleted-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: arr })
+    }).catch(err => console.warn('[Deleted URLs Sync Error]', err));
+  } catch (e) {
+    console.error('Error tracking deleted media URLs:', e);
+  }
+};
+
+export const dedupeMediaItems = (items: MediaItem[]): MediaItem[] => {
+  if (!Array.isArray(items)) return [];
+  const seenUrls = new Set<string>();
+  const seenIds = new Set<string>();
+  const unique: MediaItem[] = [];
+
+  for (const item of items) {
+    if (!item || !item.url) continue;
+    const normUrl = item.url.trim();
+    if (seenUrls.has(normUrl) || (item.id && seenIds.has(item.id))) {
+      continue;
+    }
+    seenUrls.add(normUrl);
+    if (item.id) seenIds.add(item.id);
+    unique.push(item);
+  }
+
+  return unique;
+};
+
 export const getMediaItems = (): MediaItem[] => {
   try {
     const raw = safeGetItem(MEDIA_KEY);
+    let items: MediaItem[] = [];
     if (!raw) {
-      const sortedSeed = [...INITIAL_DEMO_MEDIA].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
-      safeSetItem(MEDIA_KEY, JSON.stringify(sortedSeed));
-      return sortedSeed;
+      items = [...INITIAL_DEMO_MEDIA];
+    } else {
+      items = JSON.parse(raw);
     }
-    const items: MediaItem[] = JSON.parse(raw);
-    items.sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
-    return items;
+
+    // Deduplicate existing items first
+    items = dedupeMediaItems(items);
+
+    const deletedUrls = getDeletedMediaUrls();
+
+    // Filter out items that are in deletedUrls
+    items = items.filter(i => i && i.url && !deletedUrls.has(i.url.trim()));
+
+    const knownUrls = new Set(items.map(i => i.url.trim()));
+
+    // Auto-discover any receipts or attachments from submissions that may not be in media yet
+    const submissions = getSubmissions();
+    let newDiscovered = false;
+
+    if (Array.isArray(submissions)) {
+      submissions.forEach(sub => {
+        if (
+          sub.receiptUrl && 
+          sub.receiptUrl.trim() && 
+          !knownUrls.has(sub.receiptUrl.trim()) &&
+          !deletedUrls.has(sub.receiptUrl.trim())
+        ) {
+          knownUrls.add(sub.receiptUrl.trim());
+          const isPdf = sub.receiptUrl.startsWith('data:application/pdf') || sub.receiptUrl.toLowerCase().endsWith('.pdf');
+          items.push({
+            id: `media-sub-${sub.id}`,
+            name: sub.receiptName || `Receipt_${sub.extraDetails?.OrderRef || sub.id}.${isPdf ? 'pdf' : 'jpg'}`,
+            url: sub.receiptUrl.trim(),
+            originalSize: 102400,
+            compressedSize: 102400,
+            type: isPdf ? 'application/pdf' : 'image/jpeg',
+            uploadedAt: sub.receiptUploadedAt || sub.submittedAt || new Date().toISOString()
+          });
+          newDiscovered = true;
+        }
+      });
+    }
+
+    const dedupedItems = dedupeMediaItems(items);
+
+    if (newDiscovered || !raw || dedupedItems.length !== items.length) {
+      safeSetItem(MEDIA_KEY, JSON.stringify(dedupedItems));
+    }
+
+    dedupedItems.sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+    return dedupedItems;
   } catch (e) {
     console.error('Error loading media items:', e);
     return INITIAL_DEMO_MEDIA;
@@ -1881,7 +2076,8 @@ export const getMediaItems = (): MediaItem[] => {
 
 export const saveMediaItems = (items: MediaItem[]): void => {
   try {
-    const sorted = [...items].sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+    const deduped = dedupeMediaItems(items);
+    const sorted = deduped.sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
     const success = safeSetItem(MEDIA_KEY, JSON.stringify(sorted));
     if (!success) {
       throw new Error('Write verification failed for media items');
@@ -1894,16 +2090,21 @@ export const saveMediaItems = (items: MediaItem[]): void => {
 
 export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
   try {
-    // 1. Optimistically store in local memory & storage immediately so user never loses uploaded asset
     const current = getMediaItems();
-    const updated = [item, ...current.filter(i => i.id !== item.id)];
+    const normalizedUrl = item.url.trim();
+    const existing = current.find(i => i.url.trim() === normalizedUrl || i.id === item.id);
+    if (existing) {
+      return true; // Already registered, skip adding duplicate
+    }
+
+    const updated = dedupeMediaItems([{ ...item, url: normalizedUrl }, ...current]);
     saveMediaItems(updated);
 
-    // 2. Sync to backend SQLite in background
+    // Sync to backend SQLite in background
     safeApiCall('/api/media', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item)
+      body: JSON.stringify({ ...item, url: normalizedUrl })
     }).catch(err => console.warn('[Media Sync] Background sync to SQLite:', err));
 
     return true;
@@ -1913,30 +2114,47 @@ export const addMediaItem = async (item: MediaItem): Promise<boolean> => {
   }
 };
 
-export const deleteMediaItem = (id: string): void => {
+export const deleteMediaItem = async (id: string): Promise<void> => {
   const current = getMediaItems();
+  const target = current.find(item => item.id === id);
+  if (target && target.url) {
+    trackDeletedMediaUrls([target.url]);
+  }
+
   const updated = current.filter(item => item.id !== id);
   saveMediaItems(updated);
 
   // Sync to backend SQLite
-  safeApiCall(`/api/media/${id}`, {
+  await safeApiCall(`/api/media/${encodeURIComponent(id)}`, {
     method: 'DELETE'
   }).catch(err => console.warn('[Media Delete] SQLite delete sync:', err));
 };
 
-export const deleteMultipleMediaItems = (ids: string[]): void => {
-  if (!ids.length) return;
+export const deleteMultipleMediaItems = async (ids: string[]): Promise<void> => {
+  if (!ids || !ids.length) return;
   const current = getMediaItems();
   const idSet = new Set(ids);
+
+  const deletedUrls = current
+    .filter(item => idSet.has(item.id))
+    .map(item => item.url)
+    .filter(Boolean);
+
+  if (deletedUrls.length > 0) {
+    trackDeletedMediaUrls(deletedUrls);
+  }
+
   const updated = current.filter(item => !idSet.has(item.id));
   saveMediaItems(updated);
 
   // Sync each to backend SQLite
-  ids.forEach(id => {
-    safeApiCall(`/api/media/${id}`, {
-      method: 'DELETE'
-    }).catch(err => console.warn('[Media Bulk Delete] SQLite delete sync:', err));
-  });
+  await Promise.all(
+    ids.map(id =>
+      safeApiCall(`/api/media/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      }).catch(err => console.warn('[Media Bulk Delete] SQLite delete sync:', err))
+    )
+  );
 };
 
 // --- UNUSED MEDIA & AUTO-CLEANUP SERVICES ---
@@ -2086,6 +2304,9 @@ export const getMediaUsageMap = (): Record<string, string[]> => {
         const subType = sub.type ? sub.type.toUpperCase() : 'FORM';
         const label = `Submission (${subType}): ${sender}`;
 
+        if (sub.receiptUrl) {
+          addUsage(sub.receiptUrl, `Payment Receipt (${sub.extraDetails?.OrderRef || sub.id}): ${sender}`);
+        }
         if (sub.formData) {
           Object.entries(sub.formData).forEach(([k, val]) => {
             if (typeof val === 'string' && (val.startsWith('/uploads/') || val.startsWith('http') || val.startsWith('data:'))) {

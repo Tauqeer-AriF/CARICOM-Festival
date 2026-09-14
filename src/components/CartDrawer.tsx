@@ -9,7 +9,7 @@ import { LuxurySkeletonOverlay } from './LuxurySkeletonOverlay';
 import { PassSummaryModal } from './PassSummaryModal';
 import { PaymentReceiptModal, ReceiptLightboxModal, compressImageFile } from './PaymentReceiptModal';
 import { AnimatePresence, motion } from 'motion/react';
-import { addSubmission } from '../services/submissionService';
+import { addSubmission, uploadFileToServer, registerUploadedMedia } from '../services/submissionService';
 import { getPaymentConfig, PaymentConfig, getMonzoMeUrl, getPayPalMeUrl } from '../services/paymentConfigService';
 
 interface CartDrawerProps {
@@ -150,14 +150,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
     try {
       setIsUploadingReceipt(true);
-      const compressed = await compressImageFile(file);
-      setAttachedReceipt({
-        url: compressed.dataUrl,
-        name: compressed.name,
-        sizeKb: compressed.sizeKb
-      });
-      setHasMarkedAsPaid(true);
-      setReceiptError(null);
+      // 1. Attempt upload to server backend storage
+      const serverRes = await uploadFileToServer(file);
+      if (serverRes && serverRes.url) {
+        setAttachedReceipt({
+          url: serverRes.url,
+          name: serverRes.name || file.name,
+          sizeKb: Math.round(serverRes.size / 1024)
+        });
+        setHasMarkedAsPaid(true);
+        setReceiptError(null);
+      } else {
+        // 2. Client-side compression fallback
+        const compressed = await compressImageFile(file);
+        setAttachedReceipt({
+          url: compressed.dataUrl,
+          name: compressed.name,
+          sizeKb: compressed.sizeKb
+        });
+        await registerUploadedMedia({
+          name: file.name,
+          originalSize: file.size,
+          size: compressed.sizeKb * 1024,
+          type: file.type || 'image/jpeg'
+        }, compressed.dataUrl);
+        setHasMarkedAsPaid(true);
+        setReceiptError(null);
+      }
     } catch (err) {
       console.error('Failed to process receipt image:', err);
       setReceiptError('Unable to process this image. Please try another screenshot or image file.');
@@ -873,7 +892,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     {attachedReceipt ? (
                       <div className="p-3 bg-neutral-950/90 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-3 shadow-inner">
                         <div className="flex items-center gap-2.5 overflow-hidden">
-                          {attachedReceipt.url.startsWith('data:image') ? (
+                          {attachedReceipt.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(attachedReceipt.url) ? (
                             <img
                               src={attachedReceipt.url}
                               alt="Receipt Proof"
@@ -882,8 +901,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               title="Click to view full receipt"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center shrink-0">
-                              <FileText className="w-6 h-6 text-emerald-400" />
+                            <div 
+                              onClick={() => setIsViewingReceipt(true)}
+                              className="w-12 h-12 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:bg-emerald-900/60 transition-colors"
+                              title="Click to view full document"
+                            >
+                              <FileText className="w-5 h-5 text-emerald-400" />
+                              <span className="text-[8px] font-mono font-bold text-emerald-300 uppercase">PDF</span>
                             </div>
                           )}
                           <div className="truncate text-xs">
@@ -1251,16 +1275,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       {attachedReceipt ? (
                         <div className="p-2.5 bg-neutral-900/90 border border-neutral-700/80 rounded-lg flex items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2.5 overflow-hidden">
-                            {attachedReceipt.url.startsWith('data:image') ? (
+                            {attachedReceipt.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(attachedReceipt.url) ? (
                               <img
                                 src={attachedReceipt.url}
                                 alt="Receipt"
-                                className="w-10 h-10 object-cover rounded-md border border-neutral-700 shrink-0 cursor-pointer"
+                                className="w-10 h-10 object-cover rounded-md border border-neutral-700 shrink-0 cursor-pointer hover:opacity-90"
                                 onClick={() => setIsViewingReceipt(true)}
                                 title="Click to enlarge"
                               />
                             ) : (
-                              <FileText className="w-7 h-7 text-amber-400 shrink-0" />
+                              <div 
+                                onClick={() => setIsViewingReceipt(true)}
+                                className="w-10 h-10 rounded-md bg-rose-950/40 border border-rose-500/30 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:bg-rose-900/40 transition-colors"
+                                title="Click to view document"
+                              >
+                                <FileText className="w-5 h-5 text-rose-400" />
+                                <span className="text-[7px] font-mono font-bold text-rose-300">PDF</span>
+                              </div>
                             )}
                             <div className="truncate text-xs">
                               <span className="text-white font-medium block truncate">{attachedReceipt.name}</span>
