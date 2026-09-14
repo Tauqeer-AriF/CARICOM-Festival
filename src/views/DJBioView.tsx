@@ -40,6 +40,10 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedDjModal, setSelectedDjModal] = useState<DjBioItem | null>(null);
 
+  // Pagination State (9 DJs per page)
+  const ITEMS_PER_PAGE = 9;
+  const [currentPage, setCurrentPage] = useState(1);
+
   // Horizontal Scroll & Drag-to-Scroll State
   const genresScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -96,6 +100,66 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
     });
   }, [djBios]);
 
+  // Extract all unique genres for filter chips
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    djBios.forEach(dj => {
+      if (dj.genres && Array.isArray(dj.genres)) {
+        dj.genres.forEach(g => set.add(g.trim()));
+      }
+    });
+    return Array.from(set);
+  }, [djBios]);
+
+  // Filtered DJs based on search and genre
+  const filteredDjs = useMemo(() => {
+    return djBios.filter(dj => {
+      const matchesSearch = 
+        !searchQuery.trim() ||
+        (dj.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (dj.stageName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (dj.bio || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (dj.city || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (dj.country || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesGenre = 
+        selectedGenre === 'all' || 
+        (dj.genres && dj.genres.some(g => g.toLowerCase() === selectedGenre.toLowerCase()));
+
+      return matchesSearch && matchesGenre;
+    });
+  }, [djBios, searchQuery, selectedGenre]);
+
+  // Reset pagination to Page 1 on search or genre change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedGenre]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDjs.length / ITEMS_PER_PAGE));
+
+  // Ensure current page does not exceed totalPages when dataset shrinks
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  // Paginated subset of DJs (9 per page)
+  const paginatedDjs = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredDjs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredDjs, currentPage]);
+
+  // Handle page change with smooth scroll to grid top
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    const gridEl = document.getElementById('dj-grid-top');
+    if (gridEl) {
+      gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // Listen for open DJ profile events and check session storage
   useEffect(() => {
     const handleOpenDj = (e: Event) => {
@@ -105,15 +169,22 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
         sessionStorage.removeItem('open_dj_name');
         const matched = findMatchingDj(target);
         if (matched) {
+          // Calculate which page this DJ lives on and navigate there
+          const djIdx = filteredDjs.findIndex(d => d.id === matched.id);
+          if (djIdx !== -1) {
+            const targetPage = Math.floor(djIdx / ITEMS_PER_PAGE) + 1;
+            setCurrentPage(targetPage);
+          }
           setSelectedDjModal(matched);
           setTimeout(() => {
             const el = document.getElementById(`dj-card-${matched.id}`);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 200);
+          }, 250);
         } else {
           // If no direct DB match (e.g. custom guest act), search the query
           const cleanSearch = target.replace(/\s*\([^)]*\)/g, '').trim();
           setSearchQuery(cleanSearch);
+          setCurrentPage(1);
         }
       }
     };
@@ -124,17 +195,22 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
       sessionStorage.removeItem('open_dj_name');
       const matched = findMatchingDj(stored);
       if (matched) {
+        const djIdx = filteredDjs.findIndex(d => d.id === matched.id);
+        if (djIdx !== -1) {
+          const targetPage = Math.floor(djIdx / ITEMS_PER_PAGE) + 1;
+          setCurrentPage(targetPage);
+        }
         setSelectedDjModal(matched);
         setTimeout(() => {
           const el = document.getElementById(`dj-card-${matched.id}`);
           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 200);
+        }, 250);
       }
     }
 
     window.addEventListener('open_dj_profile', handleOpenDj);
     return () => window.removeEventListener('open_dj_profile', handleOpenDj);
-  }, [findMatchingDj]);
+  }, [findMatchingDj, filteredDjs]);
 
   // Smooth scroll left/right actions
   const handleScroll = (direction: 'left' | 'right') => {
@@ -166,36 +242,6 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
   const handleMouseUpOrLeave = () => {
     setIsDragging(false);
   };
-
-  // Extract all unique genres for filter chips
-  const allGenres = useMemo(() => {
-    const set = new Set<string>();
-    djBios.forEach(dj => {
-      if (dj.genres && Array.isArray(dj.genres)) {
-        dj.genres.forEach(g => set.add(g.trim()));
-      }
-    });
-    return Array.from(set);
-  }, [djBios]);
-
-  // Filtered DJs
-  const filteredDjs = useMemo(() => {
-    return djBios.filter(dj => {
-      const matchesSearch = 
-        !searchQuery.trim() ||
-        (dj.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dj.stageName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dj.bio || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dj.city || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dj.country || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesGenre = 
-        selectedGenre === 'all' || 
-        (dj.genres && dj.genres.some(g => g.toLowerCase() === selectedGenre.toLowerCase()));
-
-      return matchesSearch && matchesGenre;
-    });
-  }, [djBios, searchQuery, selectedGenre]);
 
   return (
     <div className="space-y-12 animate-fadeIn pb-16">
@@ -365,6 +411,9 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
         </div>
       </div>
 
+      {/* DJ Grid Listing Anchor */}
+      <div id="dj-grid-top" className="scroll-mt-8" />
+
       {/* DJ Grid Listing */}
       {filteredDjs.length === 0 ? (
         <div className="text-center py-16 bg-neutral-900/40 border border-neutral-800 rounded-3xl p-8 space-y-4">
@@ -386,8 +435,9 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {filteredDjs.map((dj) => {
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {paginatedDjs.map((dj) => {
             const hasInstagram = Boolean(dj.socialLinks?.instagram);
             const hasFacebook = Boolean(dj.socialLinks?.facebook);
             const hasTiktok = Boolean(dj.socialLinks?.tiktok);
@@ -558,6 +608,69 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
               </motion.div>
             );
           })}
+          </div>
+
+          {/* Pagination Controls Bar (9 DJs per page) */}
+          {totalPages > 1 && (
+            <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+              {/* Range Info */}
+              <div className="text-xs text-neutral-400 flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  Showing <strong className="text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong>–<strong className="text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredDjs.length)}</strong> of <strong className="text-amber-400 font-bold">{filteredDjs.length}</strong> Selectors
+                </span>
+              </div>
+
+              {/* Page Buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2 select-none">
+                {/* Previous Page Button */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white hover:border-neutral-700 hover:bg-neutral-850 disabled:opacity-30 disabled:hover:bg-neutral-950 disabled:hover:border-neutral-800 disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="hidden sm:inline">Previous</span>
+                </button>
+
+                {/* Numbered Page Pills */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => {
+                    const isActive = pageNum === currentPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                          isActive
+                            ? 'bg-amber-500 text-neutral-950 shadow-md ring-1 ring-amber-400 scale-105'
+                            : 'bg-neutral-950 text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900'
+                        }`}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Next Page Button */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white hover:border-neutral-700 hover:bg-neutral-850 disabled:opacity-30 disabled:hover:bg-neutral-950 disabled:hover:border-neutral-800 disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                  aria-label="Next page"
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
