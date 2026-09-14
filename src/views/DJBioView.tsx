@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   Video,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Youtube
 } from 'lucide-react';
 
 interface DJBioViewProps {
@@ -441,6 +442,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
             const hasInstagram = Boolean(dj.socialLinks?.instagram);
             const hasFacebook = Boolean(dj.socialLinks?.facebook);
             const hasTiktok = Boolean(dj.socialLinks?.tiktok);
+            const hasYoutube = Boolean(dj.socialLinks?.youtube);
 
             return (
               <motion.div
@@ -592,6 +594,27 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                         title="TikTok not provided"
                       >
                         <Video className="w-4 h-4" />
+                      </span>
+                    )}
+
+                    {/* YouTube */}
+                    {hasYoutube ? (
+                      <a
+                        href={dj.socialLinks.youtube}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-xl bg-neutral-900 hover:bg-red-600 border border-neutral-800 hover:border-transparent text-neutral-300 hover:text-white flex items-center justify-center transition-all shadow-sm group/icon"
+                        title={`Follow ${dj.stageName || dj.name} on YouTube`}
+                        aria-label="YouTube"
+                      >
+                        <Youtube className="w-4 h-4 group-hover/icon:scale-110 transition-transform" />
+                      </a>
+                    ) : (
+                      <span 
+                        className="w-8 h-8 rounded-xl bg-neutral-950 border border-neutral-850 text-neutral-700 flex items-center justify-center cursor-not-allowed opacity-40"
+                        title="YouTube not provided"
+                      >
+                        <Youtube className="w-4 h-4" />
                       </span>
                     )}
                   </div>
@@ -760,7 +783,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
                   Connect & Listen on Social Media
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Instagram Button */}
                   {selectedDjModal.socialLinks?.instagram ? (
                     <a
@@ -777,7 +800,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                     </a>
                   ) : (
                     <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl text-neutral-600 flex items-center gap-2 text-xs">
-                      <Instagram className="w-4 h-4" />
+                      <Instagram className="w-4 h-4 text-neutral-500" />
                       <span>Not linked</span>
                     </div>
                   )}
@@ -798,7 +821,7 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                     </a>
                   ) : (
                     <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl text-neutral-600 flex items-center gap-2 text-xs">
-                      <Facebook className="w-4 h-4" />
+                      <Facebook className="w-4 h-4 text-neutral-500" />
                       <span>Not linked</span>
                     </div>
                   )}
@@ -819,7 +842,28 @@ export const DJBioView: React.FC<DJBioViewProps> = ({ setActiveTab, djBios }) =>
                     </a>
                   ) : (
                     <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl text-neutral-600 flex items-center gap-2 text-xs">
-                      <Video className="w-4 h-4" />
+                      <Video className="w-4 h-4 text-neutral-500" />
+                      <span>Not linked</span>
+                    </div>
+                  )}
+
+                  {/* YouTube Button */}
+                  {selectedDjModal.socialLinks?.youtube ? (
+                    <a
+                      href={selectedDjModal.socialLinks.youtube}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-3 bg-neutral-900 hover:bg-red-600 border border-neutral-800 rounded-xl text-neutral-200 hover:text-white flex items-center justify-between transition-all group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Youtube className="w-4 h-4 text-red-500 group-hover:text-white" />
+                        <span className="text-xs font-bold">YouTube</span>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                    </a>
+                  ) : (
+                    <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl text-neutral-600 flex items-center gap-2 text-xs">
+                      <Youtube className="w-4 h-4 text-neutral-500" />
                       <span>Not linked</span>
                     </div>
                   )}
