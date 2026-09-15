@@ -60,14 +60,41 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   sendConfirmationEmail: true,
   emailReceiptCopyAdmin: true,
   showMonzoQrCode: true,
-  updatedAt: new Date().toISOString(),
+  updatedAt: '2020-01-01T00:00:00.000Z',
   updatedBy: 'System'
 };
 
 export const PAYMENT_CONFIG_KEY = 'grenada_payment_config_v1';
 
-// Setup cross-tab sync listener
+// Instant server fetch for initial page load / first-time visitors
+let isInitialFetching = false;
+export async function refreshPaymentConfigFromServer(): Promise<PaymentConfig | null> {
+  if (typeof window === 'undefined' || isInitialFetching) return null;
+  isInitialFetching = true;
+  try {
+    const res = await fetch('/api/payment-config');
+    if (res.ok) {
+      const serverConfig = await res.json();
+      if (serverConfig && typeof serverConfig === 'object' && Object.keys(serverConfig).length > 0) {
+        const merged: PaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, ...serverConfig };
+        localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: merged }));
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn('[PaymentConfig] Initial server fetch failed, using local/default:', err);
+  } finally {
+    isInitialFetching = false;
+  }
+  return null;
+}
+
+// Setup cross-tab sync listener and kick off instant fetch
 if (typeof window !== 'undefined') {
+  // Eagerly fetch authoritative payment configuration on startup
+  refreshPaymentConfigFromServer();
+
   window.addEventListener('storage', (e) => {
     if (e.key === PAYMENT_CONFIG_KEY && e.newValue) {
       try {
@@ -86,6 +113,8 @@ export function getPaymentConfig(): PaymentConfig {
     if (typeof window === 'undefined') return DEFAULT_PAYMENT_CONFIG;
     const raw = localStorage.getItem(PAYMENT_CONFIG_KEY);
     if (!raw) {
+      // First-time visit: trigger async fetch immediately
+      refreshPaymentConfigFromServer();
       localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(DEFAULT_PAYMENT_CONFIG));
       return DEFAULT_PAYMENT_CONFIG;
     }

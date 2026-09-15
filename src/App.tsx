@@ -7,6 +7,7 @@ import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { CartDrawer } from './components/CartDrawer';
 import { LuxurySkeletonOverlay } from './components/LuxurySkeletonOverlay';
 import { getSiteConfig, getEvents, getGalleryItems, getHotels, getPasses, getTestimonials, getDjBios } from './services/submissionService';
+import { refreshPaymentConfigFromServer } from './services/paymentConfigService';
 
 import { HomeView } from './views/HomeView';
 import { EventListingView } from './views/EventListingView';
@@ -121,6 +122,8 @@ export default function App() {
 
   // Listen for data updates from executive panel
   useEffect(() => {
+    refreshPaymentConfigFromServer();
+
     const handleEventsUpdate = () => setEvents(getEvents());
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
     const handleHotelsUpdate = () => setHotels(getHotels());

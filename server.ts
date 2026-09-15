@@ -84,7 +84,7 @@ async function startServer() {
         // Seed payment_config if missing
         const paymentConfigRow = await db.get('SELECT id FROM payment_config WHERE id = ?', 'main');
         if (!paymentConfigRow) {
-          const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: new Date().toISOString() };
+          const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: '2020-01-01T00:00:00.000Z' };
           await db.run('INSERT INTO payment_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedPaymentConfig));
         }
 
@@ -168,7 +168,7 @@ async function startServer() {
       // Ensure payment_config is initialized
       const paymentConfigEnsure = await db.get('SELECT id FROM payment_config WHERE id = ?', 'main');
       if (!paymentConfigEnsure) {
-        const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: new Date().toISOString() };
+        const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: '2020-01-01T00:00:00.000Z' };
         await db.run('INSERT OR REPLACE INTO payment_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedPaymentConfig));
         console.log('[DATABASE SEED] Initialized payment_config table.');
       }

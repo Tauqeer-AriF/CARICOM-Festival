@@ -638,9 +638,10 @@ export async function syncResource(type: string): Promise<void> {
               const localPay = JSON.parse(localPayStr);
               const localTime = localPay?.updatedAt ? new Date(localPay.updatedAt).getTime() : 0;
               const serverTime = serverPayConfig?.updatedAt ? new Date(serverPayConfig.updatedAt).getTime() : 0;
+              const isLocalAdminModified = localPay?.updatedBy && localPay.updatedBy !== 'System';
 
-              if (localTime > serverTime) {
-                console.log('[Sync] Local Payment Config is newer than server. Pushing to server.');
+              if (isLocalAdminModified && localTime > serverTime) {
+                console.log('[Sync] Local Payment Config (admin-saved) is newer than server. Pushing to server.');
                 await safeApiCall('/api/payment-config', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -656,7 +657,7 @@ export async function syncResource(type: string): Promise<void> {
               console.error('[Sync] Error comparing payment_config timestamps:', err);
             }
           }
-          if (serverPayConfig && Object.keys(serverPayConfig).length > 0) {
+          if (serverPayConfig && typeof serverPayConfig === 'object' && Object.keys(serverPayConfig).length > 0) {
             safeSetItem(PAYMENT_CONFIG_KEY, JSON.stringify(serverPayConfig));
             window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: serverPayConfig }));
           }
