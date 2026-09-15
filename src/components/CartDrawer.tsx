@@ -40,8 +40,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   });
   const [selectedMethod, setSelectedMethod] = useState<WristbandPaymentMethod>(() => {
     const cfg = getPaymentConfig();
-    if (cfg.paypalEnabled) return 'paypal';
-    if (cfg.monzoEnabled) return 'monzo';
+    if (cfg.defaultMethod === 'paypal' && cfg.paypalEnabled !== false) return 'paypal';
+    if (cfg.defaultMethod === 'monzo' && cfg.monzoEnabled !== false) return 'monzo';
+    if (cfg.monzoEnabled !== false) return 'monzo';
+    if (cfg.paypalEnabled !== false) return 'paypal';
     return 'monzo';
   });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -113,8 +115,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [checkoutStep, orderRef]);
 
+  // Re-read payment gateway configuration fresh every time the drawer is opened
   useEffect(() => {
-    const handleConfigUpdate = () => {
+    if (isOpen) {
       const cfg = getPaymentConfig();
       setPaymentConfig(cfg);
       if (!cfg.payNowEnabled && paymentTiming === 'now' && cfg.payOnArrivalEnabled) {
@@ -122,10 +125,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       } else if (!cfg.payOnArrivalEnabled && paymentTiming === 'arrival' && cfg.payNowEnabled) {
         setPaymentTiming('now');
       }
+      if (selectedMethod === 'paypal' && cfg.paypalEnabled === false && cfg.monzoEnabled !== false) {
+        setSelectedMethod('monzo');
+      } else if (selectedMethod === 'monzo' && cfg.monzoEnabled === false && cfg.paypalEnabled !== false) {
+        setSelectedMethod('paypal');
+      }
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleConfigUpdate = (e?: any) => {
+      const cfg = (e && e.detail && typeof e.detail === 'object') ? e.detail : getPaymentConfig();
+      setPaymentConfig(cfg);
+      if (!cfg.payNowEnabled && paymentTiming === 'now' && cfg.payOnArrivalEnabled) {
+        setPaymentTiming('arrival');
+      } else if (!cfg.payOnArrivalEnabled && paymentTiming === 'arrival' && cfg.payNowEnabled) {
+        setPaymentTiming('now');
+      }
+      if (selectedMethod === 'paypal' && cfg.paypalEnabled === false && cfg.monzoEnabled !== false) {
+        setSelectedMethod('monzo');
+      } else if (selectedMethod === 'monzo' && cfg.monzoEnabled === false && cfg.paypalEnabled !== false) {
+        setSelectedMethod('paypal');
+      }
     };
     window.addEventListener('payment_config_updated', handleConfigUpdate);
-    return () => window.removeEventListener('payment_config_updated', handleConfigUpdate);
-  }, [paymentTiming]);
+    window.addEventListener('storage', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('payment_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleConfigUpdate);
+    };
+  }, [paymentTiming, selectedMethod]);
 
   const getCurrencyRate = (amountGBP: number) => {
     if (currency === 'USD') return Math.round(amountGBP * 1.28);
@@ -736,7 +765,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <a
-                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsent', totalGBP, currency, orderRef)}
+                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsentertainment', totalGBP, currency, orderRef)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="py-2.5 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"
@@ -1114,7 +1143,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         <a
-                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsent', totalGBP, currency, orderRef)}
+                          href={getPayPalMeUrl(paymentConfig.paypalMeSlug || 'mellowsentertainment', totalGBP, currency, orderRef)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="py-2.5 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all text-center"

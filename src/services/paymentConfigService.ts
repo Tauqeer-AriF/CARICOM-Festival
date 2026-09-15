@@ -64,7 +64,22 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   updatedBy: 'System'
 };
 
-const PAYMENT_CONFIG_KEY = 'grenada_payment_config_v1';
+export const PAYMENT_CONFIG_KEY = 'grenada_payment_config_v1';
+
+// Setup cross-tab sync listener
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === PAYMENT_CONFIG_KEY && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        const merged = { ...DEFAULT_PAYMENT_CONFIG, ...parsed };
+        window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: merged }));
+      } catch (err) {
+        console.error('Error parsing cross-tab payment config update:', err);
+      }
+    }
+  });
+}
 
 export function getPaymentConfig(): PaymentConfig {
   try {
@@ -97,6 +112,21 @@ export function savePaymentConfig(updates: Partial<PaymentConfig>, updatedBy = '
     if (typeof window !== 'undefined') {
       localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: updated }));
+
+      // Asynchronously persist to backend SQLite database & broadcast SSE to all clients
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if ((window as any).clientId) {
+        headers['X-Client-Id'] = (window as any).clientId;
+      }
+      fetch('/api/payment-config', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(updated)
+      }).catch((err) => {
+        console.warn('[PaymentConfig] Background server sync error:', err);
+      });
     }
     return updated;
   } catch (err) {
@@ -115,6 +145,20 @@ export function resetPaymentConfig(updatedBy = 'Admin Operator'): PaymentConfig 
     if (typeof window !== 'undefined') {
       localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(reset));
       window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: reset }));
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if ((window as any).clientId) {
+        headers['X-Client-Id'] = (window as any).clientId;
+      }
+      fetch('/api/payment-config', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(reset)
+      }).catch((err) => {
+        console.warn('[PaymentConfig] Background server reset sync error:', err);
+      });
     }
     return reset;
   } catch (err) {

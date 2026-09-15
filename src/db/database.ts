@@ -114,6 +114,10 @@ export async function getDb(): Promise<any> {
         id TEXT PRIMARY KEY,
         data_json TEXT
       );
+      CREATE TABLE IF NOT EXISTS payment_config (
+        id TEXT PRIMARY KEY,
+        data_json TEXT
+      );
       CREATE TABLE IF NOT EXISTS submissions (
         id TEXT PRIMARY KEY,
         data_json TEXT

@@ -35,15 +35,21 @@ export const VoucherLookupModal: React.FC<VoucherLookupModalProps> = ({
   const siteConfig = getSiteConfig();
 
   useEffect(() => {
-    const handleConfigUpdate = () => {
-      setPaymentConfig(getPaymentConfig());
+    const handleConfigUpdate = (e?: any) => {
+      const cfg = (e && e.detail && typeof e.detail === 'object') ? e.detail : getPaymentConfig();
+      setPaymentConfig(cfg);
     };
     window.addEventListener('payment_config_updated', handleConfigUpdate);
-    return () => window.removeEventListener('payment_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('payment_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleConfigUpdate);
+    };
   }, []);
 
   useEffect(() => {
     if (isOpen) {
+      setPaymentConfig(getPaymentConfig());
       if (initialRef) {
         setRefInput(initialRef);
         handleLookup(initialRef);

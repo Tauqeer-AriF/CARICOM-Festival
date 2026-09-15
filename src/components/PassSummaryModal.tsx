@@ -48,18 +48,26 @@ export const PassSummaryModal: React.FC<PassSummaryModalProps> = ({
   const [currentSubmission, setCurrentSubmission] = useState<FormSubmissionItem | null>(null);
 
   useEffect(() => {
-    if (isOpen && reservationRef) {
-      const found = getSubmissionByOrderRef(reservationRef);
-      if (found) setCurrentSubmission(found);
+    if (isOpen) {
+      setPaymentConfig(getPaymentConfig());
+      if (reservationRef) {
+        const found = getSubmissionByOrderRef(reservationRef);
+        if (found) setCurrentSubmission(found);
+      }
     }
   }, [isOpen, reservationRef]);
 
   useEffect(() => {
-    const handleConfigUpdate = () => {
-      setPaymentConfig(getPaymentConfig());
+    const handleConfigUpdate = (e?: any) => {
+      const cfg = (e && e.detail && typeof e.detail === 'object') ? e.detail : getPaymentConfig();
+      setPaymentConfig(cfg);
     };
     window.addEventListener('payment_config_updated', handleConfigUpdate);
-    return () => window.removeEventListener('payment_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('payment_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleConfigUpdate);
+    };
   }, []);
 
   if (!isOpen) return null;

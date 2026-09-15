@@ -10,6 +10,7 @@ import { getDb } from './src/db/database';
 
 // Import default/initial data to seed SQLite
 import { DEFAULT_SITE_CONFIG, INITIAL_DEMO_SUBMISSIONS, INITIAL_DEMO_MEDIA } from './src/services/submissionService';
+import { DEFAULT_PAYMENT_CONFIG } from './src/services/paymentConfigService';
 import { FESTIVAL_EVENTS, FESTIVAL_HOTELS, FESTIVAL_PASSES, FESTIVAL_TESTIMONIALS, FESTIVAL_IMAGES, FESTIVAL_DJS } from './src/data/festivalData';
 import { GALLERY_ITEMS } from './src/data/galleryData';
 
@@ -78,6 +79,13 @@ async function startServer() {
         if (!configRow) {
           const seedConfig = { ...DEFAULT_SITE_CONFIG, updatedAt: new Date().toISOString() };
           await db.run('INSERT INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedConfig));
+        }
+
+        // Seed payment_config if missing
+        const paymentConfigRow = await db.get('SELECT id FROM payment_config WHERE id = ?', 'main');
+        if (!paymentConfigRow) {
+          const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: new Date().toISOString() };
+          await db.run('INSERT INTO payment_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedPaymentConfig));
         }
 
         // Seed submissions
@@ -155,6 +163,14 @@ async function startServer() {
           await db.run('INSERT OR REPLACE INTO djs (id, data_json) VALUES (?, ?)', item.id, JSON.stringify(item));
         }
         console.log('[DATABASE SEED] Seeded initial DJ bios into djs table.');
+      }
+
+      // Ensure payment_config is initialized
+      const paymentConfigEnsure = await db.get('SELECT id FROM payment_config WHERE id = ?', 'main');
+      if (!paymentConfigEnsure) {
+        const seedPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, updatedAt: new Date().toISOString() };
+        await db.run('INSERT OR REPLACE INTO payment_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(seedPaymentConfig));
+        console.log('[DATABASE SEED] Initialized payment_config table.');
       }
 
       // Ensure all submission receipts are mirrored into media table
@@ -503,6 +519,31 @@ async function startServer() {
       await db.run('INSERT OR REPLACE INTO site_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(config));
       const senderId = req.headers['x-client-id'] as string;
       broadcast('site_config', senderId);
+      res.json(config);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // API Route: Payment Gateway Config
+  app.get('/api/payment-config', async (req, res) => {
+    try {
+      const row = await db.get('SELECT data_json FROM payment_config WHERE id = ?', 'main');
+      if (!row) {
+        return res.json(DEFAULT_PAYMENT_CONFIG);
+      }
+      res.json(JSON.parse(row.data_json));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/payment-config', async (req, res) => {
+    try {
+      const config = req.body;
+      await db.run('INSERT OR REPLACE INTO payment_config (id, data_json) VALUES (?, ?)', 'main', JSON.stringify(config));
+      const senderId = req.headers['x-client-id'] as string;
+      broadcast('payment_config', senderId);
       res.json(config);
     } catch (e: any) {
       res.status(500).json({ error: e.message });

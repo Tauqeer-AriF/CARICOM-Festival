@@ -26,6 +26,7 @@ const PASSES_KEY = 'grenada_caricom_passes_v2';
 const TESTIMONIALS_KEY = 'grenada_caricom_testimonials_v2';
 const DJS_KEY = 'grenada_caricom_djs_v1';
 const MEDIA_KEY = 'grenada_caricom_media_v2';
+const PAYMENT_CONFIG_KEY = 'grenada_payment_config_v1';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   appName: 'Grenada',
@@ -627,6 +628,41 @@ export async function syncResource(type: string): Promise<void> {
         }
         break;
       }
+      case 'payment_config': {
+        const resPay = await fetchWithRetry('/api/payment-config');
+        if (resPay?.ok) {
+          const serverPayConfig = await resPay.json();
+          const localPayStr = safeGetItem(PAYMENT_CONFIG_KEY);
+          if (localPayStr) {
+            try {
+              const localPay = JSON.parse(localPayStr);
+              const localTime = localPay?.updatedAt ? new Date(localPay.updatedAt).getTime() : 0;
+              const serverTime = serverPayConfig?.updatedAt ? new Date(serverPayConfig.updatedAt).getTime() : 0;
+
+              if (localTime > serverTime) {
+                console.log('[Sync] Local Payment Config is newer than server. Pushing to server.');
+                await safeApiCall('/api/payment-config', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(localPay)
+                });
+                break;
+              }
+
+              if (JSON.stringify(serverPayConfig) === localPayStr) {
+                break;
+              }
+            } catch (err) {
+              console.error('[Sync] Error comparing payment_config timestamps:', err);
+            }
+          }
+          if (serverPayConfig && Object.keys(serverPayConfig).length > 0) {
+            safeSetItem(PAYMENT_CONFIG_KEY, JSON.stringify(serverPayConfig));
+            window.dispatchEvent(new CustomEvent('payment_config_updated', { detail: serverPayConfig }));
+          }
+        }
+        break;
+      }
     }
   } catch (err) {
     console.warn(`Background selective sync for ${type} deferred:`, err);
@@ -638,28 +674,31 @@ export async function syncWithDatabase(): Promise<void> {
     // 1. Sync Site Config
     await syncResource('site_config');
 
-    // 2. Sync Submissions
+    // 2. Sync Payment Gateway Config
+    await syncResource('payment_config');
+
+    // 3. Sync Submissions
     await syncResource('submissions');
 
-    // 3. Sync Events
+    // 4. Sync Events
     await syncResource('events');
 
-    // 4. Sync Gallery
+    // 5. Sync Gallery
     await syncResource('gallery');
 
-    // 5. Sync Hotels
+    // 6. Sync Hotels
     await syncResource('hotels');
 
-    // 6. Sync Passes
+    // 7. Sync Passes
     await syncResource('passes');
 
-    // 7. Sync Testimonials
+    // 8. Sync Testimonials
     await syncResource('testimonials');
 
-    // 8. Sync Media
+    // 9. Sync Media
     await syncResource('media');
 
-    // 9. Sync DJ Bios
+    // 10. Sync DJ Bios
     await syncResource('djs');
   } catch (err) {
     console.warn('Background SQLite sync deferred:', err);

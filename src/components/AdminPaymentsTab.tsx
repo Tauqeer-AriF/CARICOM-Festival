@@ -99,12 +99,17 @@ export const AdminPaymentsTab: React.FC<AdminPaymentsTabProps> = ({
   };
 
   useEffect(() => {
-    const handleConfigUpdate = () => {
-      setConfig(getPaymentConfig());
+    const handleConfigUpdate = (e?: any) => {
+      const updated = (e && e.detail && typeof e.detail === 'object') ? e.detail : getPaymentConfig();
+      setConfig(updated);
       setIsDirty(false);
     };
     window.addEventListener('payment_config_updated', handleConfigUpdate);
-    return () => window.removeEventListener('payment_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('payment_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleConfigUpdate);
+    };
   }, []);
 
   const handleChange = <K extends keyof PaymentConfig>(field: K, value: PaymentConfig[K]) => {
